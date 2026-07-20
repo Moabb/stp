@@ -1,73 +1,174 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <script type="module" src="./firebase-config.js"></script>
   <meta charset="UTF-8">
-  <title>Teste Firestore Team Penning</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Oficial - Team Penning System</title>
+  <script type="module" src="./firebase-config.js"></script>
   <style>
-    .alerta-gado {
-      background-color: #ffcc00;
-      color: #000;
-      padding: 15px;
-      font-weight: bold;
-      border-radius: 8px;
-      display: none;
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --accent-gold: #ffb703;
+      --accent-green: #2a9d8f;
+      --text-light: #f8f9fa;
+      --input-bg: #2b2b2b;
     }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 30px; }
+    header h1 { color: var(--accent-gold); font-size: 1.8rem; text-transform: uppercase; }
+
+    .btn-top { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .btn-top:hover { background: #e0a200; }
+
+    /* Layout da Grid Principal */
+    .portal-container { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; }
+    @media (max-width: 850px) { .portal-container { grid-template-columns: 1fr; } }
+
+    .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid #333; }
+    .secao-card h2 { color: var(--accent-gold); font-size: 1.3rem; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+
+    /* Grid de Cards de Provas */
+    .grid-provas { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+    .card-prova { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-green); transition: 0.2s; cursor: pointer; }
+    .card-prova:hover { transform: translateY(-3px); background: #2f2f2f; }
+    .card-prova h3 { font-size: 1.1rem; color: #fff; margin-bottom: 5px; }
+    .card-prova p { font-size: 0.85rem; color: #aaa; }
+    .badge-status { display: inline-block; background: var(--accent-green); color: #fff; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; margin-top: 8px; }
+
+    /* Formulário de Login / Cadastro */
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
+    .form-group input { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; }
+
+    .btn-submit { width: 100%; padding: 12px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+    .btn-submit:hover { opacity: 0.9; }
+
+    .toggle-auth { text-align: center; margin-top: 15px; font-size: 0.85rem; color: #aaa; }
+    .toggle-auth a { color: var(--accent-gold); text-decoration: underline; cursor: pointer; }
   </style>
 </head>
 <body>
 
-  <h1>SISTEMA TEAM PENNING - PAINEL DE TEMPO REAL</h1>
-  
-  <div id="boxAlerta" class="alerta-gado">
-    ⚠️ ATENÇÃO: FALTAM <span id="numRestantes"></span> CORRIDAS PARA A TROCA DO LOTE DE GADO!
-  </div>
+  <header>
+    <h1>🏆 SISTEMA TEAM PENNING</h1>
+    <button class="btn-top" id="btnAbrirLogin">CRIAR COMPETIÇÃO / PAINEL</button>
+  </header>
 
-  <h2>Trio na Pista:</h2>
-  <div id="trioAtual">Carregando...</div>
+  <main class="portal-container">
+    
+    <!-- Esquerda: Lista de Provas Ativas e Finais -->
+    <section class="secao-card">
+      <h2>PROVAS EM ANDAMENTO / RESULTADOS</h2>
+      <div class="grid-provas" id="containerProvas">
+        
+        <!-- Exemplo de Card Dinâmico -->
+        <div class="card-prova" onclick="window.location.href='./painel.html'">
+          <h3>1º OPEN TEAM PENNING</h3>
+          <p>Data: 17/07/2026</p>
+          <p>Categoria: Soma 3 (Em Pista)</p>
+          <span class="badge-status">AO VIVO</span>
+        </div>
 
-  <h2>Próximos da Sequência:</h2>
-  <ul id="listaSequencia"></ul>
+      </div>
+    </section>
 
+    <!-- Direita: Área de Autenticação (Login e Cadastro do Organizador) -->
+    <section class="secao-card" id="boxAuth">
+      <h2 id="tituloAuth">ENTRAR NA CONTA</h2>
+      
+      <form id="formAuth">
+        
+        <!-- Campo Telefone (Aparece apenas no Cadastro) -->
+        <div class="form-group" id="groupTelefone" style="display: none;">
+          <label for="authTelefone">Número do Celular (com DDD):</label>
+          <input type="tel" id="authTelefone" placeholder="(00) 90000-0000">
+        </div>
+
+        <div class="form-group">
+          <label for="authEmail">E-mail de Acesso:</label>
+          <input type="email" id="authEmail" placeholder="seu@email.com" required>
+        </div>
+
+        <div class="form-group">
+          <label for="authSenha">Senha:</label>
+          <input type="password" id="authSenha" placeholder="******" required>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btnAuthSubmit">Acessar Painel</button>
+      </form>
+
+      <div class="toggle-auth">
+        <span id="textoToggle">Não possui conta?</span> 
+        <a id="linkToggle">Criar nova conta</a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Lógica de Autenticação Firebase -->
   <script type="module">
-    import { escutarPistaEmTempoReal } from "./teampenning-service.js";
+    import { 
+      auth, 
+      signInWithEmailAndPassword, 
+      createUserWithEmailAndPassword, 
+      onAuthStateChanged 
+    } from "./firebase-config.js";
 
-    // Parâmetros de exemplo (IDs do banco e limite do lote de gado)
-    const USER_ID = "ID_DO_USUARIO_LOGADO";
-    const COMP_ID = "ID_DA_COMPETICAO";
-    const CAT_ID = "ID_DA_CATEGORIA";
-    const LIMITE_GADO = 24; // Troca a cada 24 passadas
+    let modoCadastro = false;
 
-    // Ativa a escuta em tempo real
-    escutarPistaEmTempoReal(USER_ID, COMP_ID, CAT_ID, LIMITE_GADO, (dados) => {
-      // 1. Atualizar alerta de troca de gado
-      const boxAlerta = document.getElementById("boxAlerta");
-      if (dados.alertaTrocaGado) {
-        boxAlerta.style.display = "block";
-        document.getElementById("numRestantes").innerText = dados.corridasRestantesParaTroca;
+    // Alternar entre Tela de Login e Criar Conta
+    const linkToggle = document.getElementById("linkToggle");
+    const tituloAuth = document.getElementById("tituloAuth");
+    const groupTelefone = document.getElementById("groupTelefone");
+    const btnAuthSubmit = document.getElementById("btnAuthSubmit");
+    const textoToggle = document.getElementById("textoToggle");
+
+    linkToggle.addEventListener("click", () => {
+      modoCadastro = !modoCadastro;
+      if (modoCadastro) {
+        tituloAuth.innerText = "CRIAR CONTA DE ORGANIZADOR";
+        groupTelefone.style.display = "block";
+        btnAuthSubmit.innerText = "Cadastrar e Entrar";
+        textoToggle.innerText = "Já possui uma conta?";
+        linkToggle.innerText = "Fazer Login";
       } else {
-        boxAlerta.style.display = "none";
+        tituloAuth.innerText = "ENTRAR NA CONTA";
+        groupTelefone.style.display = "none";
+        btnAuthSubmit.innerText = "Acessar Painel";
+        textoToggle.innerText = "Não possui conta?";
+        linkToggle.innerText = "Criar nova conta";
       }
+    });
 
-      // 2. Exibir Trio na Pista
-      const divAtual = document.getElementById("trioAtual");
-      if (dados.trioAtual) {
-        divAtual.innerHTML = `
-          <strong>Ordem #${dados.trioAtual.ordemPista} (Senha #${dados.trioAtual.senhaOriginal})</strong><br>
-          Competidores: ${dados.trioAtual.competidores.join(" / ")}
-        `;
-      } else {
-        divAtual.innerText = "Nenhum trio aguardando corrida nesta categoria.";
+    // Submissão do Formulário
+    document.getElementById("formAuth").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("authEmail").value;
+      const senha = document.getElementById("authSenha").value;
+
+      try {
+        if (modoCadastro) {
+          await createUserWithEmailAndPassword(auth, email, senha);
+          alert("Conta criada com sucesso!");
+        } else {
+          await signInWithEmailAndPassword(auth, email, senha);
+        }
+        window.location.href = "./admin.html"; // Redireciona direto para o Administrar
+      } catch (error) {
+        alert("Erro na autenticação: " + error.message);
       }
+    });
 
-      // 3. Exibir Próximos na Sequência
-      const ul = document.getElementById("listaSequencia");
-      ul.innerHTML = "";
-      dados.proximosTrios.forEach(trio => {
-        const li = document.createElement("li");
-        li.innerText = `#${trio.ordemPista} - ${trio.competidores.join(", ")}`;
-        ul.appendChild(li);
-      });
+    // Se o usuário já estiver logado, redireciona ou mantém ativo
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById("btnAbrirLogin").innerText = "IR PARA MEU PAINEL (ADMIN)";
+        document.getElementById("btnAbrirLogin").onclick = () => window.location.href = "./admin.html";
+      }
     });
   </script>
 </body>
