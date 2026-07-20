@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <script type="module" src="./firebase-config.js"></script>
+  <meta charset="UTF-8">
+  <title>Teste Firestore Team Penning</title>
+  <style>
+    .alerta-gado {
+      background-color: #ffcc00;
+      color: #000;
+      padding: 15px;
+      font-weight: bold;
+      border-radius: 8px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>SISTEMA TEAM PENNING - PAINEL DE TEMPO REAL</h1>
+  
+  <div id="boxAlerta" class="alerta-gado">
+    ⚠️ ATENÇÃO: FALTAM <span id="numRestantes"></span> CORRIDAS PARA A TROCA DO LOTE DE GADO!
+  </div>
+
+  <h2>Trio na Pista:</h2>
+  <div id="trioAtual">Carregando...</div>
+
+  <h2>Próximos da Sequência:</h2>
+  <ul id="listaSequencia"></ul>
+
+  <script type="module">
+    import { escutarPistaEmTempoReal } from "./teampenning-service.js";
+
+    // Parâmetros de exemplo (IDs do banco e limite do lote de gado)
+    const USER_ID = "ID_DO_USUARIO_LOGADO";
+    const COMP_ID = "ID_DA_COMPETICAO";
+    const CAT_ID = "ID_DA_CATEGORIA";
+    const LIMITE_GADO = 24; // Troca a cada 24 passadas
+
+    // Ativa a escuta em tempo real
+    escutarPistaEmTempoReal(USER_ID, COMP_ID, CAT_ID, LIMITE_GADO, (dados) => {
+      // 1. Atualizar alerta de troca de gado
+      const boxAlerta = document.getElementById("boxAlerta");
+      if (dados.alertaTrocaGado) {
+        boxAlerta.style.display = "block";
+        document.getElementById("numRestantes").innerText = dados.corridasRestantesParaTroca;
+      } else {
+        boxAlerta.style.display = "none";
+      }
+
+      // 2. Exibir Trio na Pista
+      const divAtual = document.getElementById("trioAtual");
+      if (dados.trioAtual) {
+        divAtual.innerHTML = `
+          <strong>Ordem #${dados.trioAtual.ordemPista} (Senha #${dados.trioAtual.senhaOriginal})</strong><br>
+          Competidores: ${dados.trioAtual.competidores.join(" / ")}
+        `;
+      } else {
+        divAtual.innerText = "Nenhum trio aguardando corrida nesta categoria.";
+      }
+
+      // 3. Exibir Próximos na Sequência
+      const ul = document.getElementById("listaSequencia");
+      ul.innerHTML = "";
+      dados.proximosTrios.forEach(trio => {
+        const li = document.createElement("li");
+        li.innerText = `#${trio.ordemPista} - ${trio.competidores.join(", ")}`;
+        ul.appendChild(li);
+      });
+    });
+  </script>
+</body>
+</html>

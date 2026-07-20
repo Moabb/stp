@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administração & Cronometragem - Team Penning</title>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --accent-green: #2a9d8f;
+      --accent-gold: #e9c46a;
+      --danger-red: #e76f51;
+      --text-light: #f8f9fa;
+      --input-bg: #2b2b2b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 25px; }
+    header h1 { color: var(--accent-gold); font-size: 1.8rem; }
+
+    /* Layout da Grid */
+    .admin-grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+    @media (max-width: 950px) { .admin-grid { grid-template-columns: 1fr; } }
+
+    .card { background-color: var(--card-bg); border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+    .card h2 { color: var(--accent-gold); font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+
+    /* Formulários e Inputs */
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 10px; background-color: var(--input-bg);
+      border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 0.95rem;
+    }
+
+    /* Botões Operacionais */
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 8px; }
+    .btn-primary { background-color: var(--accent-green); color: #fff; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-warning { background-color: var(--accent-gold); color: #000; }
+    .btn-danger { background-color: var(--danger-red); color: #fff; }
+
+    /* Painel do Juiz de Pista (Mesa Principal) */
+    .mesa-juiz { background: linear-gradient(135deg, #1c2541, #0b132b); border: 2px solid var(--accent-gold); border-radius: 8px; padding: 20px; }
+    .trio-destaque { font-size: 1.5rem; font-weight: bold; color: #fff; margin-bottom: 10px; }
+    
+    .grid-inputs-corrida { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+    .grid-inputs-corrida label { font-size: 0.8rem; }
+    .grid-inputs-corrida input { font-size: 1.2rem; font-weight: bold; text-align: center; }
+
+    /* Tabela de Gerenciamento de Trios */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #333; font-size: 0.9rem; }
+    th { color: #888; text-transform: uppercase; }
+    tr:nth-child(even) { background-color: #1a1a1a; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>PAINEL ADMINISTRATIVO E MESA DO JUIZ</h1>
+    <div id="statusConexao" style="color: var(--accent-green);">● Conectado ao Firebase</div>
+  </header>
+
+  <div class="admin-grid">
+
+    <!-- COLUNA 1: Configurações e Cadastro -->
+    <aside>
+      
+      <!-- Card: Configurações do Regulamento -->
+      <article class="card">
+        <h2>1. Regulamento do Lote de Gado</h2>
+        <div class="form-group">
+          <label for="inputLimiteGado">Nº de Corridas por Lote de Gado:</label>
+          <input type="number" id="inputLimiteGado" value="24">
+        </div>
+        <div class="form-group">
+          <label for="inputClassificadosLote">Classificados por Lote (Linha de Corte):</label>
+          <input type="number" id="inputClassificadosLote" value="3">
+        </div>
+        <button class="btn btn-primary" id="btnSalvarConfig">Salvar Configuração</button>
+      </article>
+
+      <!-- Card: Inscrição / Cadastro de Trios -->
+      <article class="card">
+        <h2>2. Cadastrar Novo Trio (Senha)</h2>
+        <form id="formCadastroTrio">
+          <div class="form-group">
+            <label for="inputSenha">Número da Senha Comprada:</label>
+            <input type="number" id="inputSenha" placeholder="Ex: 10" required>
+          </div>
+          <div class="form-group">
+            <label for="inputCompetidores">Nomes dos 3 Competidores:</label>
+            <input type="text" id="inputCompetidores" placeholder="João, Maria, Pedro" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Cadastrar Trio</button>
+        </form>
+      </article>
+
+      <!-- Card: Gerador do Start List -->
+      <article class="card">
+        <h2>3. Sorteio de Entrada (Start List)</h2>
+        <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 12px;">
+          Embaralha as senhas vendidas para definir a ordem de pista e zerar vantagens do gado.
+        </p>
+        <button class="btn btn-warning" id="btnSorteioOrdem">🎲 Realizar Sorteio da Ordem</button>
+      </article>
+
+    </aside>
+
+    <!-- COLUNA 2: Operação na Pista e Lista de Trios -->
+    <main>
+      
+      <!-- Card: Mesa do Juiz (Mesa Principal de Lançamento) -->
+      <article class="mesa-juiz">
+        <h2 style="color: var(--accent-gold); border: none; padding: 0;">⏱️ MESA DO JUIZ DE PISTA</h2>
+        
+        <div class="trio-destaque" id="juizTrioAtual">Nenhum trio na pista no momento</div>
+        <div id="juizTrioDetalhes" style="color: #aaa; font-size: 0.9rem;">Ordem de Pista: -- | Senha Original: --</div>
+
+        <form id="formLancarResultado" style="margin-top: 15px;">
+          <div class="grid-inputs-corrida">
+            <div>
+              <label for="inputTempo">Tempo Final (seg):</label>
+              <input type="number" step="0.01" id="inputTempo" placeholder="00.00" required>
+            </div>
+            <div>
+              <label for="inputBoiSorteado">Boi Sorteado:</label>
+              <input type="text" id="inputBoiSorteado" placeholder="Ex: 07" required>
+            </div>
+            <div>
+              <label for="inputQuantidadeBois">Bois no Curral:</label>
+              <select id="inputQuantidadeBois">
+                <option value="3">3 Bois</option>
+                <option value="2">2 Bois</option>
+                <option value="1">1 Boi</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Botões de Lançamento e Ocorrências -->
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
+            <button type="button" class="btn btn-primary" id="btnConfirmarTempo">✅ Confirmar Tempo (OK)</button>
+            <button type="button" class="btn btn-warning" id="btnSAT">⚠️ S.A.T / N.T.</button>
+            <button type="button" class="btn btn-danger" id="btnDO">🚫 D.O.</button>
+          </div>
+        </form>
+      </article>
+
+      <!-- Lista Completa dos Trios e Correções em Pista -->
+      <article class="card" style="margin-top: 20px;">
+        <h2>Gestão de Trios da Bateria</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Ordem</th>
+              <th>Senha</th>
+              <th>Competidores</th>
+              <th>Boi</th>
+              <th>Tempo</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbTriosAdmin">
+            <tr><td colspan="7">Aguardando dados...</td></tr>
+          </tbody>
+        </table>
+      </article>
+
+    </main>
+
+  </div>
+
+  <!-- Scripts Firebase & Regras de Negócio -->
+  <script type="module">
+    import { 
+      cadastrarTrio, 
+      realizarSorteioOrdemEntrada, 
+      escutarPistaEmTempoReal, 
+      registrarResultadoCorrida 
+    } from "./teampenning-service.js";
+
+    // Parâmetros de identificação da prova
+    const USER_ID = "ID_DO_ORGANIZADOR";
+    const COMP_ID = "ID_DA_COMPETICAO";
+    const CAT_ID = "ID_DA_CATEGORIA";
+    let limiteGado = 24;
+    
+    let trioAtualId = null;
+    let listaTriosGlobal = [];
+
+    // 1. Escuta em Tempo Real
+    escutarPistaEmTempoReal(USER_ID, COMP_ID, CAT_ID, limiteGado, (dados) => {
+      listaTriosGlobal = dados.trios;
+
+      // Atualiza a Mesa do Juiz
+      if (dados.trioAtual) {
+        trioAtualId = dados.trioAtual.id;
+        document.getElementById("juizTrioAtual").innerText = dados.trioAtual.competidores.join(" • ");
+        document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${dados.trioAtual.ordemPista} | Senha Original: #${dados.trioAtual.senhaOriginal}`;
+      } else {
+        trioAtualId = null;
+        document.getElementById("juizTrioAtual").innerText = "Não há trios aguardando corrida.";
+        document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha Original: --";
+      }
+
+      // Atualiza Tabela de Trios da Administração
+      const tbBody = document.getElementById("tbTriosAdmin");
+      tbBody.innerHTML = "";
+
+      dados.trios.forEach(trio => {
+        const tempoExibido = trio.tempo ? `${trio.tempo.toFixed(2)}s` : "--";
+        tbBody.innerHTML += `
+          <tr>
+            <td><strong>#${trio.ordemPista}</strong></td>
+            <td>#${trio.senhaOriginal}</td>
+            <td>${trio.competidores.join(", ")}</td>
+            <td>${trio.boiSorteado || "--"}</td>
+            <td>${tempoExibido}</td>
+            <td><span style="font-weight:bold;">${trio.status}</span></td>
+            <td><button style="padding: 4px 8px; font-size: 0.8rem; cursor:pointer;" onclick="alert('Editar Trio #${trio.ordemPista}')">✏️ Editar</button></td>
+          </tr>
+        `;
+      });
+    });
+
+    // 2. Evento Cadastrar Trio
+    document.getElementById("formCadastroTrio").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const senhaOriginal = parseInt(document.getElementById("inputSenha").value);
+      const competidoresStr = document.getElementById("inputCompetidores").value;
+      const competidores = competidoresStr.split(",").map(c => c.trim());
+
+      await cadastrarTrio(USER_ID, COMP_ID, CAT_ID, { senhaOriginal, competidores });
+      e.target.reset();
+      alert("Trio cadastrado com sucesso!");
+    });
+
+    // 3. Evento Sorteio de Ordem de Entrada
+    document.getElementById("btnSorteioOrdem").addEventListener("click", async () => {
+      if (confirm("Deseja realizar o sorteio aleatório das senhas para gerar a Ordem de Pista oficial?")) {
+        await realizarSorteioOrdemEntrada(USER_ID, COMP_ID, CAT_ID, listaTriosGlobal);
+        alert("Start List gerado com sucesso!");
+      }
+    });
+
+    // 4. Lançamento de Resultados na Mesa do Juiz
+    document.getElementById("btnConfirmarTempo").addEventListener("click", async () => {
+      if (!trioAtualId) return alert("Nenhum trio pendente na pista!");
+      
+      const tempo = parseFloat(document.getElementById("inputTempo").value);
+      const boiSorteado = document.getElementById("inputBoiSorteado").value;
+      const boisCurralados = parseInt(document.getElementById("inputQuantidadeBois").value);
+
+      if (!tempo || !boiSorteado) return alert("Preencha o tempo e o número do boi sorteado!");
+
+      await registrarResultadoCorrida(USER_ID, COMP_ID, CAT_ID, trioAtualId, {
+        tempo,
+        boiSorteado,
+        boisCurralados,
+        status: "OK"
+      });
+
+      limparFormJuiz();
+    });
+
+    // Ocorrências SAT e D.O.
+    document.getElementById("btnSAT").addEventListener("click", async () => {
+      if (!trioAtualId) return;
+      await registrarResultadoCorrida(USER_ID, COMP_ID, CAT_ID, trioAtualId, {
+        tempo: null,
+        boiSorteado: document.getElementById("inputBoiSorteado").value || "N/A",
+        boisCurralados: 0,
+        status: "SAT"
+      });
+      limparFormJuiz();
+    });
+
+    document.getElementById("btnDO").addEventListener("click", async () => {
+      if (!trioAtualId) return;
+      await registrarResultadoCorrida(USER_ID, COMP_ID, CAT_ID, trioAtualId, {
+        tempo: null,
+        boiSorteado: document.getElementById("inputBoiSorteado").value || "N/A",
+        boisCurralados: 0,
+        status: "DO"
+      });
+      limparFormJuiz();
+    });
+
+    function limparFormJuiz() {
+      document.getElementById("inputTempo").value = "";
+      document.getElementById("inputBoiSorteado").value = "";
+    }
+  </script>
+</body>
+</html>
