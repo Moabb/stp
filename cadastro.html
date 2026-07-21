@@ -158,16 +158,15 @@
     let competicoesCache = {};
     let selectedCompId = localStorage.getItem("selectedCompId") || null;
     let selectedCategoriaNome = null;
+    let selectedCategoriaData = null;
 
     const selectCompeticao = document.getElementById("selectCompeticao");
     const selectCategoria = document.getElementById("selectCategoria");
     const btnSalvarTrio = document.getElementById("btnSalvarTrio");
     const tabelaTrios = document.getElementById("tabelaTrios");
 
-    // Trava de Segurança: Verifica se o usuário está logado logo ao abrir a página
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        // Redireciona imediatamente para o portal se não estiver autenticado
         window.location.href = "./index.html";
         return;
       }
@@ -175,7 +174,6 @@
       await carregarCompeticoes();
     });
 
-    // Buscar Competições no Firestore para o usuário autenticado
     async function carregarCompeticoes() {
       try {
         const q = query(
@@ -202,7 +200,6 @@
           selectCompeticao.appendChild(option);
         });
 
-        // Se veio redirecionado da config.html com uma prova selecionada
         if (selectedCompId && competicoesCache[selectedCompId]) {
           selectCompeticao.value = selectedCompId;
           atualizarCategoriasSelect(selectedCompId);
@@ -213,7 +210,6 @@
       }
     }
 
-    // Atualiza o select de categorias conforme a competição escolhida
     function atualizarCategoriasSelect(compId) {
       selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
       btnSalvarTrio.disabled = true;
@@ -232,15 +228,16 @@
 
       categorias.forEach(cat => {
         const option = document.createElement("option");
-        option.value = cat.nome;
-        option.textContent = `${cat.nome} (${cat.data || "Sem data"})`;
+        const catData = cat.data || competicoesCache[compId].dataInicio || "";
+        // Cria um valor composto único: NOME|DATA
+        option.value = `${cat.nome}|${catData}`;
+        option.textContent = `${cat.nome} (${catData})`;
         selectCategoria.appendChild(option);
       });
 
       selectCategoria.disabled = false;
     }
 
-    // Seleção de Competição
     selectCompeticao.addEventListener("change", (e) => {
       selectedCompId = e.target.value;
       localStorage.setItem("selectedCompId", selectedCompId);
@@ -248,21 +245,25 @@
       tabelaTrios.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #888;">Selecione a categoria.</td></tr>';
     });
 
-    // Seleção de Categoria
     selectCategoria.addEventListener("change", (e) => {
-      selectedCategoriaNome = e.target.value;
-      if (selectedCategoriaNome) {
+      const val = e.target.value;
+      if (val) {
+        const parts = val.split("|");
+        selectedCategoriaNome = parts[0];
+        selectedCategoriaData = parts[1] || "";
+
         btnSalvarTrio.disabled = false;
-        document.getElementById("tituloListaTrios").innerText = `TRIOS INSCRITOS - ${selectedCategoriaNome.toUpperCase()}`;
+        document.getElementById("tituloListaTrios").innerText = `TRIOS INSCRITOS - ${selectedCategoriaNome.toUpperCase()} (${selectedCategoriaData})`;
         carregarTriosCadastrados();
         sugerirProximaSenha();
       } else {
+        selectedCategoriaNome = null;
+        selectedCategoriaData = null;
         btnSalvarTrio.disabled = true;
         document.getElementById("tituloListaTrios").innerText = "TRIOS INSCRITOS";
       }
     });
 
-    // Sugere a próxima senha livre automaticamente
     async function sugerirProximaSenha() {
       if (!selectedCompId || !selectedCategoriaNome) return;
 
@@ -270,7 +271,8 @@
         const q = query(
           collection(db, "trios"),
           where("competicaoId", "==", selectedCompId),
-          where("categoria", "==", selectedCategoriaNome)
+          where("categoria", "==", selectedCategoriaNome),
+          where("categoriaData", "==", selectedCategoriaData)
         );
         const snapshot = await getDocs(q);
         document.getElementById("numSenha").value = snapshot.size + 1;
@@ -279,7 +281,6 @@
       }
     }
 
-    // Gravar Inscrição no Firestore
     document.getElementById("formTrio").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -301,6 +302,7 @@
         await addDoc(collection(db, "trios"), {
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
+          categoriaData: selectedCategoriaData,
           senha: senha,
           integrantes: [c1, c2, c3],
           animais: animais,
@@ -325,7 +327,6 @@
       }
     });
 
-    // Buscar Trios do Banco de Dados
     async function carregarTriosCadastrados() {
       tabelaTrios.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #888;">Carregando trios...</td></tr>';
 
@@ -333,7 +334,8 @@
         const q = query(
           collection(db, "trios"),
           where("competicaoId", "==", selectedCompId),
-          where("categoria", "==", selectedCategoriaNome)
+          where("categoria", "==", selectedCategoriaNome),
+          where("categoriaData", "==", selectedCategoriaData)
         );
         const snapshot = await getDocs(q);
 
@@ -368,7 +370,6 @@
       }
     }
 
-    // Ir para a página do Admin
     document.getElementById("btnIrAdmin").addEventListener("click", () => {
       if (selectedCompId) {
         localStorage.setItem("selectedCompId", selectedCompId);
@@ -376,7 +377,6 @@
       window.location.href = "./admin.html";
     });
 
-    // Logout
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");
     });
