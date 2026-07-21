@@ -66,6 +66,7 @@
     <h1>⚙️ CONFIGURAÇÃO DE COMPETIÇÕES</h1>
     <div>
       <button class="btn-action" onclick="window.location.href='./cadastro.html'">📝 CADASTRAR TRIOS</button>
+      <button class="btn-action" id="btnIrAdmin">⏱️ IR PARA PROVA (ADMIN)</button>
       <button class="btn-action btn-danger" id="btnSair">SAIR</button>
     </div>
   </header>
@@ -348,6 +349,13 @@
       localStorage.setItem("selectedCompId", compId);
       window.location.href = "./cadastro.html";
     }
+
+    document.getElementById("btnIrAdmin").addEventListener("click", () => {
+      if (selectedCompId) {
+        localStorage.setItem("selectedCompId", selectedCompId);
+      }
+      window.location.href = "./admin.html";
+    });
 
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");
