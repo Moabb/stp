@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portal Oficial - Team Penning System</title>
+  
+  <!-- Script Oficial do Google reCAPTCHA v2 -->
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <script type="module" src="./firebase-config.js"></script>
+
   <style>
     :root {
       --bg-dark: #121212;
@@ -48,6 +52,9 @@
     .toggle-auth a { color: var(--accent-gold); text-decoration: underline; cursor: pointer; }
     
     .msg-erro { color: #e76f51; font-size: 0.85rem; margin-top: 10px; text-align: center; display: none; }
+    
+    /* Centraliza o reCAPTCHA */
+    .recaptcha-wrapper { margin: 15px 0; display: flex; justify-content: center; }
   </style>
 </head>
 <body>
@@ -89,6 +96,11 @@
         <div class="form-group">
           <label for="authSenha">Senha (mínimo 6 caracteres):</label>
           <input type="password" id="authSenha" placeholder="******" required minlength="6">
+        </div>
+
+        <!-- DIV DO reCAPTCHA GOOGLE (Cole sua Site Key aqui) -->
+        <div class="recaptcha-wrapper">
+          <div class="g-recaptcha" data-sitekey="6Ldu9F0tAAAAAHuDpejqqNSKpFDByhAt3WX14vZ0"></div>
         </div>
 
         <button type="submit" class="btn-submit" id="btnAuthSubmit">Acessar Painel</button>
@@ -145,6 +157,13 @@
       e.preventDefault();
       msgErro.style.display = "none";
       
+      // Validação do reCAPTCHA no Frontend
+      const recaptchaResponse = grecaptcha.getResponse();
+      if (recaptchaResponse.length === 0) {
+        exibirErro("Por favor, marque a caixa 'Não sou um robô'.");
+        return;
+      }
+
       const email = document.getElementById("authEmail").value.trim();
       const senha = document.getElementById("authSenha").value;
       const telefone = document.getElementById("authTelefone").value.trim();
@@ -156,11 +175,9 @@
             return;
           }
           
-          // 1. Cria a conta no Firebase Auth
           const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
           const user = userCredential.user;
 
-          // 2. Salva os dados do perfil no Firestore
           await setDoc(doc(db, "users", user.uid), {
             email: email,
             telefone: telefone,
@@ -174,6 +191,7 @@
         
         window.location.href = "./admin.html";
       } catch (error) {
+        grecaptcha.reset(); // Reseta o captcha em caso de erro
         tratarErroFirebase(error);
       }
     });
