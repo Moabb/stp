@@ -26,8 +26,11 @@
     .btn-action:hover { opacity: 0.9; }
     .btn-danger { background: #e76f51; color: #fff; }
 
-    .grid-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 25px; }
-    @media (max-width: 900px) { .grid-layout { grid-template-columns: 1fr; } }
+    .grid-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 25px; align-items: start; }
+    @media (max-width: 900px) { 
+      .grid-layout { grid-template-columns: 1fr; } 
+      .fixar { position: static; } /* Remove o sticky em telas pequenas para evitar bugs visuais */
+    }
 
     .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
     .secao-card h2 { color: var(--accent-gold); font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
@@ -49,9 +52,13 @@
     tr:hover { background: #262626; }
     
     .badge-senha { background: var(--accent-gold); color: #000; font-weight: bold; padding: 3px 8px; border-radius: 4px; display: inline-block; }
+    
+    /* Classe para manter o card fixo ao rolar a página */
     .fixar {
       position: sticky;
       top: 20px;
+      align-self: start;
+      z-index: 10;
     }
   </style>
 </head>
@@ -66,11 +73,9 @@
     </div>
   </header>
 
-  
-
   <main class="grid-layout">
     
-    <!-- Formulário de Inscrição de Trio -->
+    <!-- Formulário de Inscrição de Trio (FIXADO) -->
     <section class="secao-card fixar">
       <h2>INSCREVER NOVO TRIO</h2>
       <form id="formTrio">
@@ -106,30 +111,27 @@
       </form>
     </section>
 
-
-
     <!-- Lista de Trios Cadastrados na Categoria -->
     <section class="secao-card">
 
-          <!-- Filtro de Competição e Categoria -->
-          <section class="secao-card" style="margin-bottom: 25px;">
-            <h2>SELECIONE A PROVA E CATEGORIA</h2>
-            <div class="grid-2-col">
-              <div class="form-group">
-                <label for="selectCompeticao">Competição:</label>
-                <select id="selectCompeticao">
-                  <option value="">Carregando competições...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="selectCategoria">Categoria:</label>
-                <select id="selectCategoria" disabled>
-                  <option value="">Selecione uma competição primeiro</option>
-                </select>
-              </div>
-            </div>
-          </section>
-
+      <!-- Filtro de Competição e Categoria -->
+      <section class="secao-card" style="margin-bottom: 25px; background: #262626;">
+        <h2>SELECIONE A PROVA E CATEGORIA</h2>
+        <div class="grid-2-col">
+          <div class="form-group">
+            <label for="selectCompeticao">Competição:</label>
+            <select id="selectCompeticao">
+              <option value="">Carregando competições...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="selectCategoria">Categoria:</label>
+            <select id="selectCategoria" disabled>
+              <option value="">Selecione uma competição primeiro</option>
+            </select>
+          </div>
+        </div>
+      </section>
 
       <h2 id="tituloListaTrios">TRIOS INSCRITOS</h2>
       <div class="tabela-container">
@@ -290,7 +292,6 @@
       }
     }
 
-    // Função para normalizar a chave dos cavaleiros (ordena alfabeticamente e remove espaços/caixa alta)
     function gerarChaveTrio(integrantes) {
       return integrantes
         .map(nome => nome.trim().toLowerCase())
@@ -298,7 +299,6 @@
         .join("|");
     }
 
-    // Gravar Inscrição no Firestore com Validação de Duplicidade
     document.getElementById("formTrio").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -319,7 +319,6 @@
         btnSalvarTrio.disabled = true;
         btnSalvarTrio.innerText = "Verificando e Cadastrando...";
 
-        // 1. Busca os trios já inscritos nesta categoria específica
         const q = query(
           collection(db, "trios"),
           where("competicaoId", "==", selectedCompId),
@@ -328,7 +327,6 @@
         );
         const snapshot = await getDocs(q);
 
-        // 2. Verifica se algum trio existente possui exatamente os mesmos cavaleiros
         let trioDuplicado = false;
         snapshot.forEach(docSnap => {
           const trioExistente = docSnap.data();
@@ -345,7 +343,6 @@
           return;
         }
 
-        // 3. Salva se não houver duplicidade
         await addDoc(collection(db, "trios"), {
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
