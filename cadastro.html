@@ -229,7 +229,6 @@
       categorias.forEach(cat => {
         const option = document.createElement("option");
         const catData = cat.data || competicoesCache[compId].dataInicio || "";
-        // Cria um valor composto único: NOME|DATA
         option.value = `${cat.nome}|${catData}`;
         option.textContent = `${cat.nome} (${catData})`;
         selectCategoria.appendChild(option);
@@ -281,6 +280,15 @@
       }
     }
 
+    // Função para normalizar a chave dos cavaleiros (ordena alfabeticamente e remove espaços/caixa alta)
+    function gerarChaveTrio(integrantes) {
+      return integrantes
+        .map(nome => nome.trim().toLowerCase())
+        .sort()
+        .join("|");
+    }
+
+    // Gravar Inscrição no Firestore com Validação de Duplicidade
     document.getElementById("formTrio").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -295,10 +303,39 @@
       const c3 = document.getElementById("cavaleiro3").value.trim();
       const animais = document.getElementById("animaisInfo").value.trim();
 
+      const novoTrioChave = gerarChaveTrio([c1, c2, c3]);
+
       try {
         btnSalvarTrio.disabled = true;
-        btnSalvarTrio.innerText = "Cadastrando...";
+        btnSalvarTrio.innerText = "Verificando e Cadastrando...";
 
+        // 1. Busca os trios já inscritos nesta categoria específica
+        const q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId),
+          where("categoria", "==", selectedCategoriaNome),
+          where("categoriaData", "==", selectedCategoriaData)
+        );
+        const snapshot = await getDocs(q);
+
+        // 2. Verifica se algum trio existente possui exatamente os mesmos cavaleiros
+        let trioDuplicado = false;
+        snapshot.forEach(docSnap => {
+          const trioExistente = docSnap.data();
+          if (trioExistente.integrantes && trioExistente.integrantes.length === 3) {
+            const chaveExistente = gerarChaveTrio(trioExistente.integrantes);
+            if (chaveExistente === novoTrioChave) {
+              trioDuplicado = true;
+            }
+          }
+        });
+
+        if (trioDuplicado) {
+          alert(`⚠️ ATENÇÃO: O trio composto por "${c1}", "${c2}" e "${c3}" JÁ ESTÁ CADASTRADO nesta categoria!`);
+          return;
+        }
+
+        // 3. Salva se não houver duplicidade
         await addDoc(collection(db, "trios"), {
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
@@ -309,6 +346,8 @@
           criadoEm: new Date(),
           tempos: {} 
         });
+
+        alert("Trio cadastrado com sucesso!");
 
         document.getElementById("cavaleiro1").value = "";
         document.getElementById("cavaleiro2").value = "";
