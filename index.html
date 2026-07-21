@@ -69,7 +69,7 @@
     <section class="secao-card">
       <h2>PROVAS EM ANDAMENTO / RESULTADOS</h2>
       <div class="grid-provas" id="containerProvas">
-        <div class="card-prova" onclick="window.location.href='./painel.html'">
+        <div class="card-prova" onclick="window.location.href='./config.html'">
           <h3>1º OPEN TEAM PENNING</h3>
           <p>Data: 17/07/2026</p>
           <p>Categoria: Soma 3 (Em Pista)</p>
@@ -189,7 +189,7 @@
           await signInWithEmailAndPassword(auth, email, senha);
         }
         
-        window.location.href = "./admin.html";
+        window.location.href = "./config.html";
       } catch (error) {
         grecaptcha.reset(); // Reseta o captcha em caso de erro
         tratarErroFirebase(error);
@@ -225,8 +225,8 @@
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        document.getElementById("btnAbrirLogin").innerText = "IR PARA MEU PAINEL (ADMIN)";
-        document.getElementById("btnAbrirLogin").onclick = () => window.location.href = "./admin.html";
+        document.getElementById("btnAbrirLogin").innerText = "IR PARA MEU PAINEL (CONFIGURAÇÕES)";
+        document.getElementById("btnAbrirLogin").onclick = () => window.location.href = "./config.html";
       }
     });
   </script>
