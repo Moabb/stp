@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerenciamento de Provas - Team Penning</title>
+  <script type="module" src="./firebase-config.js"></script>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --accent-gold: #ffb703;
+      --accent-green: #2a9d8f;
+      --text-light: #f8f9fa;
+      --input-bg: #2b2b2b;
+      --border-color: #333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+    header h1 { color: var(--accent-gold); font-size: 1.6rem; text-transform: uppercase; }
+
+    .btn-action { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .btn-action:hover { opacity: 0.9; }
+    .btn-danger { background: #e76f51; color: #fff; }
+
+    .grid-config { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+    @media (max-width: 900px) { .grid-config { grid-template-columns: 1fr; } }
+
+    .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
+    .secao-card h2 { color: var(--accent-gold); font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
+    .form-group input { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; }
+
+    /* Bloco dinâmico de Categorias */
+    .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
+    .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #e76f51; cursor: pointer; font-weight: bold; }
+    
+    .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 500px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
+
+    .btn-add-cat { background: transparent; border: 1px dashed var(--accent-gold); color: var(--accent-gold); width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
+    .btn-add-cat:hover { background: rgba(255, 183, 3, 0.1); }
+
+    .btn-salvar { width: 100%; padding: 12px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; }
+
+    /* Lista de Provas */
+    .lista-provas { display: flex; flex-direction: column; gap: 12px; }
+    .card-prova-item { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-gold); display: flex; justify-content: space-between; align-items: center; }
+    .card-prova-item .info h3 { font-size: 1.1rem; color: #fff; margin-bottom: 4px; }
+    .card-prova-item .info p { font-size: 0.85rem; color: #aaa; }
+    .card-prova-item .acoes { display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>⚙️ CONFIGURAÇÃO DE COMPETIÇÕES</h1>
+    <div>
+      <button class="btn-action" onclick="window.location.href='./index.html'">VER PORTAL</button>
+      <button class="btn-action btn-danger" id="btnSair">SAIR</button>
+    </div>
+  </header>
+
+  <main class="grid-config">
+    
+    <!-- Formulário de Cadastro de Competição -->
+    <section class="secao-card">
+      <h2>CRIAR NOVA COMPETIÇÃO</h2>
+      <form id="formCompeticao">
+        
+        <div class="form-group">
+          <label for="nomeComp">Nome da Competição:</label>
+          <input type="text" id="nomeComp" placeholder="Ex: 1º Grande Team Penning de Uberaba" required>
+        </div>
+
+        <div class="form-group">
+          <label for="dataComp">Data do Evento:</label>
+          <input type="date" id="dataComp" required>
+        </div>
+
+        <h3 style="font-size: 1rem; color: #ccc; margin: 15px 0 10px 0;">Categorias da Prova:</h3>
+        <div id="containerCategorias">
+          <!-- Categorias serão inseridas dinamicamente aqui -->
+        </div>
+
+        <button type="button" class="btn-add-cat" id="btnAddCategoria">+ Adicionar Categoria</button>
+        <button type="submit" class="btn-salvar">Salvar e Criar Competição</button>
+      </form>
+    </section>
+
+    <!-- Lista de Competiações Existentes -->
+    <section class="secao-card">
+      <h2>MINHAS COMPETIÇÕES CADASTRADAS</h2>
+      <div class="lista-provas" id="listaProvas">
+        <p style="color: #888;">Carregando competições...</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module">
+    import { 
+      auth, 
+      db, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      query, 
+      where, 
+      onAuthStateChanged,
+      signOut 
+    } from "./firebase-config.js";
+
+    let currentUser = null;
+    const containerCategorias = document.getElementById("containerCategorias");
+
+    // Adiciona bloco HTML para preenchimento de uma nova categoria
+    function adicionarCampoCategoria(nome = "", baterias = 2, classificados = 10) {
+      const id = Date.now();
+      const div = document.createElement("div");
+      div.className = "categoria-box";
+      div.dataset.id = id;
+      div.innerHTML = `
+        <button type="button" class="btn-remover" onclick="this.parentElement.remove()">✕</button>
+        <div class="grid-cat-inputs">
+          <div class="form-group" style="margin:0;">
+            <label>Nome Categoria</label>
+            <input type="text" class="cat-nome" placeholder="Ex: Soma 3" value="${nome}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Nº Baterias</label>
+            <input type="number" class="cat-baterias" min="1" value="${baterias}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Classif./Bat.</label>
+            <input type="number" class="cat-classificados" min="1" value="${classificados}" required>
+          </div>
+        </div>
+      `;
+      containerCategorias.appendChild(div);
+    }
+
+    // Inicializa com 1 categoria padrão no formulário
+    document.getElementById("btnAddCategoria").addEventListener("click", () => adicionarCampoCategoria());
+
+    // Proteção de Rota e Inicialização de Dados
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "./index.html"; // Se não estiver logado, redireciona
+        return;
+      }
+      currentUser = user;
+      carregarCompeticoes();
+    });
+
+    // Salvar Competição no Firestore
+    document.getElementById("formCompeticao").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const nomeComp = document.getElementById("nomeComp").value.trim();
+      const dataComp = document.getElementById("dataComp").value;
+
+      // Coleta dados das categorias inseridas
+      const blocosCategorias = containerCategorias.querySelectorAll(".categoria-box");
+      if (blocosCategorias.length === 0) {
+        alert("Adicione pelo menos uma categoria para a competição.");
+        return;
+      }
+
+      const categorias = [];
+      blocosCategorias.forEach(bloco => {
+        categorias.push({
+          nome: bloco.querySelector(".cat-nome").value.trim(),
+          qtdBaterias: parseInt(bloco.querySelector(".cat-baterias").value),
+          classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value)
+        });
+      });
+
+      try {
+        await addDoc(collection(db, "competicoes"), {
+          organizadorId: currentUser.uid,
+          nome: nomeComp,
+          data: dataComp,
+          categorias: categorias,
+          criadoEm: new Date(),
+          status: "ATIVA"
+        });
+
+        alert("Competição criada com sucesso!");
+        document.getElementById("formCompeticao").reset();
+        containerCategorias.innerHTML = "";
+        adicionarCampoCategoria();
+        carregarCompeticoes();
+      } catch (error) {
+        alert("Erro ao criar competição: " + error.message);
+      }
+    });
+
+    // Buscar Competiações do Usuário Logado
+    async function carregarCompeticoes() {
+      const listaProvas = document.getElementById("listaProvas");
+      listaProvas.innerHTML = "<p style='color:#888;'>Carregando...</p>";
+
+      try {
+        const q = query(
+          collection(db, "competicoes"), 
+          where("organizadorId", "==", currentUser.uid)
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          listaProvas.innerHTML = "<p style='color:#888;'>Nenhuma competição cadastrada ainda.</p>";
+          return;
+        }
+
+        listaProvas.innerHTML = "";
+        snapshot.forEach(docSnap => {
+          const comp = docSnap.data();
+          const compId = docSnap.id;
+
+          const card = document.createElement("div");
+          card.className = "card-prova-item";
+          card.innerHTML = `
+            <div class="info">
+              <h3>${comp.nome}</h3>
+              <p>Data: ${comp.data} | Categorias: ${comp.categorias.map(c => c.nome).join(", ")}</p>
+            </div>
+            <div class="acoes">
+              <button class="btn-action" onclick="gerenciarProva('${compId}')">Gerenciar (Admin)</button>
+            </div>
+          `;
+          listaProvas.appendChild(card);
+        });
+      } catch (error) {
+        listaProvas.innerHTML = "<p style='color:#e76f51;'>Erro ao carregar competições.</p>";
+      }
+    }
+
+    // Função para direcionar para a página admin.html salvando a prova selecionada
+    window.gerenciarProva = function(compId) {
+      localStorage.setItem("selectedCompId", compId);
+      window.location.href = "./admin.html";
+    };
+
+    // Logout
+    document.getElementById("btnSair").addEventListener("click", () => {
+      signOut(auth).then(() => window.location.href = "./index.html");
+    });
+
+    // Inicia com 1 campo de categoria visível
+    adicionarCampoCategoria();
+  </script>
+</body>
+</html>

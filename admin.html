@@ -184,6 +184,20 @@
       registrarResultadoCorrida 
     } from "./teampenning-service.js";
 
+    import { auth, onAuthStateChanged } from "./firebase-config.js";
+
+    // Trava de segurança para acesso não autorizado
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        alert("Sessão expirada ou acesso negado. Faça login para continuar.");
+        window.location.href = "./index.html";
+        return;
+      }
+      
+      // Usuário autenticado: pode inicializar os painéis de controle e escuta do banco
+      inicializarPainelAdmin(user);
+    });
+
     // Parâmetros de identificação da prova
     const USER_ID = "ID_DO_ORGANIZADOR";
     const COMP_ID = "ID_DA_COMPETICAO";
