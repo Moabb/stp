@@ -24,14 +24,12 @@
     .btn-top { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
     .btn-top:hover { background: #e0a200; }
 
-    /* Layout da Grid Principal */
     .portal-container { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; }
     @media (max-width: 850px) { .portal-container { grid-template-columns: 1fr; } }
 
     .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid #333; }
     .secao-card h2 { color: var(--accent-gold); font-size: 1.3rem; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
 
-    /* Grid de Cards de Provas */
     .grid-provas { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
     .card-prova { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-green); transition: 0.2s; cursor: pointer; }
     .card-prova:hover { transform: translateY(-3px); background: #2f2f2f; }
@@ -39,7 +37,6 @@
     .card-prova p { font-size: 0.85rem; color: #aaa; }
     .badge-status { display: inline-block; background: var(--accent-green); color: #fff; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; margin-top: 8px; }
 
-    /* Formulário de Login / Cadastro */
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
     .form-group input { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; }
@@ -49,6 +46,8 @@
 
     .toggle-auth { text-align: center; margin-top: 15px; font-size: 0.85rem; color: #aaa; }
     .toggle-auth a { color: var(--accent-gold); text-decoration: underline; cursor: pointer; }
+    
+    .msg-erro { color: #e76f51; font-size: 0.85rem; margin-top: 10px; text-align: center; display: none; }
   </style>
 </head>
 <body>
@@ -60,29 +59,23 @@
 
   <main class="portal-container">
     
-    <!-- Esquerda: Lista de Provas Ativas e Finais -->
     <section class="secao-card">
       <h2>PROVAS EM ANDAMENTO / RESULTADOS</h2>
       <div class="grid-provas" id="containerProvas">
-        
-        <!-- Exemplo de Card Dinâmico -->
         <div class="card-prova" onclick="window.location.href='./painel.html'">
           <h3>1º OPEN TEAM PENNING</h3>
           <p>Data: 17/07/2026</p>
           <p>Categoria: Soma 3 (Em Pista)</p>
           <span class="badge-status">AO VIVO</span>
         </div>
-
       </div>
     </section>
 
-    <!-- Direita: Área de Autenticação (Login e Cadastro do Organizador) -->
     <section class="secao-card" id="boxAuth">
       <h2 id="tituloAuth">ENTRAR NA CONTA</h2>
       
       <form id="formAuth">
         
-        <!-- Campo Telefone (Aparece apenas no Cadastro) -->
         <div class="form-group" id="groupTelefone" style="display: none;">
           <label for="authTelefone">Número do Celular (com DDD):</label>
           <input type="tel" id="authTelefone" placeholder="(00) 90000-0000">
@@ -94,11 +87,12 @@
         </div>
 
         <div class="form-group">
-          <label for="authSenha">Senha:</label>
-          <input type="password" id="authSenha" placeholder="******" required>
+          <label for="authSenha">Senha (mínimo 6 caracteres):</label>
+          <input type="password" id="authSenha" placeholder="******" required minlength="6">
         </div>
 
         <button type="submit" class="btn-submit" id="btnAuthSubmit">Acessar Painel</button>
+        <div class="msg-erro" id="msgErro"></div>
       </form>
 
       <div class="toggle-auth">
@@ -109,10 +103,12 @@
 
   </main>
 
-  <!-- Lógica de Autenticação Firebase -->
   <script type="module">
     import { 
       auth, 
+      db,
+      doc,
+      setDoc,
       signInWithEmailAndPassword, 
       createUserWithEmailAndPassword, 
       onAuthStateChanged 
@@ -120,15 +116,16 @@
 
     let modoCadastro = false;
 
-    // Alternar entre Tela de Login e Criar Conta
     const linkToggle = document.getElementById("linkToggle");
     const tituloAuth = document.getElementById("tituloAuth");
     const groupTelefone = document.getElementById("groupTelefone");
     const btnAuthSubmit = document.getElementById("btnAuthSubmit");
     const textoToggle = document.getElementById("textoToggle");
+    const msgErro = document.getElementById("msgErro");
 
     linkToggle.addEventListener("click", () => {
       modoCadastro = !modoCadastro;
+      msgErro.style.display = "none";
       if (modoCadastro) {
         tituloAuth.innerText = "CRIAR CONTA DE ORGANIZADOR";
         groupTelefone.style.display = "block";
@@ -144,26 +141,70 @@
       }
     });
 
-    // Submissão do Formulário
     document.getElementById("formAuth").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const email = document.getElementById("authEmail").value;
+      msgErro.style.display = "none";
+      
+      const email = document.getElementById("authEmail").value.trim();
       const senha = document.getElementById("authSenha").value;
+      const telefone = document.getElementById("authTelefone").value.trim();
 
       try {
         if (modoCadastro) {
-          await createUserWithEmailAndPassword(auth, email, senha);
-          alert("Conta criada com sucesso!");
+          if (!telefone) {
+            exibirErro("Por favor, preencha o número do celular.");
+            return;
+          }
+          
+          // 1. Cria a conta no Firebase Auth
+          const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+          const user = userCredential.user;
+
+          // 2. Salva os dados do perfil no Firestore
+          await setDoc(doc(db, "users", user.uid), {
+            email: email,
+            telefone: telefone,
+            criadoEm: new Date()
+          });
+
+          alert("Conta de organizador criada com sucesso!");
         } else {
           await signInWithEmailAndPassword(auth, email, senha);
         }
-        window.location.href = "./admin.html"; // Redireciona direto para o Administrar
+        
+        window.location.href = "./admin.html";
       } catch (error) {
-        alert("Erro na autenticação: " + error.message);
+        tratarErroFirebase(error);
       }
     });
 
-    // Se o usuário já estiver logado, redireciona ou mantém ativo
+    function exibirErro(mensagem) {
+      msgErro.innerText = mensagem;
+      msgErro.style.display = "block";
+    }
+
+    function tratarErroFirebase(error) {
+      console.error(error);
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          exibirErro("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
+          break;
+        case 'auth/weak-password':
+          exibirErro("A senha deve ter pelo menos 6 caracteres.");
+          break;
+        case 'auth/invalid-email':
+          exibirErro("O e-mail digitado é inválido.");
+          break;
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          exibirErro("E-mail ou senha incorretos.");
+          break;
+        default:
+          exibirErro("Erro ao autenticar: " + error.message);
+      }
+    }
+
     onAuthStateChanged(auth, (user) => {
       if (user) {
         document.getElementById("btnAbrirLogin").innerText = "IR PARA MEU PAINEL (ADMIN)";
