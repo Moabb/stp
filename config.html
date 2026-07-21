@@ -22,11 +22,12 @@
     header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
     header h1 { color: var(--accent-gold); font-size: 1.6rem; text-transform: uppercase; }
 
-    .btn-action { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .btn-action { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
     .btn-action:hover { opacity: 0.9; }
     .btn-danger { background: #e76f51; color: #fff; }
+    .btn-secondary { background: #555; color: #fff; }
 
-    .grid-config { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+    .grid-config { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; align-items: start; }
     @media (max-width: 900px) { .grid-config { grid-template-columns: 1fr; } }
 
     .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
@@ -51,10 +52,12 @@
 
     /* Lista de Provas */
     .lista-provas { display: flex; flex-direction: column; gap: 12px; }
-    .card-prova-item { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-gold); display: flex; justify-content: space-between; align-items: center; }
+    .card-prova-item { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-gold); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .card-prova-item .info h3 { font-size: 1.1rem; color: #fff; margin-bottom: 4px; }
     .card-prova-item .info p { font-size: 0.85rem; color: #aaa; }
-    .card-prova-item .acoes { display: flex; gap: 8px; }
+    .card-prova-item .acoes { display: flex; gap: 6px; flex-wrap: wrap; }
+    
+    .fixar { position: sticky; top: 20px; align-self: start; }
   </style>
 </head>
 <body>
@@ -62,16 +65,16 @@
   <header>
     <h1>⚙️ CONFIGURAÇÃO DE COMPETIÇÕES</h1>
     <div>
-      <button class="btn-action" onclick="window.location.href='./index.html'">VER PORTAL</button>
+      <button class="btn-action" onclick="window.location.href='./cadastro.html'">📝 CADASTRAR TRIOS</button>
       <button class="btn-action btn-danger" id="btnSair">SAIR</button>
     </div>
   </header>
 
   <main class="grid-config">
     
-    <!-- Formulário de Cadastro de Competição -->
-    <section class="secao-card">
-      <h2>CRIAR NOVA COMPETIÇÃO</h2>
+    <!-- Formulário de Cadastro / Edição de Competição -->
+    <section class="secao-card fixar">
+      <h2 id="tituloForm">CRIAR NOVA COMPETIÇÃO</h2>
       <form id="formCompeticao">
         
         <div class="form-group">
@@ -90,7 +93,11 @@
         <div id="containerCategorias"></div>
 
         <button type="button" class="btn-add-cat" id="btnAddCategoria">+ Adicionar Categoria</button>
-        <button type="submit" class="btn-salvar" id="btnSalvarComp">Salvar e Criar Competição</button>
+        
+        <div style="display: flex; gap: 10px;">
+          <button type="submit" class="btn-salvar" id="btnSalvarComp">Salvar e Criar Competição</button>
+          <button type="button" class="btn-action btn-secondary" id="btnCancelarEdicao" style="display: none;">Cancelar</button>
+        </div>
       </form>
     </section>
 
@@ -111,6 +118,8 @@
       collection, 
       addDoc, 
       getDocs, 
+      doc,
+      updateDoc,
       query, 
       where, 
       onAuthStateChanged,
@@ -118,13 +127,17 @@
     } from "./firebase-config.js";
 
     let currentUser = null;
+    let modoEdicaoId = null; // Guarda o ID da competição sendo editada
+    let competicoesCache = {}; // Cache local dos dados das competições
+
     const containerCategorias = document.getElementById("containerCategorias");
     const btnAddCategoria = document.getElementById("btnAddCategoria");
     const btnSalvarComp = document.getElementById("btnSalvarComp");
+    const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
+    const tituloForm = document.getElementById("tituloForm");
 
-    // Adiciona bloco HTML para preenchimento de uma nova categoria
+    // Adiciona bloco HTML para preenchimento de uma categoria
     function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, classificados = 10) {
-      // Se não informar data específica, puxa a data principal ou a data de hoje
       const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
 
       const div = document.createElement("div");
@@ -152,7 +165,6 @@
         </div>
       `;
 
-      // Evento para remover a categoria
       div.querySelector(".btn-remover").addEventListener("click", () => {
         div.remove();
       });
@@ -160,10 +172,8 @@
       containerCategorias.appendChild(div);
     }
 
-    // Evento do botão "+ Adicionar Categoria"
     btnAddCategoria.addEventListener("click", () => adicionarCampoCategoria());
 
-    // Proteção de Rota e Inicialização
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
         window.location.href = "./index.html";
@@ -173,7 +183,7 @@
       carregarCompeticoes();
     });
 
-    // Salvar Competição no Firestore
+    // Salvar/Atualizar Competição no Firestore
     document.getElementById("formCompeticao").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -200,21 +210,30 @@
         btnSalvarComp.disabled = true;
         btnSalvarComp.innerText = "Salvando...";
 
-        await addDoc(collection(db, "competicoes"), {
-          organizadorId: currentUser.uid,
-          nome: nomeComp,
-          dataInicio: dataComp,
-          categorias: categorias,
-          criadoEm: new Date(),
-          status: "ATIVA"
-        });
+        if (modoEdicaoId) {
+          // MODO EDIÇÃO: Atualiza o documento existente no Firestore
+          const compRef = doc(db, "competicoes", modoEdicaoId);
+          await updateDoc(compRef, {
+            nome: nomeComp,
+            dataInicio: dataComp,
+            categorias: categorias,
+            atualizadoEm: new Date()
+          });
+          alert("Competição e categorias atualizadas com sucesso!");
+        } else {
+          // MODO CRIAÇÃO: Cria um novo documento
+          await addDoc(collection(db, "competicoes"), {
+            organizadorId: currentUser.uid,
+            nome: nomeComp,
+            dataInicio: dataComp,
+            categorias: categorias,
+            criadoEm: new Date(),
+            status: "ATIVA"
+          });
+          alert("Competição criada com sucesso!");
+        }
 
-        alert("Competição criada com sucesso!");
-        
-        // Limpa formulário e recarrega
-        document.getElementById("formCompeticao").reset();
-        containerCategorias.innerHTML = "";
-        adicionarCampoCategoria(); // Insere 1 campo padrão limpo
+        resetarFormulario();
         carregarCompeticoes();
 
       } catch (error) {
@@ -222,11 +241,22 @@
         alert("Erro ao salvar no banco de dados: " + error.message);
       } finally {
         btnSalvarComp.disabled = false;
-        btnSalvarComp.innerText = "Salvar e Criar Competição";
       }
     });
 
-    // Buscar Competições do Usuário Logado
+    function resetarFormulario() {
+      modoEdicaoId = null;
+      document.getElementById("formCompeticao").reset();
+      containerCategorias.innerHTML = "";
+      tituloForm.innerText = "CRIAR NOVA COMPETIÇÃO";
+      btnSalvarComp.innerText = "Salvar e Criar Competição";
+      btnCancelarEdicao.style.display = "none";
+      adicionarCampoCategoria(); // Adiciona 1 campo limpo por padrão
+    }
+
+    btnCancelarEdicao.addEventListener("click", resetarFormulario);
+
+    // Carregar Lista de Provas
     async function carregarCompeticoes() {
       const listaProvas = document.getElementById("listaProvas");
       listaProvas.innerHTML = "<p style='color:#888;'>Carregando competições...</p>";
@@ -243,10 +273,13 @@
           return;
         }
 
+        competicoesCache = {};
         listaProvas.innerHTML = "";
+
         snapshot.forEach(docSnap => {
           const comp = docSnap.data();
           const compId = docSnap.id;
+          competicoesCache[compId] = comp;
 
           const card = document.createElement("div");
           card.className = "card-prova-item";
@@ -261,11 +294,14 @@
               <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
             </div>
             <div class="acoes">
-              <button class="btn-action" data-id="${compId}">Gerenciar (Admin)</button>
+              <button class="btn-action btnEditar" data-id="${compId}">✏️ Editar / Add Categoria</button>
+              <button class="btn-action btnInscritos" data-id="${compId}">📝 Trios</button>
             </div>
           `;
 
-          card.querySelector("button").addEventListener("click", () => gerenciarProva(compId));
+          card.querySelector(".btnEditar").addEventListener("click", () => carregarParaEdicao(compId));
+          card.querySelector(".btnInscritos").addEventListener("click", () => irParaCadastro(compId));
+
           listaProvas.appendChild(card);
         });
       } catch (error) {
@@ -274,16 +310,50 @@
       }
     }
 
-    function gerenciarProva(compId) {
+    // Preenche o formulário com a competição selecionada para editar/adicionar categorias
+    function carregarParaEdicao(compId) {
+      const comp = competicoesCache[compId];
+      if (!comp) return;
+
+      modoEdicaoId = compId;
+      tituloForm.innerText = "EDITAR COMPETIÇÃO / ADICIONAR CATEGORIA";
+      btnSalvarComp.innerText = "Atualizar Competição";
+      btnCancelarEdicao.style.display = "inline-block";
+
+      document.getElementById("nomeComp").value = comp.nome || "";
+      document.getElementById("dataComp").value = comp.dataInicio || "";
+
+      // Limpa as categorias anteriores do formulário
+      containerCategorias.innerHTML = "";
+
+      // Preenche as categorias já cadastradas
+      if (comp.categorias && comp.categorias.length > 0) {
+        comp.categorias.forEach(cat => {
+          adicionarCampoCategoria(
+            cat.nome,
+            cat.data || comp.dataInicio,
+            cat.qtdBaterias || 2,
+            cat.classificadosPorBateria || 10
+          );
+        });
+      } else {
+        adicionarCampoCategoria();
+      }
+
+      // Rola suavemente até o formulário
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function irParaCadastro(compId) {
       localStorage.setItem("selectedCompId", compId);
-      window.location.href = "./cadastro.html"; // Redireciona para o cadastro de trios
+      window.location.href = "./cadastro.html";
     }
 
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");
     });
 
-    // Gera o primeiro campo dinâmico de categoria assim que a tela abre
+    // Inicia com um campo de categoria vazio
     adicionarCampoCategoria();
   </script>
 </body>
