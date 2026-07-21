@@ -49,6 +49,10 @@
     tr:hover { background: #262626; }
     
     .badge-senha { background: var(--accent-gold); color: #000; font-weight: bold; padding: 3px 8px; border-radius: 4px; display: inline-block; }
+    .fixar {
+      position: sticky;
+      top: 20px;
+    }
   </style>
 </head>
 <body>
@@ -62,29 +66,12 @@
     </div>
   </header>
 
-  <!-- Filtro de Competição e Categoria -->
-  <section class="secao-card" style="margin-bottom: 25px;">
-    <h2>SELECIONE A PROVA E CATEGORIA</h2>
-    <div class="grid-2-col">
-      <div class="form-group">
-        <label for="selectCompeticao">Competição:</label>
-        <select id="selectCompeticao">
-          <option value="">Carregando competições...</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="selectCategoria">Categoria:</label>
-        <select id="selectCategoria" disabled>
-          <option value="">Selecione uma competição primeiro</option>
-        </select>
-      </div>
-    </div>
-  </section>
+  
 
   <main class="grid-layout">
     
     <!-- Formulário de Inscrição de Trio -->
-    <section class="secao-card">
+    <section class="secao-card fixar">
       <h2>INSCREVER NOVO TRIO</h2>
       <form id="formTrio">
         
@@ -119,8 +106,31 @@
       </form>
     </section>
 
+
+
     <!-- Lista de Trios Cadastrados na Categoria -->
     <section class="secao-card">
+
+          <!-- Filtro de Competição e Categoria -->
+          <section class="secao-card" style="margin-bottom: 25px;">
+            <h2>SELECIONE A PROVA E CATEGORIA</h2>
+            <div class="grid-2-col">
+              <div class="form-group">
+                <label for="selectCompeticao">Competição:</label>
+                <select id="selectCompeticao">
+                  <option value="">Carregando competições...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="selectCategoria">Categoria:</label>
+                <select id="selectCategoria" disabled>
+                  <option value="">Selecione uma competição primeiro</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+
       <h2 id="tituloListaTrios">TRIOS INSCRITOS</h2>
       <div class="tabela-container">
         <table>
