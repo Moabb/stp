@@ -12,12 +12,12 @@ import {
   doc, 
   setDoc, 
   addDoc, 
+  getDoc, // <--- ADICIONADO AQUI
   getDocs, 
   query, 
   where 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// Sua configuração do Firebase SDK
 const firebaseConfig = {
   apiKey: "AIzaSyDVZSlNvtLOER3YdotvGi-G7VvDtSQwV7M",
   authDomain: "sistema-team-penning.firebaseapp.com",
@@ -27,18 +27,17 @@ const firebaseConfig = {
   appId: "1:1025888364244:web:d4c5d0582899a855ddbd41"
 };
 
-// Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Exporta as instâncias e todas as funções utilizadas nos scripts
 export { 
   auth, 
   db, 
   doc, 
   setDoc, 
   addDoc, 
+  getDoc, // <--- EXPORTADO AQUI
   getDocs, 
   collection, 
   query, 
