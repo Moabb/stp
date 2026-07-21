@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Painel Oficial - Team Penning em Tempo Real</title>
+  <script type="module" src="./firebase-config.js"></script>
   <style>
     :root {
       --bg-dark: #121212;
       --card-bg: #1e1e1e;
       --accent-gold: #ffb703;
+      --accent-green: #2a9d8f;
       --alert-red: #d62828;
       --text-light: #f8f9fa;
       --text-muted: #adb5bd;
@@ -31,7 +33,7 @@
       padding: 15px;
       border-radius: 8px;
       margin-bottom: 20px;
-      display: none; /* Controlado via JS em tempo real */
+      display: none;
       animation: piscar 1.5s infinite alternate;
     }
 
@@ -66,13 +68,96 @@
     th, td { text-align: left; padding: 12px; border-bottom: 1px solid #2a2a2a; }
     th { color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; }
     tr:nth-child(even) { background-color: #242424; }
+
+    /* -------------------------------------------------------------
+       ESTILOS DA MODAL EM TELA CHEIA PARA O SORTEIO LIVE (START LIST)
+       ------------------------------------------------------------- */
+    .modal-sorteio-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: radial-gradient(circle, #1a1a2e 0%, #0f0f1a 100%);
+      z-index: 9999;
+      display: none; /* Exibido via JS quando sorteioStatus == "EXIBINDO" */
+      flex-direction: column;
+      padding: 30px;
+      overflow-y: auto;
+    }
+
+    .sorteio-header {
+      text-align: center;
+      margin-bottom: 25px;
+      border-bottom: 3px solid var(--accent-gold);
+      padding-bottom: 15px;
+    }
+    
+    .sorteio-header h2 {
+      font-size: 2.8rem;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      animation: pulso 2s infinite alternate;
+    }
+
+    @keyframes pulso {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.02); }
+    }
+
+    .sorteio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 15px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .card-sorteio-item {
+      background: #22223b;
+      border: 1px solid #4a4e69;
+      border-left: 6px solid var(--accent-gold);
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      animation: surgir 0.5s ease-out;
+    }
+
+    @keyframes surgir {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .badge-ordem-sorteio {
+      background: var(--accent-gold);
+      color: #000;
+      font-size: 1.4rem;
+      font-weight: 800;
+      padding: 8px 14px;
+      border-radius: 6px;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .info-trio-sorteio strong {
+      font-size: 1.1rem;
+      color: #fff;
+      display: block;
+    }
+
+    .info-trio-sorteio span {
+      font-size: 0.85rem;
+      color: var(--accent-green);
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
   <header>
     <h1 id="nomeCompeticao">CARREGANDO COMPETIÇÃO...</h1>
-    <p id="nomeCategoria">Categoria: ---</p>
+    <p id="nomeCategoria">Selecione uma competição e categoria no Admin</p>
   </header>
 
   <!-- Banner do Alerta de Troca do Lote -->
@@ -114,7 +199,7 @@
 
     <!-- Classificação em Tempo Real -->
     <article class="card-secao">
-      <h2>CLASSIFICAÇÃO PARCIAL DO LOTE</h2>
+      <h2>CLASSIFICAÇÃO PARCIAL DA CATEGORIA</h2>
       <table>
         <thead>
           <tr>
@@ -132,81 +217,180 @@
 
   </div>
 
+  <!-- =============================================================
+       MODAL DE SORTEIO AO VIVO EM TELA CHEIA (START LIST)
+       ============================================================= -->
+  <div class="modal-sorteio-overlay" id="modalSorteioLive">
+    <div class="sorteio-header">
+      <h2>🎲 SORTEIO DA ORDEM DE ENTRADA (START LIST)</h2>
+      <p style="color: #ccc; font-size: 1.2rem;" id="subtituloSorteio">Definindo a ordem de pista oficial...</p>
+    </div>
+
+    <div class="sorteio-grid" id="containerSorteioTrios">
+      <!-- Cards dos trios sorteados inseridos via JS -->
+    </div>
+  </div>
+
   <!-- Escuta em Tempo Real do Firebase -->
   <script type="module">
-    import { escutarPistaEmTempoReal } from "./teampenning-service.js";
+    import { 
+      db, 
+      doc, 
+      collection, 
+      query, 
+      where, 
+      onSnapshot 
+    } from "./firebase-config.js";
 
-    // NOTA: Em produção, estes parâmetros virão dinamicamente da URL (ex: painel.html?user=123&comp=456&cat=789)
-    const USER_ID = "ID_DO_ORGANIZADOR";
-    const COMP_ID = "ID_DA_COMPETICAO";
-    const CAT_ID = "ID_DA_CATEGORIA";
-    const TAMANHO_LOTE_GADO = 24; // Troca configurada para cada 24 trios
+    // Pega o ID da competição salvo no localStorage (ou via parâmetro de URL em produção)
+    const selectedCompId = localStorage.getItem("selectedCompId");
 
-    // Ativa a sincronização Firestore em Tempo Real
-    escutarPistaEmTempoReal(USER_ID, COMP_ID, CAT_ID, TAMANHO_LOTE_GADO, (dados) => {
-      
-      // 1. Atualizar Alerta de Troca de Gado
-      const bannerAlerta = document.getElementById("alertaGado");
-      if (dados.alertaTrocaGado) {
-        bannerAlerta.style.display = "block";
-        document.getElementById("qtdCorridasTroca").innerText = dados.corridasRestantesParaTroca;
-      } else {
-        bannerAlerta.style.display = "none";
+    const modalSorteioLive = document.getElementById("modalSorteioLive");
+    const containerSorteioTrios = document.getElementById("containerSorteioTrios");
+
+    let unsubTrios = null;
+    let compDataGlobal = null;
+
+    if (!selectedCompId) {
+      document.getElementById("nomeCompeticao").innerText = "NENHUMA COMPETIÇÃO SELECIONADA";
+    } else {
+      iniciarEscutaPainel(selectedCompId);
+    }
+
+    function iniciarEscutaPainel(compId) {
+      // 1. Escuta alterações no Documento da COMPETIÇÃO (Ex: Controle de Sorteio Live)
+      onSnapshot(doc(db, "competicoes", compId), (docSnap) => {
+        if (!docSnap.exists()) return;
+
+        compDataGlobal = docSnap.data();
+        document.getElementById("nomeCompeticao").innerText = compDataGlobal.nome || "COMPETIÇÃO";
+
+        // Verifica o Status do Sorteio Live enviado pela administração (admin.html)
+        if (compDataGlobal.sorteioStatus === "EXIBINDO") {
+          modalSorteioLive.style.display = "flex";
+          document.getElementById("subtituloSorteio").innerText = 
+            `Categoria: ${compDataGlobal.categoriaEmSorteio || 'Em andamento'}`;
+        } else {
+          modalSorteioLive.style.display = "none";
+        }
+
+        // Se houver uma categoria ativa para a escuta dos trios
+        const catNome = compDataGlobal.categoriaEmSorteio || (compDataGlobal.categorias && compDataGlobal.categorias[0]?.nome);
+        if (catNome) {
+          document.getElementById("nomeCategoria").innerText = `Categoria: ${catNome}`;
+          escutarTriosCategoria(compId, catNome);
+        }
+      });
+    }
+
+    // 2. Escuta os TRIOS da Categoria em Tempo Real
+    function escutarTriosCategoria(compId, catNome) {
+      if (unsubTrios) unsubTrios(); // Cancela escuta anterior se houver troca de categoria
+
+      const q = query(
+        collection(db, "trios"),
+        where("competicaoId", "==", compId),
+        where("categoria", "==", catNome)
+      );
+
+      unsubTrios = onSnapshot(q, (snapshot) => {
+        const trios = [];
+        snapshot.forEach(docSnap => trios.push({ id: docSnap.id, ...docSnap.data() }));
+
+        // Ordena por Ordem de Pista se existir, senão por Senha
+        trios.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
+
+        // Atualiza a tela de Sorteio Live
+        atualizarGridSorteioLive(trios);
+
+        // Atualiza o Painel Normal de Pista
+        atualizarPainelNormal(trios);
+      });
+    }
+
+    // Renderiza a lista de Sorteio ao Vivo (Start List)
+    function atualizarGridSorteioLive(trios) {
+      containerSorteioTrios.innerHTML = "";
+
+      const triosSorteados = trios.filter(t => t.ordemPista);
+
+      if (triosSorteados.length === 0) {
+        containerSorteioTrios.innerHTML = '<p style="color:#aaa; text-align:center; grid-column: 1/-1;">Realizando o sorteio na mesa diretora...</p>';
+        return;
       }
 
-      // 2. Atualizar Informações do Trio na Pista
-      document.getElementById("loteAtualInfo").innerText = `LOTE DE GADO: ${dados.loteAtualNum}`;
-      if (dados.trioAtual) {
-        document.getElementById("trioPistaNomes").innerText = dados.trioAtual.competidores.join(" • ");
-        document.getElementById("infoAdicionalPista").innerText = `Ordem de Entrada: #${dados.trioAtual.ordemPista} | Senha Original: #${dados.trioAtual.senhaOriginal}`;
+      triosSorteados.forEach(trio => {
+        const nomes = trio.integrantes ? trio.integrantes.join(" • ") : "";
+        
+        containerSorteioTrios.innerHTML += `
+          <div class="card-sorteio-item">
+            <div class="badge-ordem-sorteio">#${trio.ordemPista}</div>
+            <div class="info-trio-sorteio">
+              <strong>${nomes}</strong>
+              <span>Senha de Compra: #${trio.senha}</span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Renderiza a Tela Principal de Corridas
+    function atualizarPainelNormal(trios) {
+      // Trio na Pista (Primeiro sem tempo)
+      const trioPista = trios.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO");
+      
+      if (trioPista) {
+        document.getElementById("trioPistaNomes").innerText = trioPista.integrantes.join(" • ");
+        document.getElementById("infoAdicionalPista").innerText = 
+          `Ordem de Entrada: #${trioPista.ordemPista || '--'} | Senha Original: #${trioPista.senha}`;
       } else {
-        document.getElementById("trioPistaNomes").innerText = "Todas as corridas deste lote/categoria foram concluídas!";
+        document.getElementById("trioPistaNomes").innerText = "Aguardando início / Todos os trios concluíram";
         document.getElementById("infoAdicionalPista").innerText = "";
       }
 
-      // 3. Atualizar Tabela de Próximos (Sequência dos 20)
+      // Tabela de Próximos (Fila)
       const tbProximos = document.getElementById("tbProximos");
       tbProximos.innerHTML = "";
-      
-      const proximos20 = dados.proximosTrios.slice(0, 20);
-      if (proximos20.length === 0) {
-        tbProximos.innerHTML = "<tr><td colspan='3'>Sem mais trios na fila.</td></tr>";
+
+      const proximos = trios.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO").slice(0, 20);
+
+      if (proximos.length === 0) {
+        tbProximos.innerHTML = "<tr><td colspan='3' style='text-align:center; color:#888;'>Sem trios pendentes na fila.</td></tr>";
       } else {
-        proximos20.forEach(trio => {
+        proximos.forEach(trio => {
           tbProximos.innerHTML += `
             <tr>
-              <td><strong>#${trio.ordemPista}</strong></td>
-              <td>#${trio.senhaOriginal}</td>
-              <td>${trio.competidores.join(", ")}</td>
+              <td><strong>#${trio.ordemPista || '--'}</strong></td>
+              <td>#${trio.senha}</td>
+              <td>${trio.integrantes.join(", ")}</td>
             </tr>
           `;
         });
       }
 
-      // 4. Atualizar Tabela de Classificação do Lote (Ordenado por menor tempo válido)
+      // Tabela de Classificação
       const tbClassificacao = document.getElementById("tbClassificacao");
       tbClassificacao.innerHTML = "";
 
-      const triosComTempo = dados.trios
-        .filter(t => t.status === "OK" && t.tempo !== null)
-        .sort((a, b) => a.tempo - b.tempo);
+      const classificados = trios
+        .filter(t => t.status === "OK" && t.tempo)
+        .sort((a, b) => parseFloat(a.tempo) - parseFloat(b.tempo));
 
-      if (triosComTempo.length === 0) {
-        tbClassificacao.innerHTML = "<tr><td colspan='4'>Nenhum tempo registrado ainda.</td></tr>";
+      if (classificados.length === 0) {
+        tbClassificacao.innerHTML = "<tr><td colspan='4' style='text-align:center; color:#888;'>Nenhum tempo válido registrado ainda.</td></tr>";
       } else {
-        triosComTempo.forEach((trio, index) => {
+        classificados.forEach((trio, index) => {
           tbClassificacao.innerHTML += `
             <tr>
               <td><strong>${index + 1}º</strong></td>
-              <td>${trio.competidores.join(", ")}</td>
+              <td>${trio.integrantes.join(", ")}</td>
               <td>${trio.boiSorteado || "--"}</td>
-              <td><strong>${trio.tempo.toFixed(2)}s</strong></td>
+              <td><strong>${parseFloat(trio.tempo).toFixed(2)}s</strong></td>
             </tr>
           `;
         });
       }
-
-    });
+    }
   </script>
 </body>
 </html>

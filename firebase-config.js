@@ -8,13 +8,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
   getFirestore, 
-  collection, 
+  collection,
+  addDoc, 
   doc,
   updateDoc, 
   setDoc, 
   addDoc, 
   getDoc,
-  getDocs, 
+  getDocs,
+  onSnapshot, 
   query, 
   where 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -43,7 +45,8 @@ export {
   getDocs, 
   collection, 
   query, 
-  where, 
+  where,
+  onSnapshot, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   onAuthStateChanged, 
