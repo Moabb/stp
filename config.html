@@ -38,7 +38,7 @@
 
     /* Bloco dinâmico de Categorias */
     .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
-    .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #e76f51; cursor: pointer; font-weight: bold; }
+    .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #e76f51; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
     
     .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
     @media (max-width: 500px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
@@ -47,6 +47,7 @@
     .btn-add-cat:hover { background: rgba(255, 183, 3, 0.1); }
 
     .btn-salvar { width: 100%; padding: 12px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; }
+    .btn-salvar:disabled { background: #555; cursor: not-allowed; }
 
     /* Lista de Provas */
     .lista-provas { display: flex; flex-direction: column; gap: 12px; }
@@ -84,16 +85,16 @@
         </div>
 
         <h3 style="font-size: 1rem; color: #ccc; margin: 15px 0 10px 0;">Categorias da Prova:</h3>
-        <div id="containerCategorias">
-          <!-- Categorias serão inseridas dinamicamente aqui -->
-        </div>
+        
+        <!-- Container onde os blocos de categoria serão inseridos -->
+        <div id="containerCategorias"></div>
 
         <button type="button" class="btn-add-cat" id="btnAddCategoria">+ Adicionar Categoria</button>
-        <button type="submit" class="btn-salvar">Salvar e Criar Competição</button>
+        <button type="submit" class="btn-salvar" id="btnSalvarComp">Salvar e Criar Competição</button>
       </form>
     </section>
 
-    <!-- Lista de Competiações Existentes -->
+    <!-- Lista de Competições Existentes -->
     <section class="secao-card">
       <h2>MINHAS COMPETIÇÕES CADASTRADAS</h2>
       <div class="lista-provas" id="listaProvas">
@@ -118,15 +119,16 @@
 
     let currentUser = null;
     const containerCategorias = document.getElementById("containerCategorias");
+    const btnAddCategoria = document.getElementById("btnAddCategoria");
+    const btnSalvarComp = document.getElementById("btnSalvarComp");
 
     // Adiciona bloco HTML para preenchimento de uma nova categoria
     function adicionarCampoCategoria(nome = "", baterias = 2, classificados = 10) {
-      const id = Date.now();
       const div = document.createElement("div");
       div.className = "categoria-box";
-      div.dataset.id = id;
+      
       div.innerHTML = `
-        <button type="button" class="btn-remover" onclick="this.parentElement.remove()">✕</button>
+        <button type="button" class="btn-remover">✕</button>
         <div class="grid-cat-inputs">
           <div class="form-group" style="margin:0;">
             <label>Nome Categoria</label>
@@ -142,16 +144,22 @@
           </div>
         </div>
       `;
+
+      // Evento para remover a categoria
+      div.querySelector(".btn-remover").addEventListener("click", () => {
+        div.remove();
+      });
+
       containerCategorias.appendChild(div);
     }
 
-    // Inicializa com 1 categoria padrão no formulário
-    document.getElementById("btnAddCategoria").addEventListener("click", () => adicionarCampoCategoria());
+    // Evento do botão "+ Adicionar Categoria"
+    btnAddCategoria.addEventListener("click", () => adicionarCampoCategoria());
 
-    // Proteção de Rota e Inicialização de Dados
+    // Proteção de Rota e Inicialização
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        window.location.href = "./index.html"; // Se não estiver logado, redireciona
+        window.location.href = "./index.html";
         return;
       }
       currentUser = user;
@@ -165,10 +173,9 @@
       const nomeComp = document.getElementById("nomeComp").value.trim();
       const dataComp = document.getElementById("dataComp").value;
 
-      // Coleta dados das categorias inseridas
       const blocosCategorias = containerCategorias.querySelectorAll(".categoria-box");
       if (blocosCategorias.length === 0) {
-        alert("Adicione pelo menos uma categoria para a competição.");
+        alert("Por favor, adicione pelo menos uma categoria para a competição.");
         return;
       }
 
@@ -176,12 +183,15 @@
       blocosCategorias.forEach(bloco => {
         categorias.push({
           nome: bloco.querySelector(".cat-nome").value.trim(),
-          qtdBaterias: parseInt(bloco.querySelector(".cat-baterias").value),
-          classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value)
+          qtdBaterias: parseInt(bloco.querySelector(".cat-baterias").value) || 1,
+          classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value) || 1
         });
       });
 
       try {
+        btnSalvarComp.disabled = true;
+        btnSalvarComp.innerText = "Salvando...";
+
         await addDoc(collection(db, "competicoes"), {
           organizadorId: currentUser.uid,
           nome: nomeComp,
@@ -192,19 +202,26 @@
         });
 
         alert("Competição criada com sucesso!");
+        
+        // Limpa formulário e recarrega
         document.getElementById("formCompeticao").reset();
         containerCategorias.innerHTML = "";
-        adicionarCampoCategoria();
+        adicionarCampoCategoria(); // Adiciona 1 campo limpo padrão
         carregarCompeticoes();
+
       } catch (error) {
-        alert("Erro ao criar competição: " + error.message);
+        console.error("Erro no Firestore:", error);
+        alert("Erro ao salvar no banco de dados: " + error.message);
+      } finally {
+        btnSalvarComp.disabled = false;
+        btnSalvarComp.innerText = "Salvar e Criar Competição";
       }
     });
 
-    // Buscar Competiações do Usuário Logado
+    // Buscar Competições do Usuário Logado
     async function carregarCompeticoes() {
       const listaProvas = document.getElementById("listaProvas");
-      listaProvas.innerHTML = "<p style='color:#888;'>Carregando...</p>";
+      listaProvas.innerHTML = "<p style='color:#888;'>Carregando competições...</p>";
 
       try {
         const q = query(
@@ -225,34 +242,42 @@
 
           const card = document.createElement("div");
           card.className = "card-prova-item";
+          
+          const nomesCategorias = comp.categorias && comp.categorias.length > 0
+            ? comp.categorias.map(c => c.nome).join(", ")
+            : "Nenhuma categoria";
+
           card.innerHTML = `
             <div class="info">
               <h3>${comp.nome}</h3>
-              <p>Data: ${comp.data} | Categorias: ${comp.categorias.map(c => c.nome).join(", ")}</p>
+              <p>Data: ${comp.data} | Categorias: ${nomesCategorias}</p>
             </div>
             <div class="acoes">
-              <button class="btn-action" onclick="gerenciarProva('${compId}')">Gerenciar (Admin)</button>
+              <button class="btn-action" data-id="${compId}">Gerenciar (Admin)</button>
             </div>
           `;
+
+          card.querySelector("button").addEventListener("click", () => gerenciarProva(compId));
           listaProvas.appendChild(card);
         });
       } catch (error) {
+        console.error("Erro ao carregar:", error);
         listaProvas.innerHTML = "<p style='color:#e76f51;'>Erro ao carregar competições.</p>";
       }
     }
 
-    // Função para direcionar para a página admin.html salvando a prova selecionada
-    window.gerenciarProva = function(compId) {
+    // Função para direcionar para admin.html salvando a prova selecionada
+    function gerenciarProva(compId) {
       localStorage.setItem("selectedCompId", compId);
       window.location.href = "./admin.html";
-    };
+    }
 
     // Logout
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");
     });
 
-    // Inicia com 1 campo de categoria visível
+    // Inicializa com 1 bloco de categoria visível imediatamente
     adicionarCampoCategoria();
   </script>
 </body>
