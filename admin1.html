@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administração & Cronometragem - Team Penning</title>
+  <script type="module" src="./firebase-config.js"></script>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --accent-green: #2a9d8f;
+      --accent-gold: #ffb703;
+      --danger-red: #e76f51;
+      --text-light: #f8f9fa;
+      --input-bg: #2b2b2b;
+      --border-color: #333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+    header h1 { color: var(--accent-gold); font-size: 1.6rem; text-transform: uppercase; }
+
+    .btn-header { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-decoration: none; font-size: 0.85rem; }
+    .btn-header:hover { opacity: 0.9; }
+
+    /* Barra de Seleção da Categoria */
+    .seletor-bar { background: #262626; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color); display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    
+    /* Layout da Grid Admin */
+    .admin-grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+    @media (max-width: 950px) { .admin-grid { grid-template-columns: 1fr; } }
+
+    .card { background-color: var(--card-bg); border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+    .card h2 { color: var(--accent-gold); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 10px; background-color: var(--input-bg);
+      border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 0.95rem;
+    }
+
+    /* Botões Operacionais */
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 8px; font-size: 0.9rem; }
+    .btn:disabled { background: #555; cursor: not-allowed; opacity: 0.6; }
+    .btn-primary { background-color: var(--accent-green); color: #fff; }
+    .btn-warning { background-color: var(--accent-gold); color: #000; }
+    .btn-danger { background-color: var(--danger-red); color: #fff; }
+
+    /* Mesa do Juiz */
+    .mesa-juiz { background: linear-gradient(135deg, #1c2541, #0b132b); border: 2px solid var(--accent-gold); border-radius: 8px; padding: 20px; }
+    .trio-destaque { font-size: 1.4rem; font-weight: bold; color: #fff; margin-bottom: 8px; }
+    
+    .grid-inputs-corrida { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+    .grid-inputs-corrida label { font-size: 0.8rem; }
+    .grid-inputs-corrida input, .grid-inputs-corrida select { font-size: 1.1rem; font-weight: bold; text-align: center; }
+
+    /* Tabelas */
+    .tabela-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+    th { color: var(--accent-gold); background: #262626; }
+    tr:nth-child(even) { background-color: #1a1a1a; }
+
+    /* Modal Simples para Novo Trio */
+    .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
+    .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; width: 100%; max-width: 450px; border: 1px solid var(--accent-gold); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>⏱️ PAINEL ADMINISTRATIVO E MESA DO JUIZ</h1>
+    <div>
+      <a href="./cadastro.html" class="btn-header">📝 INSCRITOS</a>
+      <a href="./config.html" class="btn-header">⚙️ CONFIG</a>
+      <button class="btn-header btn-danger" id="btnSair">SAIR</button>
+    </div>
+  </header>
+
+  <!-- Barra Superior de Seleção de Categoria -->
+  <section class="seletor-bar">
+    <div class="form-group" style="margin: 0;">
+      <label for="selectCompeticao">Competição Ativa:</label>
+      <select id="selectCompeticao">
+        <option value="">Carregando competições...</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin: 0;">
+      <label for="selectCategoria">Categoria Selecionada:</label>
+      <select id="selectCategoria" disabled>
+        <option value="">Selecione a competição</option>
+      </select>
+    </div>
+  </section>
+
+  <div class="admin-grid">
+
+    <!-- COLUNA 1: Regulamento, Cadastro Rápido e Sorteio Live -->
+    <aside>
+      
+      <!-- Card 1: Regulamento -->
+      <article class="card">
+        <h2>1. Regulamento do Lote de Gado</h2>
+        <form id="formRegulamento">
+          <div class="form-group">
+            <label for="inputLimiteGado">Nº Corridas por Lote de Gado:</label>
+            <input type="number" id="inputLimiteGado" min="1" value="24" required>
+          </div>
+          <div class="form-group">
+            <label for="inputClassificadosLote">Classificados p/ Segunda Passada:</label>
+            <input type="number" id="inputClassificadosLote" min="1" value="10" required>
+          </div>
+          <button type="submit" class="btn btn-primary" id="btnSalvarRegulamento" disabled>Salvar Regulamento</button>
+        </form>
+      </article>
+
+      <!-- Card 2: Ações Pré-Prova (Novo Trio) -->
+      <article class="card">
+        <h2>2. Inscrições de Última Hora</h2>
+        <button class="btn btn-primary" id="btnAbrirModalTrio" disabled>+ Cadastrar Novo Trio (Senha)</button>
+      </article>
+
+      <!-- Card 3: Sorteio de Entrada (Start List Live) -->
+      <article class="card">
+        <h2>3. Sorteio de Entrada (Start List)</h2>
+        <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 12px;">
+          Gera a ordem de pista e transmite o sorteio em tempo real para a tela do Painel/TV.
+        </p>
+        <button class="btn btn-warning" id="btnRealizarSorteio" disabled>🎲 Realizar e Transmitir Sorteio Live</button>
+        <button class="btn btn-danger" id="btnEncerrarSorteioLive" style="display: none;">📺 Encerrar Sorteio no Painel</button>
+      </article>
+
+    </aside>
+
+    <!-- COLUNA 2: Operação na Pista e Gerenciamento de Trios -->
+    <main>
+      
+      <!-- Mesa do Juiz de Pista -->
+      <article class="mesa-juiz">
+        <h2 style="color: var(--accent-gold); border: none; padding: 0;">⏱️ MESA DO JUIZ DE PISTA</h2>
+        
+        <div class="trio-destaque" id="juizTrioAtual">Selecione uma categoria ativa</div>
+        <div id="juizTrioDetalhes" style="color: #aaa; font-size: 0.9rem;">Ordem de Pista: -- | Senha: --</div>
+
+        <form id="formLancarResultado" style="margin-top: 15px;">
+          <div class="grid-inputs-corrida">
+            <div>
+              <label for="inputTempo">Tempo Final (s):</label>
+              <input type="number" step="0.01" id="inputTempo" placeholder="00.00" disabled required>
+            </div>
+            <div>
+              <label for="inputBoiSorteado">Boi Sorteado:</label>
+              <input type="text" id="inputBoiSorteado" placeholder="Ex: 07" disabled required>
+            </div>
+            <div>
+              <label for="inputQuantidadeBois">Bois no Curral:</label>
+              <select id="inputQuantidadeBois" disabled>
+                <option value="3">3 Bois</option>
+                <option value="2">2 Bois</option>
+                <option value="1">1 Boi</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
+            <button type="button" class="btn btn-primary" id="btnConfirmarTempo" disabled>✅ Confirmar Tempo</button>
+            <button type="button" class="btn btn-warning" id="btnSAT" disabled>⚠️ S.A.T / N.T.</button>
+            <button type="button" class="btn btn-danger" id="btnDO" disabled>🚫 D.O.</button>
+          </div>
+        </form>
+      </article>
+
+      <!-- Lista Completa dos Trios na Categoria -->
+      <article class="card" style="margin-top: 20px;">
+        <h2>Ordem de Pista / Inscritos da Categoria</h2>
+        <div class="tabela-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Ordem</th>
+                <th>Senha</th>
+                <th>Integrantes</th>
+                <th>Boi</th>
+                <th>Tempo</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbTriosAdmin">
+              <tr><td colspan="6" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </main>
+
+  </div>
+
+  <!-- Modal Inscrição Rápida de Trio -->
+  <div class="modal" id="modalTrio">
+    <div class="modal-content">
+      <h2 style="color: var(--accent-gold); margin-bottom: 15px;">Cadastrar Novo Trio</h2>
+      <form id="formModalTrio">
+        <div class="form-group">
+          <label for="modalSenha">Número da Senha:</label>
+          <input type="number" id="modalSenha" min="1" required>
+        </div>
+        <div class="form-group">
+          <label for="modalC1">1º Cavaleiro:</label>
+          <input type="text" id="modalC1" required>
+        </div>
+        <div class="form-group">
+          <label for="modalC2">2º Cavaleiro:</label>
+          <input type="text" id="modalC2" required>
+        </div>
+        <div class="form-group">
+          <label for="modalC3">3º Cavaleiro:</label>
+          <input type="text" id="modalC3" required>
+        </div>
+        <div class="form-group">
+          <label for="modalAnimais">Animais / Obs:</label>
+          <input type="text" id="modalAnimais" placeholder="Opcional">
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="submit" class="btn btn-primary">Salvar Trio</button>
+          <button type="button" class="btn btn-danger" id="btnFecharModal">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { 
+      auth, 
+      db, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      doc, 
+      updateDoc, 
+      query, 
+      where, 
+      onSnapshot,
+      onAuthStateChanged,
+      signOut
+    } from "./firebase-config.js";
+
+    let currentUser = null;
+    let competicoesCache = {};
+    let triosAtuais = [];
+    let trioAtualPista = null;
+    let unsubTrios = null;
+
+    let selectedCompId = localStorage.getItem("selectedCompId") || null;
+    let selectedCategoriaNome = null;
+    let selectedCategoriaData = null;
+
+    // Elementos DOM
+    const selectCompeticao = document.getElementById("selectCompeticao");
+    const selectCategoria = document.getElementById("selectCategoria");
+    const btnSalvarRegulamento = document.getElementById("btnSalvarRegulamento");
+    const btnAbrirModalTrio = document.getElementById("btnAbrirModalTrio");
+    const btnRealizarSorteio = document.getElementById("btnRealizarSorteio");
+    const btnEncerrarSorteioLive = document.getElementById("btnEncerrarSorteioLive");
+
+    const inputTempo = document.getElementById("inputTempo");
+    const inputBoiSorteado = document.getElementById("inputBoiSorteado");
+    const inputQuantidadeBois = document.getElementById("inputQuantidadeBois");
+    const btnConfirmarTempo = document.getElementById("btnConfirmarTempo");
+    const btnSAT = document.getElementById("btnSAT");
+    const btnDO = document.getElementById("btnDO");
+
+    // Modal DOM
+    const modalTrio = document.getElementById("modalTrio");
+    const btnFecharModal = document.getElementById("btnFecharModal");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "./index.html";
+        return;
+      }
+      currentUser = user;
+      carregarCompeticoes();
+    });
+
+    async function carregarCompeticoes() {
+      try {
+        const q = query(
+          collection(db, "competicoes"), 
+          where("organizadorId", "==", currentUser.uid)
+        );
+        const snapshot = await getDocs(q);
+
+        selectCompeticao.innerHTML = '<option value="">-- Selecione uma Competição --</option>';
+
+        if (snapshot.empty) {
+          selectCompeticao.innerHTML = '<option value="">Nenhuma competição encontrada</option>';
+          return;
+        }
+
+        competicoesCache = {};
+        snapshot.forEach(docSnap => {
+          const comp = docSnap.data();
+          competicoesCache[docSnap.id] = comp;
+
+          const option = document.createElement("option");
+          option.value = docSnap.id;
+          option.textContent = `${comp.nome} (${comp.dataInicio || 'Sem Data'})`;
+          selectCompeticao.appendChild(option);
+        });
+
+        if (selectedCompId && competicoesCache[selectedCompId]) {
+          selectCompeticao.value = selectedCompId;
+          atualizarCategoriasSelect(selectedCompId);
+        }
+
+      } catch (error) {
+        console.error("Erro ao carregar competições:", error);
+      }
+    }
+
+    function atualizarCategoriasSelect(compId) {
+      selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
+      
+      if (!compId || !competicoesCache[compId]) {
+        selectCategoria.disabled = true;
+        desativarControles();
+        return;
+      }
+
+      const categorias = competicoesCache[compId].categorias || [];
+      if (categorias.length === 0) {
+        selectCategoria.innerHTML = '<option value="">Sem categorias</option>';
+        selectCategoria.disabled = true;
+        desativarControles();
+        return;
+      }
+
+      categorias.forEach(cat => {
+        const option = document.createElement("option");
+        const catData = cat.data || competicoesCache[compId].dataInicio || "";
+        option.value = `${cat.nome}|${catData}`;
+        option.textContent = `${cat.nome} (${catData || 'Geral'})`;
+        selectCategoria.appendChild(option);
+      });
+
+      selectCategoria.disabled = false;
+    }
+
+    selectCompeticao.addEventListener("change", (e) => {
+      selectedCompId = e.target.value;
+      localStorage.setItem("selectedCompId", selectedCompId);
+      atualizarCategoriasSelect(selectedCompId);
+    });
+
+    selectCategoria.addEventListener("change", (e) => {
+      const val = e.target.value;
+      if (val) {
+        const parts = val.split("|");
+        selectedCategoriaNome = parts[0];
+        selectedCategoriaData = parts[1] || "";
+        
+        carregarDadosCategoria();
+        ativarControles();
+      } else {
+        desativarControles();
+      }
+    });
+
+    function ativarControles() {
+      btnSalvarRegulamento.disabled = false;
+      btnAbrirModalTrio.disabled = false;
+      btnRealizarSorteio.disabled = false;
+      inputTempo.disabled = false;
+      inputBoiSorteado.disabled = false;
+      inputQuantidadeBois.disabled = false;
+      btnConfirmarTempo.disabled = false;
+      btnSAT.disabled = false;
+      btnDO.disabled = false;
+    }
+
+    function desativarControles() {
+      btnSalvarRegulamento.disabled = true;
+      btnAbrirModalTrio.disabled = true;
+      btnRealizarSorteio.disabled = true;
+      inputTempo.disabled = true;
+      inputBoiSorteado.disabled = true;
+      inputQuantidadeBois.disabled = true;
+      btnConfirmarTempo.disabled = true;
+      btnSAT.disabled = true;
+      btnDO.disabled = true;
+    }
+
+    // Carrega Regulamento e Escuta Trios
+    function carregarDadosCategoria() {
+      const comp = competicoesCache[selectedCompId];
+      if (!comp) return;
+
+      const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
+      if (catInfo) {
+        document.getElementById("inputLimiteGado").value = catInfo.limiteGado || 24;
+        document.getElementById("inputClassificadosLote").value = catInfo.classificadosLote || 10;
+      }
+
+      // Cancela a escuta anterior se existir
+      if (unsubTrios) unsubTrios();
+
+      // Escuta os trios em tempo real no Firestore
+      const q = query(
+        collection(db, "trios"),
+        where("competicaoId", "==", selectedCompId),
+        where("categoria", "==", selectedCategoriaNome)
+      );
+
+      unsubTrios = onSnapshot(q, (snapshot) => {
+        triosAtuais = [];
+        snapshot.forEach(docSnap => {
+          triosAtuais.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Ordena por Ordem de Pista se já houver sorteio; caso contrário, por senha
+        triosAtuais.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
+
+        atualizarTabelaAdmin();
+        atualizarMesaJuiz();
+      });
+    }
+
+    // Salvar Alteração no Regulamento da Categoria
+    document.getElementById("formRegulamento").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const comp = competicoesCache[selectedCompId];
+      if (!comp) return;
+
+      const limiteGado = parseInt(document.getElementById("inputLimiteGado").value);
+      const classificadosLote = parseInt(document.getElementById("inputClassificadosLote").value);
+
+      const categoriasAtualizadas = (comp.categorias || []).map(cat => {
+        if (cat.nome === selectedCategoriaNome) {
+          return { ...cat, limiteGado, classificadosLote };
+        }
+        return cat;
+      });
+
+      try {
+        await updateDoc(doc(db, "competicoes", selectedCompId), {
+          categorias: categoriasAtualizadas
+        });
+        competicoesCache[selectedCompId].categorias = categoriasAtualizadas;
+        alert("Regulamento da categoria atualizado com sucesso!");
+      } catch (err) {
+        alert("Erro ao atualizar regulamento: " + err.message);
+      }
+    });
+
+    // Sorteio ao Vivo (Start List)
+    btnRealizarSorteio.addEventListener("click", async () => {
+      if (triosAtuais.length === 0) {
+        alert("Não há trios inscritos nesta categoria para sortear!");
+        return;
+      }
+
+      if (!confirm("Confirmar o sorteio das ordens de entrada? Isso atualizará a transmissão ao vivo no Painel.")) return;
+
+      try {
+        // Embaralha os trios
+        const triosEmbaralhados = [...triosAtuais].sort(() => Math.random() - 0.5);
+
+        // Atualiza a ordem de pista de cada trio no Firestore
+        for (let i = 0; i < triosEmbaralhados.length; i++) {
+          const trioRef = doc(db, "trios", triosEmbaralhados[i].id);
+          await updateDoc(trioRef, { ordemPista: i + 1, status: "AGUARDANDO" });
+        }
+
+        // Envia comando para a página `painel.html` iniciar a animação do Sorteio
+        await updateDoc(doc(db, "competicoes", selectedCompId), {
+          sorteioStatus: "EXIBINDO",
+          categoriaEmSorteio: selectedCategoriaNome
+        });
+
+        btnEncerrarSorteioLive.style.display = "block";
+        alert("Sorteio realizado! A tela do Painel/TV agora está exibindo o Sorteio ao Vivo.");
+
+      } catch (err) {
+        alert("Erro ao realizar sorteio: " + err.message);
+      }
+    });
+
+    btnEncerrarSorteioLive.addEventListener("click", async () => {
+      try {
+        await updateDoc(doc(db, "competicoes", selectedCompId), {
+          sorteioStatus: "FINALIZADO"
+        });
+        btnEncerrarSorteioLive.style.display = "none";
+        alert("Sorteio encerrado! O Painel voltou para o monitoramento normal das corridas.");
+      } catch (err) {
+        alert("Erro ao encerrar exibição: " + err.message);
+      }
+    });
+
+    // Renderiza a Tabela
+    function atualizarTabelaAdmin() {
+      const tbBody = document.getElementById("tbTriosAdmin");
+      tbBody.innerHTML = "";
+
+      if (triosAtuais.length === 0) {
+        tbBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Nenhum trio cadastrado.</td></tr>';
+        return;
+      }
+
+      triosAtuais.forEach(trio => {
+        const ordem = trio.ordemPista ? `#${trio.ordemPista}` : "--";
+        const tempo = trio.tempo ? `${parseFloat(trio.tempo).toFixed(2)}s` : "--";
+        const nomes = trio.integrantes ? trio.integrantes.join(" / ") : "";
+
+        tbBody.innerHTML += `
+          <tr>
+            <td><strong>${ordem}</strong></td>
+            <td><span class="badge-senha">#${trio.senha}</span></td>
+            <td>${nomes}</td>
+            <td>${trio.boiSorteado || "--"}</td>
+            <td><strong>${tempo}</strong></td>
+            <td>${trio.status || "INSCRITO"}</td>
+          </tr>
+        `;
+      });
+    }
+
+    // Atualiza a Pista (Mesa do Juiz)
+    function atualizarMesaJuiz() {
+      trioAtualPista = triosAtuais.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO");
+
+      if (trioAtualPista) {
+        document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ");
+        document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha Original: #${trioAtualPista.senha}`;
+      } else {
+        document.getElementById("juizTrioAtual").innerText = "Todos os trios desta categoria já correram.";
+        document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: --";
+      }
+    }
+
+    // Modal e Novo Cadastro
+    btnAbrirModalTrio.addEventListener("click", () => {
+      document.getElementById("modalSenha").value = triosAtuais.length + 1;
+      modalTrio.style.display = "flex";
+    });
+
+    btnFecharModal.addEventListener("click", () => modalTrio.style.display = "none");
+
+    document.getElementById("formModalTrio").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const senha = parseInt(document.getElementById("modalSenha").value);
+      const c1 = document.getElementById("modalC1").value.trim();
+      const c2 = document.getElementById("modalC2").value.trim();
+      const c3 = document.getElementById("modalC3").value.trim();
+      const animais = document.getElementById("modalAnimais").value.trim();
+
+      try {
+        await addDoc(collection(db, "trios"), {
+          competicaoId: selectedCompId,
+          categoria: selectedCategoriaNome,
+          categoriaData: selectedCategoriaData,
+          senha: senha,
+          integrantes: [c1, c2, c3],
+          animais: animais,
+          criadoEm: new Date(),
+          status: "INSCRITO"
+        });
+
+        alert("Trio adicionado com sucesso!");
+        modalTrio.style.display = "none";
+        document.getElementById("formModalTrio").reset();
+      } catch (err) {
+        alert("Erro ao cadastrar trio: " + err.message);
+      }
+    });
+
+    // Lançamento de Tempos na Mesa do Juiz
+    btnConfirmarTempo.addEventListener("click", () => lancarResultado("OK"));
+    btnSAT.addEventListener("click", () => lancarResultado("SAT"));
+    btnDO.addEventListener("click", () => lancarResultado("DO"));
+
+    async function lancarResultado(status) {
+      if (!trioAtualPista) {
+        alert("Não há trios pendentes na pista.");
+        return;
+      }
+
+      const tempo = parseFloat(inputTempo.value);
+      const boi = inputBoiSorteado.value.trim();
+      const boisCurral = parseInt(inputQuantidadeBois.value);
+
+      if (status === "OK" && (!tempo || !boi)) {
+        alert("Preencha o tempo final e o boi sorteado!");
+        return;
+      }
+
+      try {
+        const trioRef = doc(db, "trios", trioAtualPista.id);
+        await updateDoc(trioRef, {
+          tempo: status === "OK" ? tempo : null,
+          boiSorteado: boi || "N/A",
+          boisCurralados: boisCurral,
+          status: status,
+          finalizadoEm: new Date()
+        });
+
+        inputTempo.value = "";
+        inputBoiSorteado.value = "";
+      } catch (err) {
+        alert("Erro ao gravar resultado: " + err.message);
+      }
+    }
+
+    document.getElementById("btnSair").addEventListener("click", () => {
+      signOut(auth).then(() => window.location.href = "./index.html");
+    });
+  </script>
+</body>
+</html>
