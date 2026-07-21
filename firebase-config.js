@@ -9,10 +9,11 @@ import {
 import { 
   getFirestore, 
   collection, 
-  doc, 
+  doc,
+  updateDoc, 
   setDoc, 
   addDoc, 
-  getDoc, // <--- ADICIONADO AQUI
+  getDoc,
   getDocs, 
   query, 
   where 
@@ -34,10 +35,11 @@ const db = getFirestore(app);
 export { 
   auth, 
   db, 
-  doc, 
+  doc,
+  updateDoc, 
   setDoc, 
   addDoc, 
-  getDoc, // <--- EXPORTADO AQUI
+  getDoc,
   getDocs, 
   collection, 
   query, 
