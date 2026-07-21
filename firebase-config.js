@@ -13,7 +13,6 @@ import {
   doc,
   updateDoc, 
   setDoc, 
-  addDoc, 
   getDoc,
   getDocs,
   onSnapshot, 
