@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1Gerenciamento de Provas - Team Penning</title>
+  <title>Gerenciamento de Provas - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
   <style>
     :root {
@@ -40,8 +40,8 @@
     .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
     .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #e76f51; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
     
-    .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 500px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
+    .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 600px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
 
     .btn-add-cat { background: transparent; border: 1px dashed var(--accent-gold); color: var(--accent-gold); width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
     .btn-add-cat:hover { background: rgba(255, 183, 3, 0.1); }
@@ -75,12 +75,12 @@
       <form id="formCompeticao">
         
         <div class="form-group">
-          <label for="nomeComp">Nome da Competição:</label>
+          <label for="nomeComp">Nome Principal da Competição / Evento:</label>
           <input type="text" id="nomeComp" placeholder="Ex: 1º Grande Team Penning de Uberaba" required>
         </div>
 
         <div class="form-group">
-          <label for="dataComp">Data do Evento:</label>
+          <label for="dataComp">Data de Início do Evento:</label>
           <input type="date" id="dataComp" required>
         </div>
 
@@ -123,16 +123,23 @@
     const btnSalvarComp = document.getElementById("btnSalvarComp");
 
     // Adiciona bloco HTML para preenchimento de uma nova categoria
-    function adicionarCampoCategoria(nome = "", baterias = 2, classificados = 10) {
+    function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, classificados = 10) {
+      // Se não informar data específica, puxa a data principal ou a data de hoje
+      const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
+
       const div = document.createElement("div");
       div.className = "categoria-box";
       
       div.innerHTML = `
-        <button type="button" class="btn-remover">✕</button>
+        <button type="button" class="btn-remover" title="Remover Categoria">✕</button>
         <div class="grid-cat-inputs">
           <div class="form-group" style="margin:0;">
             <label>Nome Categoria</label>
             <input type="text" class="cat-nome" placeholder="Ex: Soma 3" value="${nome}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Data Prova</label>
+            <input type="date" class="cat-data" value="${dataPadrao}" required>
           </div>
           <div class="form-group" style="margin:0;">
             <label>Nº Baterias</label>
@@ -183,6 +190,7 @@
       blocosCategorias.forEach(bloco => {
         categorias.push({
           nome: bloco.querySelector(".cat-nome").value.trim(),
+          data: bloco.querySelector(".cat-data").value,
           qtdBaterias: parseInt(bloco.querySelector(".cat-baterias").value) || 1,
           classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value) || 1
         });
@@ -195,7 +203,7 @@
         await addDoc(collection(db, "competicoes"), {
           organizadorId: currentUser.uid,
           nome: nomeComp,
-          data: dataComp,
+          dataInicio: dataComp,
           categorias: categorias,
           criadoEm: new Date(),
           status: "ATIVA"
@@ -206,7 +214,7 @@
         // Limpa formulário e recarrega
         document.getElementById("formCompeticao").reset();
         containerCategorias.innerHTML = "";
-        adicionarCampoCategoria(); // Adiciona 1 campo limpo padrão
+        adicionarCampoCategoria(); // Insere 1 campo padrão limpo
         carregarCompeticoes();
 
       } catch (error) {
@@ -243,14 +251,14 @@
           const card = document.createElement("div");
           card.className = "card-prova-item";
           
-          const nomesCategorias = comp.categorias && comp.categorias.length > 0
-            ? comp.categorias.map(c => c.nome).join(", ")
+          const detalhesCat = comp.categorias && comp.categorias.length > 0
+            ? comp.categorias.map(c => `${c.nome} (${c.data || comp.dataInicio})`).join(" | ")
             : "Nenhuma categoria";
 
           card.innerHTML = `
             <div class="info">
               <h3>${comp.nome}</h3>
-              <p>Data: ${comp.data} | Categorias: ${nomesCategorias}</p>
+              <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
             </div>
             <div class="acoes">
               <button class="btn-action" data-id="${compId}">Gerenciar (Admin)</button>
@@ -266,18 +274,16 @@
       }
     }
 
-    // Função para direcionar para admin.html salvando a prova selecionada
     function gerenciarProva(compId) {
       localStorage.setItem("selectedCompId", compId);
       window.location.href = "./admin.html";
     }
 
-    // Logout
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");
     });
 
-    // Inicializa com 1 bloco de categoria visível imediatamente
+    // Gera o primeiro campo dinâmico de categoria assim que a tela abre
     adicionarCampoCategoria();
   </script>
 </body>
