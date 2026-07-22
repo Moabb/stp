@@ -221,7 +221,6 @@
               <tr>
                 <th>Ordem</th>
                 <th>Bateria</th>
-                <th>Senha</th>
                 <th>Integrantes</th>
                 <th>Boi</th>
                 <th>Tempo</th>
@@ -230,7 +229,7 @@
               </tr>
             </thead>
             <tbody id="tbTriosAdmin">
-              <tr><td colspan="8" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>
+              <tr><td colspan="7" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>
             </tbody>
           </table>
         </div>
@@ -631,7 +630,6 @@
         return [
           `#${ordem}`,
           `Bateria ${bat}`,
-          `#${trio.senha}`,
           integrantes,
           trio.boiSorteado || "--",
           tempo,
@@ -641,7 +639,7 @@
 
       docPdf.autoTable({
         startY: 28,
-        head: [['Ordem', 'Bateria', 'Senha', 'Integrantes do Trio', 'Boi', 'Tempo', 'Status']],
+        head: [['Ordem', 'Bateria', 'Integrantes do Trio', 'Boi', 'Tempo', 'Status']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [42, 157, 143] }
@@ -650,7 +648,7 @@
       docPdf.save(`Ordem_Corridas_${selectedCategoriaNome.replace(/\s+/g, '_')}.pdf`);
     });
 
-    // Renderiza a Tabela apenas com os pendentes (Inscrito/Aguardando)
+    // Renderiza a Tabela apenas com os pendentes (Inscrito/Aguardando) - Sem a coluna Senha
     function atualizarTabelaAdmin() {
       const tbBody = document.getElementById("tbTriosAdmin");
       tbBody.innerHTML = "";
@@ -658,7 +656,7 @@
       const triosPendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {
-        tbBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Todos os trios desta categoria já correram!</td></tr>';
+        tbBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Todos os trios desta categoria já correram!</td></tr>';
         return;
       }
 
@@ -682,7 +680,6 @@
         tr.innerHTML = `
           <td><strong>${ordem}</strong> ${tagTroca}</td>
           <td><span class="badge-bateria">Bat. ${batNum}</span></td>
-          <td><span class="badge-senha">#${trio.senha}</span></td>
           <td>${nomes}</td>
           <td>${trio.boiSorteado || "--"}</td>
           <td><strong>${tempo}</strong></td>
