@@ -41,6 +41,13 @@
     .bloco-classificada { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
     .bloco-classificada h3 { color: var(--accent-green); font-size: 1.1rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
 
+    /* NOVO: Grid para colocar as baterias LADO A LADO */
+    .grid-baterias {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
     .tabela-classificados { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .tabela-classificados th, .tabela-classificados td { padding: 8px; font-size: 0.85rem; text-align: left; border-bottom: 1px solid #333; }
     .tabela-classificados th { color: var(--accent-gold); background: #1f1f1f; }
@@ -206,7 +213,6 @@
       }
     });
 
-    // Busca os resultados salvos na coleção 'classificados'
     async function carregarClassificados(compId) {
       containerClassificadas.innerHTML = '<p style="color: #888;">Carregando resultados das classificatórias...</p>';
       
@@ -238,7 +244,6 @@
       }
     }
 
-    // Renderiza cada Categoria e suas Baterias com Checkboxes
     function renderizarBlocosClassificados() {
       containerClassificadas.innerHTML = "";
       triosUnificadosSelecionados = [];
@@ -267,7 +272,7 @@
           });
 
           htmlBaterias += `
-            <div style="background: #1e1e1e; padding: 10px; border-radius: 6px; margin-top: 10px; border: 1px solid #333;">
+            <div style="background: #1e1e1e; padding: 10px; border-radius: 6px; border: 1px solid #333;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                 <label style="font-weight:bold; color:var(--accent-gold); cursor:pointer; display:flex; align-items:center; gap:8px;">
                   <input type="checkbox" class="checkbox-bateria" data-doc-id="${item.id}" data-bat-key="${batKey}">
@@ -289,19 +294,19 @@
             <span>${item.categoria}</span>
             <small style="font-size:0.8rem; color:#aaa;">Data: ${item.dataCategoria || '--'}</small>
           </h3>
-          ${htmlBaterias}
+          <div class="grid-baterias">
+            ${htmlBaterias}
+          </div>
         `;
 
         containerClassificadas.appendChild(divBox);
       });
 
-      // Adiciona ouvinte de clique em todos os Checkboxes
       document.querySelectorAll(".checkbox-bateria").forEach(chk => {
         chk.addEventListener("change", recalcularTriosSelecionados);
       });
     }
 
-    // Recalcula os trios marcados pelos checkboxes
     function recalcularTriosSelecionados() {
       triosUnificadosSelecionados = [];
 
@@ -324,14 +329,12 @@
       txtTotalSelecionados.innerText = `${total} Trio${total !== 1 ? 's' : ''}`;
       btnGerar.disabled = total === 0;
 
-      // Sugere nome padrão caso o usuário não tenha digitado
       const inputNome = document.getElementById("inputNomeSemifinal");
       if (!inputNome.value && classificadosCache.length > 0) {
         inputNome.value = `Semifinal - ${classificadosCache[0].categoria}`;
       }
     }
 
-    // Envia os trios selecionados para a coleção 'trios' como uma nova Categoria SEMIFINAL
     document.getElementById("formGerarSemifinal").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -352,7 +355,6 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Semifinal...";
 
-        // 1. Grava individualmente cada trio na coleção 'trios' marcado como SEMIFINAL
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
@@ -367,20 +369,18 @@
           });
         }
 
-        // 2. Atualiza as configurações da categoria dentro do documento da competição
         const comp = competicoesCache[compId];
         const categoriasAtuais = comp.categorias || [];
         
         categoriasAtuais.push({
           nome: nomeSemifinal,
           data: dataSemifinal,
-          qtdBaterias: 1, // Semifinal roda unificada em 1 grande grupo
+          qtdBaterias: 1,
           limiteGado: limiteGado,
           classificadosLote: vagasFinal,
           fase: "SEMIFINAL"
         });
 
-        // Redireciona diretamente para a prova no admin.html
         alert("Semifinal criada com sucesso! Redirecionando para a mesa do juiz...");
         window.location.href = "./admin.html";
 
