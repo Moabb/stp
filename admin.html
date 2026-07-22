@@ -424,24 +424,50 @@
       }
     }
 
-    function atualizarCategoriasSelect(compId) {
-      selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
+    async function atualizarCategoriasSelect(compId) {
+      selectCategoria.innerHTML = '<option value="">Carregando categorias...</option>';
       
       if (!compId || !competicoesCache[compId]) {
+        selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
         selectCategoria.disabled = true;
         desativarControles();
         return;
+      }
+
+      // Consulta no banco para obter as categorias já finalizadas nesta competição
+      const categoriasFinalizadas = new Set();
+      try {
+        const qClassificados = query(
+          collection(db, "classificados"),
+          where("competicaoId", "==", compId)
+        );
+        const snapClassificados = await getDocs(qClassificados);
+        snapClassificados.forEach(d => {
+          const data = d.data();
+          if (data.categoria) {
+            categoriasFinalizadas.add(data.categoria);
+          }
+        });
+      } catch (err) {
+        console.error("Erro ao consultar categorias finalizadas:", err);
       }
 
       const categorias = competicoesCache[compId].categorias || [];
-      if (categorias.length === 0) {
-        selectCategoria.innerHTML = '<option value="">Sem categorias</option>';
+      
+      // Filtra e mantém apenas categorias que ainda NÃO foram finalizadas
+      const categoriasAtivas = categorias.filter(cat => !categoriasFinalizadas.has(cat.nome));
+
+      selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
+
+      if (categoriasAtivas.length === 0) {
+        selectCategoria.innerHTML = '<option value="">Nenhuma categoria pendente</option>';
         selectCategoria.disabled = true;
         desativarControles();
+        limparPistaETabela();
         return;
       }
 
-      categorias.forEach(cat => {
+      categoriasAtivas.forEach(cat => {
         const option = document.createElement("option");
         const catData = cat.data || competicoesCache[compId].dataInicio || "";
         option.value = `${cat.nome}|${catData}`;
@@ -450,6 +476,19 @@
       });
 
       selectCategoria.disabled = false;
+
+      // Se a categoria selecionada anteriormente acabou de ser finalizada, reseta a interface
+      if (!selectedCategoriaNome) {
+        desativarControles();
+        limparPistaETabela();
+      }
+    }
+
+    // Helper para limpar os campos da tela quando a categoria é concluída
+    function limparPistaETabela() {
+      document.getElementById("juizTrioAtual").innerText = "Selecione uma categoria ativa";
+      document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: -- | Bateria: --";
+      document.getElementById("tbTriosAdmin").innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>';
     }
 
     selectCompeticao.addEventListener("change", (e) => {
@@ -894,7 +933,8 @@
         const idDocumentoFinal = `${selectedCompId}_${selectedCategoriaNome.replace(/\s+/g, '_')}`;
         const refClassificados = doc(db, "classificados", idDocumentoFinal);
 
-        await updateDoc(refClassificados, {
+        // setDoc com merge garante que cria se não existir ou atualiza se já existir
+        await setDoc(refClassificados, {
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
           dataCategoria: selectedCategoriaData,
@@ -902,21 +942,16 @@
           totalBaterias: numBaterias,
           resultadosPorBateria: resultadoFinalPorBateria,
           atualizadoEm: new Date()
-        }).catch(async (err) => {
-          // Se o documento ainda não existir no Firestore, cria com addDoc/setDoc via addDoc
-          await addDoc(collection(db, "classificados"), {
-            idCustom: idDocumentoFinal,
-            competicaoId: selectedCompId,
-            categoria: selectedCategoriaNome,
-            dataCategoria: selectedCategoriaData,
-            vagasPorBateria: vagasClassificacao,
-            totalBaterias: numBaterias,
-            resultadosPorBateria: resultadoFinalPorBateria,
-            atualizadoEm: new Date()
-          });
-        });
+        }, { merge: true });
 
-        console.log("Resultados dos classificados por bateria gravados no banco de dados com sucesso!");
+        console.log("Resultados dos classificados gravados com sucesso!");
+
+        // Reseta as variáveis da categoria atual
+        selectedCategoriaNome = null;
+        selectedCategoriaData = null;
+
+        // Recarrega o dropdown de categorias sem a que acabou de finalizar
+        await atualizarCategoriasSelect(selectedCompId);
 
       } catch (err) {
         console.error("Erro ao salvar classificados finais:", err);
