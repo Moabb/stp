@@ -26,9 +26,6 @@
     .btn-header { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-decoration: none; font-size: 0.85rem; }
     .btn-header:hover { opacity: 0.9; }
 
-    /* Barra de Seleção da Categoria */
-    .seletor-bar { background: #262626; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color); display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-    
     /* Layout da Grid Admin */
     .admin-grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
     @media (max-width: 950px) { .admin-grid { grid-template-columns: 1fr; } }
@@ -98,30 +95,31 @@
     </div>
   </header>
 
-  <!-- Barra Superior de Seleção de Categoria -->
-  <section class="seletor-bar">
-    <div class="form-group" style="margin: 0;">
-      <label for="selectCompeticao">Competição Ativa:</label>
-      <select id="selectCompeticao">
-        <option value="">Carregando competições...</option>
-      </select>
-    </div>
-    <div class="form-group" style="margin: 0;">
-      <label for="selectCategoria">Categoria Selecionada:</label>
-      <select id="selectCategoria" disabled>
-        <option value="">Selecione a competição</option>
-      </select>
-    </div>
-  </section>
-
   <div class="admin-grid">
 
-    <!-- COLUNA 1: Regulamento, Cadastro Rápido e Sorteio Live -->
+    <!-- COLUNA 1: Seleção, Regulamento, Cadastro Rápido e Sorteio Live -->
     <aside>
       
-      <!-- Card 1: Regulamento -->
+      <!-- Card 1: Seleção da Competição e Categoria -->
       <article class="card">
-        <h2>1. Regulamento do Lote de Gado</h2>
+        <h2>1. Seleção de Categoria</h2>
+        <div class="form-group">
+          <label for="selectCompeticao">Competição Ativa:</label>
+          <select id="selectCompeticao">
+            <option value="">Carregando competições...</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="selectCategoria">Categoria Selecionada:</label>
+          <select id="selectCategoria" disabled>
+            <option value="">Selecione a competição</option>
+          </select>
+        </div>
+      </article>
+
+      <!-- Card 2: Regulamento -->
+      <article class="card">
+        <h2>2. Regulamento do Lote de Gado</h2>
         <form id="formRegulamento">
           <div class="form-group">
             <label for="inputLimiteGado">Nº Corridas por Lote de Gado:</label>
@@ -135,15 +133,15 @@
         </form>
       </article>
 
-      <!-- Card 2: Ações Pré-Prova (Novo Trio) -->
+      <!-- Card 3: Ações Pré-Prova (Novo Trio) -->
       <article class="card">
-        <h2>2. Inscrições de Última Hora</h2>
+        <h2>3. Inscrições de Última Hora</h2>
         <button class="btn btn-primary" id="btnAbrirModalTrio" disabled>+ Cadastrar Novo Trio (Senha)</button>
       </article>
 
-      <!-- Card 3: Sorteio de Entrada (Start List Live) -->
+      <!-- Card 4: Sorteio de Entrada (Start List Live) -->
       <article class="card">
-        <h2>3. Sorteio de Entrada (Start List)</h2>
+        <h2>4. Sorteio de Entrada (Start List)</h2>
         <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 12px;">
           Gera a ordem de pista e transmite o sorteio em tempo real para a tela do Painel/TV.
         </p>
@@ -191,9 +189,9 @@
         </form>
       </article>
 
-      <!-- Lista Completa dos Trios na Categoria -->
+      <!-- Lista Completa dos Trios Pendentes na Categoria -->
       <article class="card" style="margin-top: 20px;">
-        <h2>Ordem de Pista / Inscritos da Categoria</h2>
+        <h2>Próximos Corredores / Fila da Categoria</h2>
         <div class="tabela-container">
           <table>
             <thead>
@@ -463,7 +461,7 @@
       btnDO.disabled = true;
     }
 
-    // Carrega Regulamento e Escuta Trios da Lista Individual / Categoria Selecionada
+    // Carrega Regulamento e Escuta Trios da Categoria Selecionada
     function carregarDadosCategoria() {
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
@@ -534,16 +532,13 @@
       if (!confirm("Confirmar o sorteio das ordens de entrada? Isso atualizará a transmissão ao vivo no Painel.")) return;
 
       try {
-        // Embaralha os trios
         const triosEmbaralhados = [...triosAtuais].sort(() => Math.random() - 0.5);
 
-        // Atualiza a ordem de pista de cada trio no Firestore
         for (let i = 0; i < triosEmbaralhados.length; i++) {
           const trioRef = doc(db, "trios", triosEmbaralhados[i].id);
           await updateDoc(trioRef, { ordemPista: i + 1, status: "AGUARDANDO" });
         }
 
-        // Envia comando para a página `painel.html` iniciar a animação do Sorteio
         await updateDoc(doc(db, "competicoes", selectedCompId), {
           sorteioStatus: "EXIBINDO",
           categoriaEmSorteio: selectedCategoriaNome
@@ -569,25 +564,29 @@
       }
     });
 
-    // Renderiza a Tabela destacando a Troca de Bateria e permitindo Edição
+    // Renderiza a Tabela apenas com os pendentes (Inscrito/Aguardando), fazendo a fila girar
     function atualizarTabelaAdmin() {
       const tbBody = document.getElementById("tbTriosAdmin");
       tbBody.innerHTML = "";
 
-      if (triosAtuais.length === 0) {
-        tbBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Nenhum trio cadastrado.</td></tr>';
+      // Filtra para exibir APENAS os trios que ainda NÂO correram
+      const triosPendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
+
+      if (triosPendentes.length === 0) {
+        tbBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Todos os trios desta categoria já correram!</td></tr>';
         return;
       }
 
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 24;
 
-      triosAtuais.forEach((trio, index) => {
-        const ordemNum = trio.ordemPista || (index + 1);
+      triosPendentes.forEach((trio) => {
+        // Usa a ordem de pista original (ou a senha) para marcar a troca de bateria corretamente
+        const ordemNum = trio.ordemPista || trio.senha;
         const ordem = trio.ordemPista ? `#${trio.ordemPista}` : "--";
         const tempo = trio.tempo ? `${parseFloat(trio.tempo).toFixed(2)}s` : "--";
         const nomes = trio.integrantes ? trio.integrantes.join(" / ") : "";
 
-        // Destaque de Troca de Bateria por Lote
+        // Destaque de Troca de Bateria com base na ordem oficial da pista
         const ehTrocaBateria = ordemNum > 0 && (ordemNum % limiteGado === 0);
         const classeTroca = ehTrocaBateria ? "troca-bateria" : "";
         const tagTroca = ehTrocaBateria ? `<span class="badge-troca">⚠️ TROCA DE BATERIA</span>` : "";
@@ -669,7 +668,7 @@
 
     // Atualiza a Pista (Mesa do Juiz)
     function atualizarMesaJuiz() {
-      trioAtualPista = triosAtuais.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO");
+      trioAtualPista = triosAtuais.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (trioAtualPista) {
         document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ");
