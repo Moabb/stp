@@ -504,6 +504,8 @@
         const parts = val.split("|");
         selectedCategoriaNome = parts[0];
         selectedCategoriaData = parts[1] || "";
+
+        jaFinalizouCategoria = false;
         
         carregarDadosCategoria();
         ativarControles();
