@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Administração & Cronometragem - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
+  
+  <!-- Bibliotecas para Geração de PDF (jsPDF + AutoTable) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
   <style>
     :root {
       --bg-dark: #121212;
@@ -32,6 +37,9 @@
 
     .card { background-color: var(--card-bg); border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border-color); }
     .card h2 { color: var(--accent-gold); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+
+    .card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+    .card-header-flex h2 { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
@@ -78,6 +86,14 @@
       margin-left: 6px;
       display: inline-block;
     }
+    .badge-bateria {
+      background: #3a86ff;
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
 
     /* Modal Simples */
     .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
@@ -123,15 +139,15 @@
         <form id="formRegulamento">
           <div class="form-group">
             <label for="inputQtdBaterias">Nº Total de Baterias / Lotes:</label>
-            <input type="number" id="inputQtdBaterias" min="1" value="1" required>
+            <input type="number" id="inputQtdBaterias" min="1" value="2" required>
           </div>
           <div class="form-group">
             <label for="inputLimiteGado">Nº Corridas por Lote/Bateria:</label>
-            <input type="number" id="inputLimiteGado" min="1" value="24" required>
+            <input type="number" id="inputLimiteGado" min="1" value="25" required>
           </div>
           <div class="form-group">
             <label for="inputClassificadosLote">Classificados p/ Segunda Passada:</label>
-            <input type="number" id="inputClassificadosLote" min="1" value="10" required>
+            <input type="number" id="inputClassificadosLote" min="1" value="3" required>
           </div>
           <button type="submit" class="btn btn-primary" id="btnSalvarRegulamento" disabled>Salvar Regulamento</button>
         </form>
@@ -163,7 +179,7 @@
         <h2 style="color: var(--accent-gold); border: none; padding: 0;">⏱️ MESA DO JUIZ DE PISTA</h2>
         
         <div class="trio-destaque" id="juizTrioAtual">Selecione uma categoria ativa</div>
-        <div id="juizTrioDetalhes" style="color: #aaa; font-size: 0.9rem;">Ordem de Pista: -- | Senha: --</div>
+        <div id="juizTrioDetalhes" style="color: #aaa; font-size: 0.9rem;">Ordem de Pista: -- | Senha: -- | Bateria: --</div>
 
         <form id="formLancarResultado" style="margin-top: 15px;">
           <div class="grid-inputs-corrida">
@@ -195,12 +211,16 @@
 
       <!-- Lista Completa dos Trios Pendentes na Categoria -->
       <article class="card" style="margin-top: 20px;">
-        <h2>Próximos Corredores / Fila da Categoria</h2>
+        <div class="card-header-flex">
+          <h2>Próximos Corredores / Fila da Categoria</h2>
+          <button class="btn btn-warning btn-sm" id="btnCompartilharLista" disabled>📄 Compartilhar Lista (PDF)</button>
+        </div>
         <div class="tabela-container">
           <table>
             <thead>
               <tr>
                 <th>Ordem</th>
+                <th>Bateria</th>
                 <th>Senha</th>
                 <th>Integrantes</th>
                 <th>Boi</th>
@@ -210,7 +230,7 @@
               </tr>
             </thead>
             <tbody id="tbTriosAdmin">
-              <tr><td colspan="7" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>
+              <tr><td colspan="8" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>
             </tbody>
           </table>
         </div>
@@ -333,6 +353,7 @@
     const btnAbrirModalTrio = document.getElementById("btnAbrirModalTrio");
     const btnRealizarSorteio = document.getElementById("btnRealizarSorteio");
     const btnEncerrarSorteioLive = document.getElementById("btnEncerrarSorteioLive");
+    const btnCompartilharLista = document.getElementById("btnCompartilharLista");
 
     const inputTempo = document.getElementById("inputTempo");
     const inputBoiSorteado = document.getElementById("inputBoiSorteado");
@@ -347,6 +368,16 @@
 
     const modalEditarTrio = document.getElementById("modalEditarTrio");
     const btnFecharModalEdit = document.getElementById("btnFecharModalEdit");
+
+    // Helper: Função para calcular em qual Bateria o Trio está (baseado na ordem de pista/corrida)
+    function calcularBateria(ordemPista, tamanhoLote, numBaterias) {
+      if (!ordemPista || ordemPista <= 0) return 1;
+      const qtdBaterias = numBaterias || 2;
+      const loteTam = tamanhoLote || 25;
+      
+      const indiceLote = Math.floor((ordemPista - 1) / loteTam);
+      return (indiceLote % qtdBaterias) + 1;
+    }
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -445,6 +476,7 @@
       btnSalvarRegulamento.disabled = false;
       btnAbrirModalTrio.disabled = false;
       btnRealizarSorteio.disabled = false;
+      btnCompartilharLista.disabled = false;
       inputTempo.disabled = false;
       inputBoiSorteado.disabled = false;
       inputQuantidadeBois.disabled = false;
@@ -457,6 +489,7 @@
       btnSalvarRegulamento.disabled = true;
       btnAbrirModalTrio.disabled = true;
       btnRealizarSorteio.disabled = true;
+      btnCompartilharLista.disabled = true;
       inputTempo.disabled = true;
       inputBoiSorteado.disabled = true;
       inputQuantidadeBois.disabled = true;
@@ -472,9 +505,9 @@
 
       const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
       if (catInfo) {
-        document.getElementById("inputQtdBaterias").value = catInfo.qtdBaterias || 1;
-        document.getElementById("inputLimiteGado").value = catInfo.limiteGado || 24;
-        document.getElementById("inputClassificadosLote").value = catInfo.classificadosLote || 10;
+        document.getElementById("inputQtdBaterias").value = catInfo.qtdBaterias || 2;
+        document.getElementById("inputLimiteGado").value = catInfo.limiteGado || 25;
+        document.getElementById("inputClassificadosLote").value = catInfo.classificadosLote || 3;
       }
 
       const q = query(
@@ -494,10 +527,11 @@
 
         atualizarTabelaAdmin();
         atualizarMesaJuiz();
+        verificarEProcessarFinalizacaoCategoria();
       });
     }
 
-    // Salvar Alteração no Regulamento da Categoria (Com Quantidade de Baterias)
+    // Salvar Alteração no Regulamento da Categoria
     document.getElementById("formRegulamento").addEventListener("submit", async (e) => {
       e.preventDefault();
       const comp = competicoesCache[selectedCompId];
@@ -568,6 +602,54 @@
       }
     });
 
+    // Botão Compartilhar Lista (Gera PDF em ordem de corrida com bateria)
+    btnCompartilharLista.addEventListener("click", () => {
+      if (triosAtuais.length === 0) {
+        alert("Não há trios para gerar o relatório.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const docPdf = new jsPDF();
+
+      const compNome = competicoesCache[selectedCompId]?.nome || "Competição";
+      const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
+      const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
+
+      // Cabeçalho do PDF
+      docPdf.setFontSize(16);
+      docPdf.text(`Ordem de Corridas - ${compNome}`, 14, 15);
+      docPdf.setFontSize(11);
+      docPdf.text(`Categoria: ${selectedCategoriaNome} | Data: ${selectedCategoriaData}`, 14, 23);
+
+      const tableData = triosAtuais.map((trio) => {
+        const ordem = trio.ordemPista || trio.senha;
+        const bat = calcularBateria(ordem, limiteGado, numBaterias);
+        const integrantes = trio.integrantes ? trio.integrantes.join(", ") : "";
+        const tempo = trio.tempo ? `${parseFloat(trio.tempo).toFixed(2)}s` : "--";
+        
+        return [
+          `#${ordem}`,
+          `Bateria ${bat}`,
+          `#${trio.senha}`,
+          integrantes,
+          trio.boiSorteado || "--",
+          tempo,
+          trio.status || "INSCRITO"
+        ];
+      });
+
+      docPdf.autoTable({
+        startY: 28,
+        head: [['Ordem', 'Bateria', 'Senha', 'Integrantes do Trio', 'Boi', 'Tempo', 'Status']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [42, 157, 143] }
+      });
+
+      docPdf.save(`Ordem_Corridas_${selectedCategoriaNome.replace(/\s+/g, '_')}.pdf`);
+    });
+
     // Renderiza a Tabela apenas com os pendentes (Inscrito/Aguardando)
     function atualizarTabelaAdmin() {
       const tbBody = document.getElementById("tbTriosAdmin");
@@ -576,27 +658,30 @@
       const triosPendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {
-        tbBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Todos os trios desta categoria já correram!</td></tr>';
+        tbBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Todos os trios desta categoria já correram!</td></tr>';
         return;
       }
 
-      const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 24;
+      const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
+      const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
 
       triosPendentes.forEach((trio) => {
         const ordemNum = trio.ordemPista || trio.senha;
         const ordem = trio.ordemPista ? `#${trio.ordemPista}` : "--";
+        const batNum = calcularBateria(ordemNum, limiteGado, numBaterias);
         const tempo = trio.tempo ? `${parseFloat(trio.tempo).toFixed(2)}s` : "--";
         const nomes = trio.integrantes ? trio.integrantes.join(" / ") : "";
 
         const ehTrocaBateria = ordemNum > 0 && (ordemNum % limiteGado === 0);
         const classeTroca = ehTrocaBateria ? "troca-bateria" : "";
-        const tagTroca = ehTrocaBateria ? `<span class="badge-troca">⚠️ TROCA DE BATERIA</span>` : "";
+        const tagTroca = ehTrocaBateria ? `<span class="badge-troca">⚠️ TROCA DE LOTE</span>` : "";
 
         const tr = document.createElement("tr");
         if (classeTroca) tr.className = classeTroca;
 
         tr.innerHTML = `
           <td><strong>${ordem}</strong> ${tagTroca}</td>
+          <td><span class="badge-bateria">Bat. ${batNum}</span></td>
           <td><span class="badge-senha">#${trio.senha}</span></td>
           <td>${nomes}</td>
           <td>${trio.boiSorteado || "--"}</td>
@@ -671,11 +756,16 @@
       trioAtualPista = triosAtuais.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (trioAtualPista) {
+        const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
+        const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
+        const ordemNum = trioAtualPista.ordemPista || trioAtualPista.senha;
+        const batNum = calcularBateria(ordemNum, limiteGado, numBaterias);
+
         document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ");
-        document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha Original: #${trioAtualPista.senha}`;
+        document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha: #${trioAtualPista.senha} | Bateria: ${batNum}`;
       } else {
         document.getElementById("juizTrioAtual").innerText = "Todos os trios desta categoria já correram.";
-        document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: --";
+        document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: -- | Bateria: --";
       }
     }
 
@@ -750,6 +840,86 @@
         inputBoiSorteado.value = "";
       } catch (err) {
         alert("Erro ao gravar resultado: " + err.message);
+      }
+    }
+
+    // Função que verifica se todos correram e salva o resultado final no banco de dados
+    async function verificarEProcessarFinalizacaoCategoria() {
+      if (triosAtuais.length === 0) return;
+
+      const pendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
+      
+      // Se ainda houver trios pendentes, aborta a finalização
+      if (pendentes.length > 0) return;
+
+      const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
+      const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
+      const vagasClassificacao = parseInt(document.getElementById("inputClassificadosLote").value) || 3;
+
+      // Agrupar trios por bateria e filtrar somente aqueles que concluíram com sucesso (tempo válido)
+      const baterias = {};
+      for (let i = 1; i <= numBaterias; i++) {
+        baterias[i] = [];
+      }
+
+      triosAtuais.forEach(trio => {
+        if (trio.status === "OK" && trio.tempo > 0) {
+          const ordemNum = trio.ordemPista || trio.senha;
+          const batNum = calcularBateria(ordemNum, limiteGado, numBaterias);
+          if (baterias[batNum]) {
+            baterias[batNum].push(trio);
+          }
+        }
+      });
+
+      // Ordenar do menor para o maior tempo em cada bateria e pegar os N classificados
+      const resultadoFinalPorBateria = {};
+
+      for (let b = 1; b <= numBaterias; b++) {
+        baterias[b].sort((a, b) => a.tempo - b.tempo);
+        
+        const classificadosBateria = baterias[b].slice(0, vagasClassificacao).map((t, idx) => ({
+          posicao: idx + 1,
+          trioId: t.id,
+          senha: t.senha,
+          integrantes: t.integrantes,
+          tempo: t.tempo,
+          boiSorteado: t.boiSorteado
+        }));
+
+        resultadoFinalPorBateria[`bateria${b}`] = classificadosBateria;
+      }
+
+      try {
+        const idDocumentoFinal = `${selectedCompId}_${selectedCategoriaNome.replace(/\s+/g, '_')}`;
+        const refClassificados = doc(db, "classificados", idDocumentoFinal);
+
+        await updateDoc(refClassificados, {
+          competicaoId: selectedCompId,
+          categoria: selectedCategoriaNome,
+          dataCategoria: selectedCategoriaData,
+          vagasPorBateria: vagasClassificacao,
+          totalBaterias: numBaterias,
+          resultadosPorBateria: resultadoFinalPorBateria,
+          atualizadoEm: new Date()
+        }).catch(async (err) => {
+          // Se o documento ainda não existir no Firestore, cria com addDoc/setDoc via addDoc
+          await addDoc(collection(db, "classificados"), {
+            idCustom: idDocumentoFinal,
+            competicaoId: selectedCompId,
+            categoria: selectedCategoriaNome,
+            dataCategoria: selectedCategoriaData,
+            vagasPorBateria: vagasClassificacao,
+            totalBaterias: numBaterias,
+            resultadosPorBateria: resultadoFinalPorBateria,
+            atualizadoEm: new Date()
+          });
+        });
+
+        console.log("Resultados dos classificados por bateria gravados no banco de dados com sucesso!");
+
+      } catch (err) {
+        console.error("Erro ao salvar classificados finais:", err);
       }
     }
 
