@@ -218,23 +218,28 @@
           return;
         }
 
+        // Dicionário para garantir apenas o documento MAIS RECENTE de cada chave
         const mapaUnicos = {};
 
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
+          // Chave única combinando Categoria e Data da Categoria
           const chaveUnica = `${data.categoria}_${data.dataCategoria || 'semdata'}`;
 
           if (!mapaUnicos[chaveUnica]) {
             mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
           } else {
+            // Se já existe, compara a data de criação (criadoEm) e mantém o mais recente
             const dataExistente = mapaUnicos[chaveUnica].criadoEm?.seconds || 0;
             const dataNova = data.criadoEm?.seconds || 0;
+            
             if (dataNova > dataExistente) {
               mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
             }
           }
         });
 
+        // Transforma em array e ordena por data da categoria
         classificadosUnicos = Object.values(mapaUnicos).sort((a, b) => {
           return (a.dataCategoria || "").localeCompare(b.dataCategoria || "");
         });
