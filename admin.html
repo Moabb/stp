@@ -117,12 +117,16 @@
         </div>
       </article>
 
-      <!-- Card 2: Regulamento -->
+      <!-- Card 2: Regulamento do Lote de Gado -->
       <article class="card">
         <h2>2. Regulamento do Lote de Gado</h2>
         <form id="formRegulamento">
           <div class="form-group">
-            <label for="inputLimiteGado">Nº Corridas por Lote de Gado:</label>
+            <label for="inputQtdBaterias">Nº Total de Baterias / Lotes:</label>
+            <input type="number" id="inputQtdBaterias" min="1" value="1" required>
+          </div>
+          <div class="form-group">
+            <label for="inputLimiteGado">Nº Corridas por Lote/Bateria:</label>
             <input type="number" id="inputLimiteGado" min="1" value="24" required>
           </div>
           <div class="form-group">
@@ -468,11 +472,11 @@
 
       const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
       if (catInfo) {
+        document.getElementById("inputQtdBaterias").value = catInfo.qtdBaterias || 1;
         document.getElementById("inputLimiteGado").value = catInfo.limiteGado || 24;
         document.getElementById("inputClassificadosLote").value = catInfo.classificadosLote || 10;
       }
 
-      // Escuta os trios em tempo real preservando o filtro com `categoriaData`
       const q = query(
         collection(db, "trios"),
         where("competicaoId", "==", selectedCompId),
@@ -486,7 +490,6 @@
           triosAtuais.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        // Ordena por Ordem de Pista se já houver sorteio; caso contrário, por senha
         triosAtuais.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
 
         atualizarTabelaAdmin();
@@ -494,18 +497,19 @@
       });
     }
 
-    // Salvar Alteração no Regulamento da Categoria
+    // Salvar Alteração no Regulamento da Categoria (Com Quantidade de Baterias)
     document.getElementById("formRegulamento").addEventListener("submit", async (e) => {
       e.preventDefault();
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
 
+      const qtdBaterias = parseInt(document.getElementById("inputQtdBaterias").value);
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value);
       const classificadosLote = parseInt(document.getElementById("inputClassificadosLote").value);
 
       const categoriasAtualizadas = (comp.categorias || []).map(cat => {
         if (cat.nome === selectedCategoriaNome) {
-          return { ...cat, limiteGado, classificadosLote };
+          return { ...cat, qtdBaterias, limiteGado, classificadosLote };
         }
         return cat;
       });
@@ -564,12 +568,11 @@
       }
     });
 
-    // Renderiza a Tabela apenas com os pendentes (Inscrito/Aguardando), fazendo a fila girar
+    // Renderiza a Tabela apenas com os pendentes (Inscrito/Aguardando)
     function atualizarTabelaAdmin() {
       const tbBody = document.getElementById("tbTriosAdmin");
       tbBody.innerHTML = "";
 
-      // Filtra para exibir APENAS os trios que ainda NÂO correram
       const triosPendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {
@@ -580,13 +583,11 @@
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 24;
 
       triosPendentes.forEach((trio) => {
-        // Usa a ordem de pista original (ou a senha) para marcar a troca de bateria corretamente
         const ordemNum = trio.ordemPista || trio.senha;
         const ordem = trio.ordemPista ? `#${trio.ordemPista}` : "--";
         const tempo = trio.tempo ? `${parseFloat(trio.tempo).toFixed(2)}s` : "--";
         const nomes = trio.integrantes ? trio.integrantes.join(" / ") : "";
 
-        // Destaque de Troca de Bateria com base na ordem oficial da pista
         const ehTrocaBateria = ordemNum > 0 && (ordemNum % limiteGado === 0);
         const classeTroca = ehTrocaBateria ? "troca-bateria" : "";
         const tagTroca = ehTrocaBateria ? `<span class="badge-troca">⚠️ TROCA DE BATERIA</span>` : "";
@@ -609,7 +610,6 @@
         tbBody.appendChild(tr);
       });
 
-      // Eventos dos botões Editar
       document.querySelectorAll(".btn-editar-trio").forEach(btn => {
         btn.addEventListener("click", (e) => {
           const trioId = e.target.getAttribute("data-id");
