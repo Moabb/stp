@@ -37,16 +37,12 @@
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
     .form-group input, .form-group select { width: 100%; padding: 10px; background-color: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 0.95rem; }
 
-    /* Cards das Classificatórias Disponíveis */
+    /* Bloco da Categoria */
     .bloco-classificada { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
-    .bloco-classificada h3 { color: var(--accent-green); font-size: 1.1rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .bloco-classificada h3 { color: var(--accent-green); font-size: 1.1rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 6px; }
 
-    /* NOVO: Grid para colocar as baterias LADO A LADO */
-    .grid-baterias {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 12px;
-    }
+    /* Grid para colocar as baterias LADO A LADO */
+    .grid-baterias { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 
     .tabela-classificados { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .tabela-classificados th, .tabela-classificados td { padding: 8px; font-size: 0.85rem; text-align: left; border-bottom: 1px solid #333; }
@@ -74,12 +70,12 @@
 
   <div class="grid-semifinal">
 
-    <!-- COLUNA 1: Lista de Categorias Classificadas com Seleção -->
+    <!-- COLUNA 1: Lista de Categorias Classificadas -->
     <main>
       <article class="card">
         <h2>1. Seletor de Baterias Classificadas</h2>
         <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 15px;">
-          Selecione abaixo as baterias/lotes das etapas classificatórias que serão agrupadas para formar esta semifinal.
+          Selecione abaixo as baterias das etapas classificatórias que serão unidas para esta semifinal.
         </p>
 
         <div class="form-group">
@@ -95,7 +91,7 @@
       </article>
     </main>
 
-    <!-- COLUNA 2: Configuração e Consolidação da Semifinal -->
+    <!-- COLUNA 2: Configuração da Semifinal -->
     <aside class="fixar">
       <article class="card">
         <h2>2. Configurar a Semifinal</h2>
@@ -140,7 +136,6 @@
       collection, 
       addDoc, 
       getDocs, 
-      doc, 
       query, 
       where, 
       onAuthStateChanged,
@@ -149,7 +144,7 @@
 
     let currentUser = null;
     let competicoesCache = {};
-    let classificadosCache = [];
+    let classificadosUnicos = [];
     let triosUnificadosSelecionados = [];
 
     const selectCompeticao = document.getElementById("selectCompeticao");
@@ -214,7 +209,7 @@
     });
 
     async function carregarClassificados(compId) {
-      containerClassificadas.innerHTML = '<p style="color: #888;">Carregando resultados das classificatórias...</p>';
+      containerClassificadas.innerHTML = '<p style="color: #888;">Carregando e filtrando duplicatas...</p>';
       
       try {
         const q = query(
@@ -228,12 +223,28 @@
           return;
         }
 
-        classificadosCache = [];
-        containerClassificadas.innerHTML = "";
+        // REMOVE DUPLICATAS: Mantém apenas o registro mais recente por Categoria + Data
+        const mapaUnicos = {};
 
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
-          classificadosCache.push({ id: docSnap.id, ...data });
+          const chaveUnica = `${data.categoria}_${data.dataCategoria || 'semdata'}`;
+
+          // Se não existe ou se o registro atual possui criadoEm mais recente, substitui
+          if (!mapaUnicos[chaveUnica]) {
+            mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
+          } else {
+            const dataExistente = mapaUnicos[chaveUnica].criadoEm?.seconds || 0;
+            const dataNova = data.criadoEm?.seconds || 0;
+            if (dataNova > dataExistente) {
+              mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
+            }
+          }
+        });
+
+        // Transforma o objeto de únicos em Array e ordena por Data
+        classificadosUnicos = Object.values(mapaUnicos).sort((a, b) => {
+          return (a.dataCategoria || "").localeCompare(b.dataCategoria || "");
         });
 
         renderizarBlocosClassificados();
@@ -249,14 +260,17 @@
       triosUnificadosSelecionados = [];
       atualizarContador();
 
-      classificadosCache.forEach(item => {
+      classificadosUnicos.forEach(item => {
         const divBox = document.createElement("div");
         divBox.className = "bloco-classificada";
 
         let htmlBaterias = "";
         const resPorBat = item.resultadosPorBateria || {};
 
-        Object.keys(resPorBat).forEach(batKey => {
+        // Ordena as baterias (bateria1, bateria2...)
+        const bateriasOrdenadas = Object.keys(resPorBat).sort();
+
+        bateriasOrdenadas.forEach(batKey => {
           const numeroBateria = batKey.replace("bateria", "");
           const triosClassificados = resPorBat[batKey] || [];
 
@@ -276,14 +290,14 @@
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                 <label style="font-weight:bold; color:var(--accent-gold); cursor:pointer; display:flex; align-items:center; gap:8px;">
                   <input type="checkbox" class="checkbox-bateria" data-doc-id="${item.id}" data-bat-key="${batKey}">
-                  Incluir Bateria ${numeroBateria} (${triosClassificados.length} Trios)
+                  Incorporar Bateria ${numeroBateria} (${triosClassificados.length} Trios)
                 </label>
               </div>
               <table class="tabela-classificados">
                 <thead>
                   <tr><th>Pos</th><th>Integrantes</th><th>Tempo</th></tr>
                 </thead>
-                <tbody>${linhasTabela || '<tr><td colspan="3">Nenhum trio</td></tr>'}</tbody>
+                <tbody>${linhasTabela || '<tr><td colspan="3" style="color:#888;">Nenhum trio</td></tr>'}</tbody>
               </table>
             </div>
           `;
@@ -292,7 +306,7 @@
         divBox.innerHTML = `
           <h3>
             <span>${item.categoria}</span>
-            <small style="font-size:0.8rem; color:#aaa;">Data: ${item.dataCategoria || '--'}</small>
+            <small style="font-size:0.85rem; color:var(--accent-gold);">Data: ${item.dataCategoria || '--'}</small>
           </h3>
           <div class="grid-baterias">
             ${htmlBaterias}
@@ -314,7 +328,7 @@
         const docId = chk.getAttribute("data-doc-id");
         const batKey = chk.getAttribute("data-bat-key");
 
-        const classificadoDoc = classificadosCache.find(c => c.id === docId);
+        const classificadoDoc = classificadosUnicos.find(c => c.id === docId);
         if (classificadoDoc && classificadoDoc.resultadosPorBateria[batKey]) {
           const trios = classificadoDoc.resultadosPorBateria[batKey];
           triosUnificadosSelecionados.push(...trios);
@@ -330,8 +344,8 @@
       btnGerar.disabled = total === 0;
 
       const inputNome = document.getElementById("inputNomeSemifinal");
-      if (!inputNome.value && classificadosCache.length > 0) {
-        inputNome.value = `Semifinal - ${classificadosCache[0].categoria}`;
+      if (!inputNome.value && classificadosUnicos.length > 0) {
+        inputNome.value = `Semifinal - ${classificadosUnicos[0].categoria}`;
       }
     }
 
@@ -368,18 +382,6 @@
             criadoEm: new Date()
           });
         }
-
-        const comp = competicoesCache[compId];
-        const categoriasAtuais = comp.categorias || [];
-        
-        categoriasAtuais.push({
-          nome: nomeSemifinal,
-          data: dataSemifinal,
-          qtdBaterias: 1,
-          limiteGado: limiteGado,
-          classificadosLote: vagasFinal,
-          fase: "SEMIFINAL"
-        });
 
         alert("Semifinal criada com sucesso! Redirecionando para a mesa do juiz...");
         window.location.href = "./admin.html";
