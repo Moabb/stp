@@ -435,7 +435,7 @@
         return;
       }
 
-      // Chave única combinando NOME + DATA
+      // 1. Chave única de categorias classificatórias finalizadas
       const categoriasFinalizadas = new Set();
       try {
         const qClassificados = query(
@@ -446,7 +446,6 @@
         snapClassificados.forEach(d => {
           const data = d.data();
           if (data.categoria) {
-            // Grava "SOMA 3|2026-05-10" em vez de apenas "SOMA 3"
             const chaveUnica = `${data.categoria}|${data.dataCategoria || ""}`;
             categoriasFinalizadas.add(chaveUnica);
           }
@@ -457,16 +456,44 @@
 
       const categorias = competicoesCache[compId].categorias || [];
       
-      // Filtra comparando a chave única Nome + Data
+      // Filtra categorias normais ativas
       const categoriasAtivas = categorias.filter(cat => {
         const catData = cat.data || competicoesCache[compId].dataInicio || "";
         const chaveUnica = `${cat.nome}|${catData}`;
         return !categoriasFinalizadas.has(chaveUnica);
       });
 
+      // 2. Busca Semifinais criadas na coleção "trios"
+      const semifinaisEncontradas = new Map();
+      try {
+        const qSemifinais = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", compId),
+          where("fase", "==", "SEMIFINAL")
+        );
+        const snapSemifinais = await getDocs(qSemifinais);
+        snapSemifinais.forEach(d => {
+          const data = d.data();
+          if (data.categoria) {
+            const catData = data.categoriaData || data.data || "";
+            const chaveUnica = `${data.categoria}|${catData}`;
+            if (!semifinaisEncontradas.has(chaveUnica)) {
+              semifinaisEncontradas.set(chaveUnica, {
+                nome: data.categoria,
+                data: catData
+              });
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Erro ao consultar semifinais:", err);
+      }
+
       selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
 
-      if (categoriasAtivas.length === 0) {
+      const totalDisponivel = categoriasAtivas.length + semifinaisEncontradas.size;
+
+      if (totalDisponivel === 0) {
         selectCategoria.innerHTML = '<option value="">Nenhuma categoria pendente</option>';
         selectCategoria.disabled = true;
         desativarControles();
@@ -474,13 +501,32 @@
         return;
       }
 
-      categoriasAtivas.forEach(cat => {
-        const option = document.createElement("option");
-        const catData = cat.data || competicoesCache[compId].dataInicio || "";
-        option.value = `${cat.nome}|${catData}`;
-        option.textContent = `${cat.nome} (${catData})`;
-        selectCategoria.appendChild(option);
-      });
+      // Adiciona as Categorias Classificatórias Ativas
+      if (categoriasAtivas.length > 0) {
+        const groupNormal = document.createElement("optgroup");
+        groupNormal.label = "Etapa Classificatória";
+        categoriasAtivas.forEach(cat => {
+          const option = document.createElement("option");
+          const catData = cat.data || competicoesCache[compId].dataInicio || "";
+          option.value = `${cat.nome}|${catData}`;
+          option.textContent = `${cat.nome} (${catData})`;
+          groupNormal.appendChild(option);
+        });
+        selectCategoria.appendChild(groupNormal);
+      }
+
+      // Adiciona as Semifinais no menu
+      if (semifinaisEncontradas.size > 0) {
+        const groupSemi = document.createElement("optgroup");
+        groupSemi.label = "🔥 Semifinais / Finais";
+        semifinaisEncontradas.forEach(semi => {
+          const option = document.createElement("option");
+          option.value = `${semi.nome}|${semi.data}`;
+          option.textContent = `${semi.nome} (${semi.data})`;
+          groupSemi.appendChild(option);
+        });
+        selectCategoria.appendChild(groupSemi);
+      }
 
       selectCategoria.disabled = false;
 
