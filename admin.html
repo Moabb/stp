@@ -435,7 +435,7 @@
         return;
       }
 
-      // Consulta no banco para obter as categorias já finalizadas nesta competição
+      // Chave única combinando NOME + DATA
       const categoriasFinalizadas = new Set();
       try {
         const qClassificados = query(
@@ -446,7 +446,9 @@
         snapClassificados.forEach(d => {
           const data = d.data();
           if (data.categoria) {
-            categoriasFinalizadas.add(data.categoria);
+            // Grava "SOMA 3|2026-05-10" em vez de apenas "SOMA 3"
+            const chaveUnica = `${data.categoria}|${data.dataCategoria || ""}`;
+            categoriasFinalizadas.add(chaveUnica);
           }
         });
       } catch (err) {
@@ -455,8 +457,12 @@
 
       const categorias = competicoesCache[compId].categorias || [];
       
-      // Filtra e mantém apenas categorias que ainda NÃO foram finalizadas
-      const categoriasAtivas = categorias.filter(cat => !categoriasFinalizadas.has(cat.nome));
+      // Filtra comparando a chave única Nome + Data
+      const categoriasAtivas = categorias.filter(cat => {
+        const catData = cat.data || competicoesCache[compId].dataInicio || "";
+        const chaveUnica = `${cat.nome}|${catData}`;
+        return !categoriasFinalizadas.has(chaveUnica);
+      });
 
       selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
 
@@ -478,7 +484,6 @@
 
       selectCategoria.disabled = false;
 
-      // Se a categoria selecionada anteriormente acabou de ser finalizada, reseta a interface
       if (!selectedCategoriaNome) {
         desativarControles();
         limparPistaETabela();
@@ -936,10 +941,14 @@
       }
 
       try {
-        const idDocumentoFinal = `${selectedCompId}_${selectedCategoriaNome.replace(/\s+/g, '_')}`;
+        // Agora o ID incluirá a data: ex "COMP1_SOMA_3_2026-05-10"
+        const dataFormatada = (selectedCategoriaData || "").replace(/[^a-zA-Z0-9]/g, '_');
+        const nomeFormatado = selectedCategoriaNome.replace(/\s+/g, '_');
+        const idDocumentoFinal = `${selectedCompId}_${nomeFormatado}_${dataFormatada}`;
+
         const refClassificados = doc(db, "classificados", idDocumentoFinal);
 
-        // Grava/Sobrescreve com o ID fixo da categoria
+        // Grava/Sobrescreve com o ID fixo e exclusivo da categoria + data
         await setDoc(refClassificados, {
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
