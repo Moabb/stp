@@ -49,6 +49,7 @@
     .btn-primary { background-color: var(--accent-green); color: #fff; }
     .btn-warning { background-color: var(--accent-gold); color: #000; }
     .btn-danger { background-color: var(--danger-red); color: #fff; }
+    .btn-sm { width: auto; padding: 4px 8px; font-size: 0.75rem; margin-bottom: 0; }
 
     /* Mesa do Juiz */
     .mesa-juiz { background: linear-gradient(135deg, #1c2541, #0b132b); border: 2px solid var(--accent-gold); border-radius: 8px; padding: 20px; }
@@ -65,9 +66,25 @@
     th { color: var(--accent-gold); background: #262626; }
     tr:nth-child(even) { background-color: #1a1a1a; }
 
-    /* Modal Simples para Novo Trio */
+    /* Estilo de Destaque para Troca de Bateria / Lote */
+    tr.troca-bateria {
+      border-bottom: 3px solid var(--danger-red) !important;
+      background-color: rgba(231, 111, 81, 0.18) !important;
+    }
+    .badge-troca {
+      background: var(--danger-red);
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-left: 6px;
+      display: inline-block;
+    }
+
+    /* Modal Simples */
     .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
-    .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; width: 100%; max-width: 450px; border: 1px solid var(--accent-gold); }
+    .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; width: 100%; max-width: 450px; border: 1px solid var(--accent-gold); max-height: 90vh; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -187,10 +204,11 @@
                 <th>Boi</th>
                 <th>Tempo</th>
                 <th>Status</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody id="tbTriosAdmin">
-              <tr><td colspan="6" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>
+              <tr><td colspan="7" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>
             </tbody>
           </table>
         </div>
@@ -228,6 +246,54 @@
         <div style="display:flex; gap:10px;">
           <button type="submit" class="btn btn-primary">Salvar Trio</button>
           <button type="button" class="btn btn-danger" id="btnFecharModal">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Edição de Trio -->
+  <div class="modal" id="modalEditarTrio">
+    <div class="modal-content">
+      <h2 style="color: var(--accent-gold); margin-bottom: 15px;">✏️ Editar Trio</h2>
+      <form id="formEditarTrio">
+        <input type="hidden" id="editTrioId">
+        <div class="form-group">
+          <label for="editSenha">Senha:</label>
+          <input type="number" id="editSenha" required>
+        </div>
+        <div class="form-group">
+          <label for="editC1">1º Cavaleiro:</label>
+          <input type="text" id="editC1" required>
+        </div>
+        <div class="form-group">
+          <label for="editC2">2º Cavaleiro:</label>
+          <input type="text" id="editC2" required>
+        </div>
+        <div class="form-group">
+          <label for="editC3">3º Cavaleiro:</label>
+          <input type="text" id="editC3" required>
+        </div>
+        <div class="form-group">
+          <label for="editBoi">Boi Sorteado:</label>
+          <input type="text" id="editBoi" placeholder="Ex: 07">
+        </div>
+        <div class="form-group">
+          <label for="editTempo">Tempo Final (s):</label>
+          <input type="number" step="0.01" id="editTempo" placeholder="Ex: 21.45">
+        </div>
+        <div class="form-group">
+          <label for="editStatus">Status:</label>
+          <select id="editStatus">
+            <option value="INSCRITO">INSCRITO</option>
+            <option value="AGUARDANDO">AGUARDANDO</option>
+            <option value="OK">OK</option>
+            <option value="SAT">SAT / N.T.</option>
+            <option value="DO">D.O.</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="submit" class="btn btn-primary">Atualizar Trio</button>
+          <button type="button" class="btn btn-danger" id="btnFecharModalEdit">Cancelar</button>
         </div>
       </form>
     </div>
@@ -276,6 +342,9 @@
     // Modal DOM
     const modalTrio = document.getElementById("modalTrio");
     const btnFecharModal = document.getElementById("btnFecharModal");
+
+    const modalEditarTrio = document.getElementById("modalEditarTrio");
+    const btnFecharModalEdit = document.getElementById("btnFecharModalEdit");
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -394,18 +463,18 @@
       btnDO.disabled = true;
     }
 
-    // Carrega Regulamento e Escuta Trios
+    // Carrega Regulamento e Escuta Trios da Lista Individual / Categoria Selecionada
     function carregarDadosCategoria() {
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
 
-      const catInfo = comp.categorias.find(c => c.nome === selectedCategoriaNome);
+      const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
       if (catInfo) {
         document.getElementById("inputLimiteGado").value = catInfo.limiteGado || 24;
         document.getElementById("inputClassificadosLote").value = catInfo.classificadosLote || 10;
       }
 
-      // Escuta os trios em tempo real no Firestore
+      // Escuta os trios em tempo real preservando o filtro com `categoriaData`
       const q = query(
         collection(db, "trios"),
         where("competicaoId", "==", selectedCompId),
@@ -436,7 +505,7 @@
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value);
       const classificadosLote = parseInt(document.getElementById("inputClassificadosLote").value);
 
-      const categoriasAtualizadas = comp.categorias.map(cat => {
+      const categoriasAtualizadas = (comp.categorias || []).map(cat => {
         if (cat.nome === selectedCategoriaNome) {
           return { ...cat, limiteGado, classificadosLote };
         }
@@ -449,6 +518,7 @@
         });
         competicoesCache[selectedCompId].categorias = categoriasAtualizadas;
         alert("Regulamento da categoria atualizado com sucesso!");
+        atualizarTabelaAdmin();
       } catch (err) {
         alert("Erro ao atualizar regulamento: " + err.message);
       }
@@ -499,33 +569,103 @@
       }
     });
 
-    // Renderiza a Tabela
+    // Renderiza a Tabela destacando a Troca de Bateria e permitindo Edição
     function atualizarTabelaAdmin() {
       const tbBody = document.getElementById("tbTriosAdmin");
       tbBody.innerHTML = "";
 
       if (triosAtuais.length === 0) {
-        tbBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#888;">Nenhum trio cadastrado.</td></tr>';
+        tbBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Nenhum trio cadastrado.</td></tr>';
         return;
       }
 
-      triosAtuais.forEach(trio => {
+      const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 24;
+
+      triosAtuais.forEach((trio, index) => {
+        const ordemNum = trio.ordemPista || (index + 1);
         const ordem = trio.ordemPista ? `#${trio.ordemPista}` : "--";
         const tempo = trio.tempo ? `${parseFloat(trio.tempo).toFixed(2)}s` : "--";
         const nomes = trio.integrantes ? trio.integrantes.join(" / ") : "";
 
-        tbBody.innerHTML += `
-          <tr>
-            <td><strong>${ordem}</strong></td>
-            <td><span class="badge-senha">#${trio.senha}</span></td>
-            <td>${nomes}</td>
-            <td>${trio.boiSorteado || "--"}</td>
-            <td><strong>${tempo}</strong></td>
-            <td>${trio.status || "INSCRITO"}</td>
-          </tr>
+        // Destaque de Troca de Bateria por Lote
+        const ehTrocaBateria = ordemNum > 0 && (ordemNum % limiteGado === 0);
+        const classeTroca = ehTrocaBateria ? "troca-bateria" : "";
+        const tagTroca = ehTrocaBateria ? `<span class="badge-troca">⚠️ TROCA DE BATERIA</span>` : "";
+
+        const tr = document.createElement("tr");
+        if (classeTroca) tr.className = classeTroca;
+
+        tr.innerHTML = `
+          <td><strong>${ordem}</strong> ${tagTroca}</td>
+          <td><span class="badge-senha">#${trio.senha}</span></td>
+          <td>${nomes}</td>
+          <td>${trio.boiSorteado || "--"}</td>
+          <td><strong>${tempo}</strong></td>
+          <td>${trio.status || "INSCRITO"}</td>
+          <td>
+            <button class="btn btn-warning btn-sm btn-editar-trio" data-id="${trio.id}">✏️ Editar</button>
+          </td>
         `;
+
+        tbBody.appendChild(tr);
+      });
+
+      // Eventos dos botões Editar
+      document.querySelectorAll(".btn-editar-trio").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const trioId = e.target.getAttribute("data-id");
+          abrirModalEdicao(trioId);
+        });
       });
     }
+
+    // Modal de Edição de Trio
+    function abrirModalEdicao(trioId) {
+      const trio = triosAtuais.find(t => t.id === trioId);
+      if (!trio) return;
+
+      document.getElementById("editTrioId").value = trio.id;
+      document.getElementById("editSenha").value = trio.senha || "";
+      document.getElementById("editC1").value = trio.integrantes ? trio.integrantes[0] || "" : "";
+      document.getElementById("editC2").value = trio.integrantes ? trio.integrantes[1] || "" : "";
+      document.getElementById("editC3").value = trio.integrantes ? trio.integrantes[2] || "" : "";
+      document.getElementById("editBoi").value = trio.boiSorteado || "";
+      document.getElementById("editTempo").value = trio.tempo || "";
+      document.getElementById("editStatus").value = trio.status || "INSCRITO";
+
+      modalEditarTrio.style.display = "flex";
+    }
+
+    btnFecharModalEdit.addEventListener("click", () => modalEditarTrio.style.display = "none");
+
+    document.getElementById("formEditarTrio").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const id = document.getElementById("editTrioId").value;
+      const senha = parseInt(document.getElementById("editSenha").value);
+      const c1 = document.getElementById("editC1").value.trim();
+      const c2 = document.getElementById("editC2").value.trim();
+      const c3 = document.getElementById("editC3").value.trim();
+      const boi = document.getElementById("editBoi").value.trim();
+      const tempoVal = document.getElementById("editTempo").value;
+      const status = document.getElementById("editStatus").value;
+
+      try {
+        const trioRef = doc(db, "trios", id);
+        await updateDoc(trioRef, {
+          senha: senha,
+          integrantes: [c1, c2, c3],
+          boiSorteado: boi || "N/A",
+          tempo: tempoVal !== "" ? parseFloat(tempoVal) : null,
+          status: status
+        });
+
+        alert("Trio atualizado com sucesso!");
+        modalEditarTrio.style.display = "none";
+      } catch (err) {
+        alert("Erro ao atualizar trio: " + err.message);
+      }
+    });
 
     // Atualiza a Pista (Mesa do Juiz)
     function atualizarMesaJuiz() {
