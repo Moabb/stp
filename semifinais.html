@@ -374,7 +374,8 @@
           await addDoc(collection(db, "trios"), {
             competicaoId: compId,
             categoria: nomeSemifinal,
-            categoriaData: dataSemifinal,
+            data: dataSemifinal,
+            dataCategoria: dataSemifinal,
             fase: "SEMIFINAL",
             senha: i + 1,
             integrantes: t.integrantes,
