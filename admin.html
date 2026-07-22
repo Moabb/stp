@@ -327,7 +327,8 @@
       db, 
       collection, 
       addDoc, 
-      getDocs, 
+      getDocs,
+      setDoc, 
       doc, 
       updateDoc, 
       query, 
@@ -882,20 +883,24 @@
       }
     }
 
-    // Função que verifica se todos correram e salva o resultado final no banco de dados
+    let jaFinalizouCategoria = false; // Trava para impedir execuções duplicadas do onSnapshot
+
     async function verificarEProcessarFinalizacaoCategoria() {
-      if (triosAtuais.length === 0) return;
+      if (triosAtuais.length === 0 || jaFinalizouCategoria) return;
 
       const pendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
       
       // Se ainda houver trios pendentes, aborta a finalização
       if (pendentes.length > 0) return;
 
+      // Ativa a trava para o listener do Firestore não rodar essa gravação 2 vezes
+      jaFinalizouCategoria = true;
+
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
       const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
       const vagasClassificacao = parseInt(document.getElementById("inputClassificadosLote").value) || 3;
 
-      // Agrupar trios por bateria e filtrar somente aqueles que concluíram com sucesso (tempo válido)
+      // Agrupar trios por bateria
       const baterias = {};
       for (let i = 1; i <= numBaterias; i++) {
         baterias[i] = [];
@@ -911,7 +916,6 @@
         }
       });
 
-      // Ordenar do menor para o maior tempo em cada bateria e pegar os N classificados
       const resultadoFinalPorBateria = {};
 
       for (let b = 1; b <= numBaterias; b++) {
@@ -933,7 +937,7 @@
         const idDocumentoFinal = `${selectedCompId}_${selectedCategoriaNome.replace(/\s+/g, '_')}`;
         const refClassificados = doc(db, "classificados", idDocumentoFinal);
 
-        // setDoc com merge garante que cria se não existir ou atualiza se já existir
+        // Grava/Sobrescreve com o ID fixo da categoria
         await setDoc(refClassificados, {
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
@@ -941,10 +945,12 @@
           vagasPorBateria: vagasClassificacao,
           totalBaterias: numBaterias,
           resultadosPorBateria: resultadoFinalPorBateria,
-          atualizadoEm: new Date()
+          criadoEm: new Date()
         }, { merge: true });
 
         console.log("Resultados dos classificados gravados com sucesso!");
+
+        alert(`Categoria ${selectedCategoriaNome} finalizada e salva nos Classificados com sucesso!`);
 
         // Reseta as variáveis da categoria atual
         selectedCategoriaNome = null;
@@ -955,8 +961,9 @@
 
       } catch (err) {
         console.error("Erro ao salvar classificados finais:", err);
+        jaFinalizouCategoria = false; // Destrava em caso de erro para permitir tentar novamente
       }
-    }
+    }    
 
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");
