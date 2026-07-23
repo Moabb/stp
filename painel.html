@@ -21,7 +21,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-light); padding: 15px; overflow-x: hidden; }
 
-    /* Cabeçalho com Etapa Ativa */
+    /* Cabeçalho com Etapa Ativa e Seletor */
     header { 
       display: flex; 
       justify-content: space-between; 
@@ -31,8 +31,29 @@
       background: var(--card-bg);
       padding: 12px 20px;
       border-radius: 8px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
-    header h1 { color: var(--accent-gold); font-size: 1.5rem; text-transform: uppercase; letter-spacing: 1px; }
+    header h1 { color: var(--accent-gold); font-size: 1.4rem; text-transform: uppercase; letter-spacing: 1px; }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .select-comp {
+      background: #1c1c1c;
+      color: var(--accent-gold);
+      border: 1px solid var(--accent-gold);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      outline: none;
+      cursor: pointer;
+    }
+
     .badge-etapa { background: var(--accent-blue); color: #fff; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.95rem; }
 
     /* Layout Principal em 2 Linhas */
@@ -184,7 +205,14 @@
   <!-- CABEÇALHO PRINCIPAL -->
   <header>
     <h1 id="txtNomeCompeticao">📺 PAINEL OFICIAL DE RESULTADOS</h1>
-    <div class="badge-etapa" id="txtEtapaAtiva">Aguardando ativação pelo Admin...</div>
+    
+    <div class="header-controls">
+      <!-- Seletor dinâmico de competição para multi-usuários -->
+      <select id="selectCompeticao" class="select-comp">
+        <option value="">-- Selecione o Evento --</option>
+      </select>
+      <div class="badge-etapa" id="txtEtapaAtiva">Aguardando Seleção...</div>
+    </div>
   </header>
 
   <div class="painel-container">
@@ -196,7 +224,7 @@
         <small id="txtRegraClassificacao" style="font-size:0.8rem; color:#aaa;"></small>
       </h2>
       <div class="grid-baterias" id="containerBaterias">
-        <p style="color: #888;">Aguardando dados...</p>
+        <p style="color: #888;">Selecione um evento para visualizar os dados...</p>
       </div>
     </section>
 
@@ -215,7 +243,7 @@
             </tr>
           </thead>
           <tbody id="tbTriosPainel">
-            <tr><td colspan="5" style="text-align:center; color:#888;">Carregando sequência de pista...</td></tr>
+            <tr><td colspan="5" style="text-align:center; color:#888;">Aguardando seleção de evento...</td></tr>
           </tbody>
         </table>
       </div>
@@ -230,17 +258,20 @@
       collection, 
       query, 
       where, 
-      onSnapshot 
+      onSnapshot,
+      getDocs 
     } from "./firebase-config.js";
 
-    // Pega o ID via URL (Ex: painel.html?compId=ID) ou via LocalStorage
+    // Pega o ID via URL (Ex: painel.html?compId=ID) ou do LocalStorage
     const urlParams = new URLSearchParams(window.location.search);
     let selectedCompId = urlParams.get("compId") || localStorage.getItem("selectedCompId") || null;
 
     let competicaoAtiva = null;
     let triosPainel = [];
+    let unsubComp = null;
     let unsubTrios = null;
 
+    const selectCompeticao = document.getElementById("selectCompeticao");
     const txtNomeCompeticao = document.getElementById("txtNomeCompeticao");
     const txtEtapaAtiva = document.getElementById("txtEtapaAtiva");
     const containerBaterias = document.getElementById("containerBaterias");
@@ -259,21 +290,50 @@
       return (indiceLote % qtdBaterias) + 1;
     }
 
-    // Escuta Global para sincronização de qualquer PC sem depender de localStorage local
-    onSnapshot(doc(db, "painel_global", "ativo"), (docGlobalSnap) => {
-      if (docGlobalSnap.exists()) {
-        const dadosGlobais = docGlobalSnap.data();
-        if (dadosGlobais.competicaoId) {
-          selectedCompId = dadosGlobais.competicaoId;
+    // Carrega a lista de eventos para o menu dropdown multi-usuário
+    async function carregarListaCompeticoes() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "competicoes"));
+        selectCompeticao.innerHTML = '<option value="">-- Selecione o Evento --</option>';
+
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const option = document.createElement("option");
+          option.value = docSnap.id;
+          option.textContent = data.nome ? data.nome.toUpperCase() : `EVENTO #${docSnap.id.substring(0,5)}`;
+          selectCompeticao.appendChild(option);
+        });
+
+        // Caso tenha um ID salvo ou via URL, auto-seleciona no combo
+        if (selectedCompId) {
+          selectCompeticao.value = selectedCompId;
           iniciarEscutaPainel(selectedCompId);
         }
-      } else if (selectedCompId) {
-        iniciarEscutaPainel(selectedCompId);
+      } catch (err) {
+        console.error("Erro ao carregar competições:", err);
+      }
+    }
+
+    // Troca manual pelo Dropdown
+    selectCompeticao.addEventListener("change", (e) => {
+      const compId = e.target.value;
+      if (compId) {
+        selectedCompId = compId;
+        localStorage.setItem("selectedCompId", compId);
+        
+        // Atualiza a URL sem recarregar a página para manter link compartilhável
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set("compId", compId);
+        window.history.pushState({}, "", newUrl);
+
+        iniciarEscutaPainel(compId);
       }
     });
 
     function iniciarEscutaPainel(compId) {
-      onSnapshot(doc(db, "competicoes", compId), (docSnap) => {
+      if (unsubComp) unsubComp();
+
+      unsubComp = onSnapshot(doc(db, "competicoes", compId), (docSnap) => {
         if (!docSnap.exists()) return;
 
         competicaoAtiva = { id: docSnap.id, ...docSnap.data() };
@@ -288,6 +348,10 @@
         if (catNome) {
           txtEtapaAtiva.innerText = `${faseNome} • ${catNome} (${dataNome})`;
           escutarTriosEtapa(compId, catNome, faseNome, dataNome);
+        } else {
+          txtEtapaAtiva.innerText = "Sem categoria em andamento";
+          containerBaterias.innerHTML = '<p style="color:#888;">Nenhuma prova em andamento nesta competição.</p>';
+          tbTriosPainel.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Aguardando início das corridas...</td></tr>';
         }
       });
     }
@@ -359,7 +423,6 @@
         const triosComTempo = baterias[b].filter(t => t.status === "OK" && t.tempo > 0);
         triosComTempo.sort((a, b) => a.tempo - b.tempo);
 
-        // Limita a exibição apenas à quantidade de classificados (vagas)
         const classificadosExibicao = triosComTempo.slice(0, vagas);
 
         let linhasHtml = "";
@@ -369,7 +432,6 @@
           classificadosExibicao.forEach((trio, idx) => {
             const tempoFormatado = parseFloat(trio.tempo).toFixed(3);
             
-            // Verifica se é a última vaga preenchida da bateria (Tempo de Corte)
             const ehCorte = (idx === vagas - 1) || (idx === classificadosExibicao.length - 1 && classificadosExibicao.length === vagas);
             
             const badgeTag = ehCorte 
@@ -409,7 +471,6 @@
     function renderizarLinha2FilaDinamica(trios, tamanhoLote, numBaterias) {
       tbTriosPainel.innerHTML = "";
 
-      // Filtra APENAS quem ainda não tem resultado finalizado
       const triosPendentes = trios.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {
@@ -422,7 +483,7 @@
         const ordemStr = trio.ordemPista ? `#${trio.ordemPista}` : "--";
         const batNum = calcularBateria(ordemNum, tamanhoLote, numBaterias);
         
-        const ehAtual = (index === 0); // O primeiro da fila é o que está correndo agora
+        const ehAtual = (index === 0);
         const tr = document.createElement("tr");
         if (ehAtual) tr.className = "correndo-agora";
 
@@ -438,7 +499,7 @@
       });
     }
 
-    // Renderiza Sorteio Live nos cards estilizados da versão anterior
+    // Renderiza Sorteio Live nos cards estilizados
     function renderizarCardsSorteio(trios) {
       containerSorteioTrios.innerHTML = "";
       
@@ -462,6 +523,9 @@
         containerSorteioTrios.appendChild(card);
       });
     }
+
+    // Inicialização da página
+    carregarListaCompeticoes();
   </script>
 </body>
 </html>
