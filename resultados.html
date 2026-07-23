@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resultados Finais - Team Penning</title>
+  <title>Classificados e Finalistas - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
 
   <style>
@@ -74,7 +74,7 @@
       gap: 6px;
     }
 
-    /* Modos de Exibição / Seções de Categoria */
+    /* Seções por Categoria */
     .categoria-secao {
       background-color: var(--card-bg);
       border-radius: 8px;
@@ -90,12 +90,9 @@
       padding-bottom: 10px;
       margin-bottom: 15px;
       text-transform: uppercase;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
 
-    /* Grids para Fases (Classificatória, Semifinal, Final) */
+    /* Grids para os Funis (Classificados por Fase) */
     .fases-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -116,21 +113,43 @@
       border-bottom: 1px solid #333;
       padding-bottom: 5px;
       text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
     }
 
-    /* Tabelas de Resultados */
+    .fase-card.card-final h3 {
+      color: var(--accent-gold);
+    }
+
+    /* Tabelas */
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th, td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
     th { color: var(--accent-gold); background: #121212; }
     tr:nth-child(even) { background-color: #121212; }
 
-    .podio-1 { background-color: rgba(255, 183, 3, 0.2) !important; font-weight: bold; }
-    .podio-2 { background-color: rgba(190, 190, 190, 0.15) !important; }
-    .podio-3 { background-color: rgba(205, 127, 50, 0.15) !important; }
+    .podio-1 { background-color: rgba(255, 183, 3, 0.25) !important; font-weight: bold; }
+    .podio-2 { background-color: rgba(190, 190, 190, 0.18) !important; }
+    .podio-3 { background-color: rgba(205, 127, 50, 0.18) !important; }
 
-    .badge-sat { background: var(--danger-red); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
-    
-    /* Layout para Impressão / Relatório */
+    .badge-classificado {
+      background: var(--accent-green);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: bold;
+    }
+
+    .badge-campeao {
+      background: var(--accent-gold);
+      color: #000;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: bold;
+    }
+
+    /* Impressão */
     @media print {
       body { background: #fff; color: #000; padding: 0; }
       header, .btn-print, .select-comp { display: none !important; }
@@ -146,7 +165,7 @@
 
   <!-- CABEÇALHO COM SELEÇÃO DE EVENTO -->
   <header>
-    <h1 id="txtCompeticaoNome">📊 RESULTADOS FINAIS DAS ETAPAS</h1>
+    <h1 id="txtCompeticaoNome">🏆 CLASSIFICADOS E FINALISTAS DAS ETAPAS</h1>
     
     <div class="header-controls">
       <select id="selectCompeticao" class="select-comp">
@@ -156,9 +175,9 @@
     </div>
   </header>
 
-  <!-- CONTAINER ONDE OS RESULTADOS SERÃO RENDERIZADOS DINAMICAMENTE -->
+  <!-- CONTAINER DE RESULTADOS -->
   <main id="containerResultados">
-    <p style="color: #888; text-align: center; padding: 40px;">Selecione uma competição para visualizar os relatórios finais.</p>
+    <p style="color: #888; text-align: center; padding: 40px;">Selecione uma competição para visualizar os classificados das fases.</p>
   </main>
 
   <script type="module">
@@ -166,6 +185,7 @@
       db, 
       auth,
       doc,
+      getDoc,
       collection, 
       query, 
       where, 
@@ -174,21 +194,21 @@
     } from "./firebase-config.js";
 
     const selectCompeticao = document.getElementById("selectCompeticao");
-    const txtCompeticaoNome = document.getElementById("txtCompeticaoNome");
     const containerResultados = document.getElementById("containerResultados");
 
     let competicaoIdAtual = localStorage.getItem("selectedCompId") || null;
+    let dadosCompeticao = null;
 
     // Proteção de Rota Privada
     onAuthStateChanged(auth, (user) => {
       if (!user) {
-        window.location.href = "index.html"; // Redireciona caso não esteja logado
+        window.location.href = "index.html";
       } else {
         carregarCompeticoesUsuario(user.uid);
       }
     });
 
-    // Carrega apenas os eventos atrelados ao usuário logado
+    // Carrega eventos do usuário
     async function carregarCompeticoesUsuario(userId) {
       try {
         const q = query(collection(db, "competicoes"), where("userId", "==", userId));
@@ -206,43 +226,55 @@
 
         if (competicaoIdAtual) {
           selectCompeticao.value = competicaoIdAtual;
-          carregarResultadosCompletos(competicaoIdAtual);
+          carregarResultadosFiltrados(competicaoIdAtual);
         }
       } catch (err) {
         console.error("Erro ao carregar eventos:", err);
       }
     }
 
-    // Evento de troca no Dropdown
     selectCompeticao.addEventListener("change", (e) => {
       const compId = e.target.value;
       if (compId) {
         competicaoIdAtual = compId;
         localStorage.setItem("selectedCompId", compId);
-        carregarResultadosCompletos(compId);
+        carregarResultadosFiltrados(compId);
       }
     });
 
-    // Busca e processa todas as categorias e fases do evento selecionado
-    async function carregarResultadosCompletos(compId) {
-      containerResultados.innerHTML = '<p style="color: #aaa; text-align: center; padding: 30px;">Carregando resultados...</p>';
+    // Função de auxílio para calcular baterias
+    function calcularBateria(ordemPista, tamanhoLote, numBaterias) {
+      if (!ordemPista || ordemPista <= 0) return 1;
+      const qtdBaterias = numBaterias || 2;
+      const loteTam = tamanhoLote || 25;
+      const indiceLote = Math.floor((ordemPista - 1) / loteTam);
+      return (indiceLote % qtdBaterias) + 1;
+    }
+
+    async function carregarResultadosFiltrados(compId) {
+      containerResultados.innerHTML = '<p style="color: #aaa; text-align: center; padding: 30px;">Processando classificados...</p>';
 
       try {
-        // Busca todos os trios cadastrados nesta competição
+        // Busca configurações do Evento
+        const docComp = await getDoc(doc(db, "competicoes", compId));
+        if (docComp.exists()) {
+          dadosCompeticao = docComp.data();
+        }
+
+        // Busca trios do evento
         const qTrios = query(collection(db, "trios"), where("competicaoId", "==", compId));
         const triosSnap = await getDocs(qTrios);
 
         if (triosSnap.empty) {
-          containerResultados.innerHTML = '<p style="color: #888; text-align: center; padding: 30px;">Nenhum dado ou trio registrado neste evento.</p>';
+          containerResultados.innerHTML = '<p style="color: #888; text-align: center; padding: 30px;">Nenhum trio registrado neste evento.</p>';
           return;
         }
 
         const todosTrios = [];
         triosSnap.forEach(docSnap => todosTrios.push({ id: docSnap.id, ...docSnap.data() }));
 
-        // Agrupa trios por Categoria -> Fase
+        // Agrupa por Categoria -> Fase
         const estrutura = {};
-
         todosTrios.forEach(trio => {
           const cat = trio.categoria || "Geral";
           const fase = trio.fase || "CLASSIFICACAO";
@@ -253,100 +285,138 @@
           estrutura[cat][fase].push(trio);
         });
 
-        renderizarRelatorioResultados(estrutura);
+        renderizarFunilClassificados(estrutura);
 
       } catch (err) {
-        console.error("Erro ao montar resultados:", err);
-        containerResultados.innerHTML = '<p style="color: var(--danger-red); text-align: center;">Erro ao carregar dados dos resultados.</p>';
+        console.error("Erro ao carregar filtrados:", err);
+        containerResultados.innerHTML = '<p style="color: var(--danger-red); text-align: center;">Erro ao carregar relatórios.</p>';
       }
     }
 
-    // Monta a interface estruturada por Categoria e suas Fases
-    function renderizarRelatorioResultados(estrutura) {
+    function renderizarFunilClassificados(estrutura) {
       containerResultados.innerHTML = "";
-
-      const ordemFases = ["CLASSIFICACAO", "SEMIFINAL", "FINAL"];
 
       for (const [categoria, fases] of Object.entries(estrutura)) {
         const secCat = document.createElement("section");
         secCat.className = "categoria-secao";
 
+        // Pega configurações específicas da Categoria (Vagas)
+        const catConfig = dadosCompeticao?.categorias?.find(c => c.nome === categoria);
+        const numBaterias = catConfig ? catConfig.qtdBaterias : 2;
+        const tamanhoLote = catConfig ? catConfig.limiteGado : 25;
+        const vagasClassificatoria = catConfig ? (catConfig.classificadosLote || catConfig.classificadosPorBateria || 3) : 3;
+
         let htmlFases = "";
 
-        // Ordena as fases conforme fluxo lógico
-        const fasesExistentes = Object.keys(fases).sort((a, b) => {
-          return ordemFases.indexOf(a) - ordemFases.indexOf(b);
-        });
+        // 1. PROCESSA CLASSIFICATÓRIA (Filtra apenas os Top N de cada bateria)
+        if (fases["CLASSIFICACAO"]) {
+          const triosClass = fases["CLASSIFICACAO"];
+          const baterias = {};
+          for (let i = 1; i <= numBaterias; i++) baterias[i] = [];
 
-        fasesExistentes.forEach(faseNome => {
-          const listaTrios = fases[faseNome];
-
-          // Ordena por menor tempo (Apenas com tempos OK válidos)
-          const triosValidos = listaTrios.filter(t => t.status === "OK" && t.tempo > 0);
-          const triosSemTempo = listaTrios.filter(t => t.status !== "OK" || !t.tempo);
-
-          triosValidos.sort((a, b) => a.tempo - b.tempo);
-          
-          const listaFinalFase = [...triosValidos, ...triosSemTempo];
-
-          let tabelaRows = "";
-
-          listaFinalFase.forEach((trio, index) => {
-            let tempoStr = "--";
-            let classePodio = "";
-
-            if (trio.status === "OK" && trio.tempo > 0) {
-              tempoStr = `${parseFloat(trio.tempo).toFixed(3)}s`;
-              if (index === 0) classePodio = "podio-1";
-              else if (index === 1) classePodio = "podio-2";
-              else if (index === 2) classePodio = "podio-3";
-            } else if (trio.status === "SAT") {
-              tempoStr = '<span class="badge-sat">SAT</span>';
-            } else if (trio.status === "DO") {
-              tempoStr = '<span class="badge-sat">D.O.</span>';
-            }
-
-            tabelaRows += `
-              <tr class="${classePodio}">
-                <td><strong>#${index + 1}</strong></td>
-                <td>#${trio.senha || '--'}</td>
-                <td>${trio.integrantes ? trio.integrantes.join(" / ") : "Sem Nomes"}</td>
-                <td><strong>${tempoStr}</strong></td>
-              </tr>
-            `;
+          triosClass.forEach(t => {
+            const batNum = calcularBateria(t.ordemPista || t.senha, tamanhoLote, numBaterias);
+            if (baterias[batNum]) baterias[batNum].push(t);
           });
 
-          htmlFases += `
-            <div class="fase-card">
-              <h3>📌 ${faseNome}</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Pos</th>
-                    <th>Senha</th>
-                    <th>Integrantes</th>
-                    <th>Tempo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${tabelaRows || '<tr><td colspan="4" style="text-align:center; color:#888;">Nenhum dado nesta fase</td></tr>'}
-                </tbody>
-              </table>
-            </div>
-          `;
-        });
+          let classificadosClassificatoria = [];
+
+          // Pega apenas os top classificados de cada bateria
+          for (let b = 1; b <= numBaterias; b++) {
+            const triosValidos = baterias[b].filter(t => t.status === "OK" && t.tempo > 0);
+            triosValidos.sort((a, b) => a.tempo - b.tempo);
+            const topBateria = triosValidos.slice(0, vagasClassificatoria);
+            classificadosClassificatoria.push(...topBateria);
+          }
+
+          // Ordena no geral pelo tempo
+          classificadosClassificatoria.sort((a, b) => a.tempo - b.tempo);
+
+          htmlFases += gerarCardFaseHtml("🎯 CLASSIFICADOS (CLASSIFICATÓRIA)", classificadosClassificatoria, "CLASSIFICADO");
+        }
+
+        // 2. PROCESSA SEMIFINAL (Filtra top classificados da Semifinal se houver)
+        if (fases["SEMIFINAL"]) {
+          const triosSemi = fases["SEMIFINAL"].filter(t => t.status === "OK" && t.tempo > 0);
+          triosSemi.sort((a, b) => a.tempo - b.tempo);
+
+          // Se houver final na sequência, podemos considerar o limite das vagas, ou mostrar os melhores que avançaram
+          const limiteSemi = catConfig?.vagasFinal || 10; 
+          const classificadosSemi = triosSemi.slice(0, limiteSemi);
+
+          htmlFases += gerarCardFaseHtml("🔥 CLASSIFICADOS (SEMIFINAL)", classificadosSemi, "FINALISTA");
+        }
+
+        // 3. PROCESSA FINAL (Resultado Final e Pódio dos Campeões)
+        if (fases["FINAL"]) {
+          const triosFinal = fases["FINAL"].filter(t => t.status === "OK" && t.tempo > 0);
+          triosFinal.sort((a, b) => a.tempo - b.tempo);
+
+          htmlFases += gerarCardFaseHtml("👑 RESULTADO DA FINAL (CAMPEÕES)", triosFinal, "CAMPEÃO", true);
+        }
 
         secCat.innerHTML = `
           <div class="categoria-titulo">
-            <span>🏆 CATEGORIA: ${categoria.toUpperCase()}</span>
+            🏆 CATEGORIA: ${categoria.toUpperCase()}
           </div>
           <div class="fases-grid">
-            ${htmlFases}
+            ${htmlFases || '<p style="color:#888;">Sem corridas finalizadas nesta categoria.</p>'}
           </div>
         `;
 
         containerResultados.appendChild(secCat);
       }
+    }
+
+    // Gerador de tabela limpa para cada card de fase
+    function gerarCardFaseHtml(titulo, listaTrios, tagTexto, ehFinal = false) {
+      let rows = "";
+
+      if (listaTrios.length === 0) {
+        rows = '<tr><td colspan="4" style="text-align:center; color:#888;">Nenhum classificado registrado.</td></tr>';
+      } else {
+        listaTrios.forEach((trio, index) => {
+          let classePodio = "";
+          let badge = `<span class="badge-classificado">${tagTexto}</span>`;
+
+          if (ehFinal) {
+            if (index === 0) { classePodio = "podio-1"; badge = '<span class="badge-campeao">🥇 1º LUGAR</span>'; }
+            else if (index === 1) { classePodio = "podio-2"; badge = '<span class="badge-campeao">🥈 2º LUGAR</span>'; }
+            else if (index === 2) { classePodio = "podio-3"; badge = '<span class="badge-campeao">🥉 3º LUGAR</span>'; }
+          }
+
+          rows += `
+            <tr class="${classePodio}">
+              <td><strong>#${index + 1}</strong></td>
+              <td>#${trio.senha || '--'}</td>
+              <td>
+                ${trio.integrantes ? trio.integrantes.join(" / ") : "Sem Nomes"}
+                <div style="margin-top:2px;">${badge}</div>
+              </td>
+              <td><strong>${parseFloat(trio.tempo).toFixed(3)}s</strong></td>
+            </tr>
+          `;
+        });
+      }
+
+      return `
+        <div class="fase-card ${ehFinal ? 'card-final' : ''}">
+          <h3><span>${titulo}</span> <small style="font-size:0.75rem; color:#aaa;">${listaTrios.length} Trios</small></h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Pos</th>
+                <th>Senha</th>
+                <th>Integrantes</th>
+                <th>Tempo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      `;
     }
   </script>
 </body>
