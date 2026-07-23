@@ -1,4 +1,4 @@
-// teampenning-service.js
+// teampenning-service.js - VERSÃO 1.5 (Suporte a Categorias Embutidas/Espelho)
 import { 
   db, 
   collection, 
@@ -11,33 +11,56 @@ import {
 } from "./firebase-config.js";
 
 /**
- * Cadastrar um novo Trio/Inscrição na Categoria
+ * VERSÃO 1.5
+ * Cadastrar um novo Trio/Inscrição na Categoria.
+ * Suporta Categoria Embutida (Ex: Feminina embutida na Soma 3).
  */
-export async function cadastrarTrio(userId, compId, catId, dadosTrio) {
+export async function cadastrarTrio(userId, compId, catId, dadosTrio, catEmbutidaId = null) {
   const triosRef = collection(db, "users", userId, "competitions", compId, "categorias", catId, "trios");
-  return await addDoc(triosRef, {
+  
+  // 1. Cadastra o Trio Principal
+  const docRefPai = await addDoc(triosRef, {
     ...dadosTrio,
-    status: "PENDENTE", // PENDENTE, OK, SAT, DO, RE_RUN
+    status: "PENDENTE",
     tempo: null,
     boisCurralados: 0,
     boiSorteado: null,
-    ordemPista: dadosTrio.senhaOriginal, // Inicialmente igual à senha antes do sorteio
+    ordemPista: dadosTrio.senhaOriginal,
     criadoEm: new Date()
   });
+
+  // 2. Se houver Categoria Embutida (ex: Feminina), cria o registro espelho vinculado
+  if (catEmbutidaId) {
+    const triosEmbutidosRef = collection(db, "users", userId, "competitions", compId, "categorias", catEmbutidaId, "trios");
+    const docRefFilho = await addDoc(triosEmbutidosRef, {
+      ...dadosTrio,
+      categoriaEspelho: true,
+      trioPaiId: docRefPai.id,
+      status: "PENDENTE",
+      tempo: null,
+      boisCurralados: 0,
+      boiSorteado: null,
+      ordemPista: dadosTrio.senhaOriginal,
+      criadoEm: new Date()
+    });
+
+    // Atualiza o trio pai com o ID do filho para referência bidirecional
+    await updateDoc(docRefPai, { trioEspelhoId: docRefFilho.id });
+  }
+
+  return docRefPai;
 }
 
 /**
  * Embaralha as senhas vendidas e gera o Start List (Ordem de Entrada)
  */
 export async function realizarSorteioOrdemEntrada(userId, compId, catId, listaTrios) {
-  // Fisher-Yates Shuffle para embaralhar aleatoriamente
   let embaralhados = [...listaTrios];
   for (let i = embaralhados.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [embaralhados[i], embaralhados[j]] = [embaralhados[j], embaralhados[i]];
   }
 
-  // Atualiza a ordemPista e atribui o Lote de Gado correspondente no Firestore
   const promessas = embaralhados.map((trio, index) => {
     const ordemPista = index + 1;
     const trioRef = doc(db, "users", userId, "competitions", compId, "categorias", catId, "trios", trio.id);
@@ -49,7 +72,6 @@ export async function realizarSorteioOrdemEntrada(userId, compId, catId, listaTr
 
 /**
  * Escuta em Tempo Real (Realtime Listener) os Trios da Pista
- * Calcula automaticamente o Lote Atual e o Alerta de Troca de Gado
  */
 export function escutarPistaEmTempoReal(userId, compId, catId, limiteGadoPorLote, callback) {
   const triosRef = collection(db, "users", userId, "competitions", compId, "categorias", catId, "trios");
@@ -58,11 +80,9 @@ export function escutarPistaEmTempoReal(userId, compId, catId, limiteGadoPorLote
   return onSnapshot(q, (snapshot) => {
     const trios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // Identificar a corrida atual (primeiro trio ainda sem resultado)
     const corridaAtualIndex = trios.findIndex(t => t.status === "PENDENTE");
     const numeroCorridaAtual = corridaAtualIndex !== -1 ? corridaAtualIndex + 1 : trios.length;
 
-    // Lógica de cálculo de Lotes de Gado e Alerta de 5 Corridas
     const loteAtualNum = Math.ceil(numeroCorridaAtual / limiteGadoPorLote) || 1;
     const proximaTrocaEm = loteAtualNum * limiteGadoPorLote;
     const corridasRestantesParaTroca = proximaTrocaEm - numeroCorridaAtual + 1;
@@ -82,13 +102,33 @@ export function escutarPistaEmTempoReal(userId, compId, catId, limiteGadoPorLote
 }
 
 /**
- * Lançamento de Resultado da Corrida na Mesa do Juiz
+ * VERSÃO 1.5 - Lançamento de Resultado com Sincronização Automática para Categorias Embutidas
  */
-export async function registrarResultadoCorrida(userId, compId, catId, trioId, resultado) {
-  // resultado = { tempo, boisCurralados, boiSorteado, status: "OK" | "SAT" | "DO" | "RE_RUN" }
+export async function registrarResultadoCorrida(userId, compId, catId, trioId, resultado, trioEspelhoInfo = null) {
+  // 1. Grava resultado no trio principal
   const trioRef = doc(db, "users", userId, "competitions", compId, "categorias", catId, "trios", trioId);
   await updateDoc(trioRef, {
     ...resultado,
     finalizadoEm: new Date()
   });
+
+  // 2. Se o trio possuir categoria embutida vinculada, repli-ca o resultado no ranking exclusivo dela
+  if (trioEspelhoInfo && trioEspelhoInfo.catEmbutidaId && trioEspelhoInfo.trioEspelhoId) {
+    const trioEspelhoRef = doc(
+      db, 
+      "users", 
+      userId, 
+      "competitions", 
+      compId, 
+      "categorias", 
+      trioEspelhoInfo.catEmbutidaId, 
+      "trios", 
+      trioEspelhoInfo.trioEspelhoId
+    );
+
+    await updateDoc(trioEspelhoRef, {
+      ...resultado,
+      finalizadoEm: new Date()
+    });
+  }
 }
