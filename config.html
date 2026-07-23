@@ -12,6 +12,7 @@
       --accent-gold: #ffb703;
       --accent-green: #2a9d8f;
       --accent-blue: #0077b6;
+      --accent-red: #e76f51;
       --text-light: #f8f9fa;
       --input-bg: #2b2b2b;
       --border-color: #333;
@@ -25,7 +26,7 @@
 
     .btn-action { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
     .btn-action:hover { opacity: 0.9; }
-    .btn-danger { background: #e76f51; color: #fff; }
+    .btn-danger { background: var(--accent-red); color: #fff; }
     .btn-secondary { background: #555; color: #fff; }
     .btn-fase { background: var(--accent-blue); color: #fff; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 
@@ -42,7 +43,7 @@
     .form-group input, .form-group select { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; }
 
     .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
-    .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #e76f51; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
+    .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: var(--accent-red); cursor: pointer; font-weight: bold; font-size: 1.1rem; }
     
     .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr; gap: 10px; }
     @media (max-width: 600px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
@@ -53,7 +54,7 @@
     .btn-salvar { width: 100%; padding: 12px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; }
     .btn-salvar:disabled { background: #555; cursor: not-allowed; }
 
-    .lista-provas { display: flex; flex-direction: column; gap: 12px; }
+    .lista-provas { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; }
     .card-prova-item { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-gold); display: flex; flex-direction: column; gap: 15px; }
     .card-prova-item .top-info { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
     .card-prova-item .info h3 { font-size: 1.1rem; color: #fff; margin-bottom: 4px; }
@@ -67,6 +68,22 @@
     .form-embutida-inline select { flex: 1; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; min-width: 140px; }
     .btn-vincular-emb { background: var(--accent-green); color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
     .btn-vincular-emb:hover { opacity: 0.9; }
+
+    /* BOTÃO EXCLUIR NO RODAPÉ DO CARD */
+    .btn-excluir-no-rodape { width: 100%; padding: 10px; background: rgba(231, 111, 81, 0.15); border: 1px solid var(--accent-red); color: var(--accent-red); font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .btn-excluir-no-rodape:hover { background: var(--accent-red); color: #fff; }
+
+    /* MODAL EXCLUSÃO */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
+    .modal-overlay.active { display: flex; }
+    .modal-card { background: var(--card-bg); border-radius: 8px; border: 1px solid var(--accent-red); width: 100%; max-width: 550px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.7); }
+    .modal-header { padding: 15px 20px; background: #222; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { color: var(--accent-red); font-size: 1.1rem; }
+    .modal-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .modal-footer { padding: 15px 20px; background: #222; border-top: 1px solid #333; display: flex; gap: 10px; justify-content: flex-end; }
+    .item-excluir-check { background: #262626; padding: 12px; border-radius: 6px; display: flex; align-items: center; gap: 12px; border: 1px solid #333; cursor: pointer; }
+    .item-excluir-check:hover { border-color: var(--accent-red); }
+    .item-excluir-check input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-red); }
 
     .fixar { position: sticky; top: 20px; align-self: start; }
   </style>
@@ -122,9 +139,45 @@
       <div class="lista-provas" id="listaProvas">
         <p style="color: #888;">Carregando competições...</p>
       </div>
+
+      <!-- BOTÃO DE EXCLUIR COMPETIÇÕES AO FINAL -->
+      <button type="button" class="btn-excluir-no-rodape" id="btnAbrirModalExcluir">
+        🗑️ EXCLUIR COMPETIÇÃO / APAGAR DADOS DO BANCO
+      </button>
     </section>
 
   </main>
+
+  <!-- JANELA MODAL DE EXCLUSÃO -->
+  <div class="modal-overlay" id="modalExcluir">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🗑️ EXCLUIR COMPETIÇÃO(ÕES)</h3>
+        <button type="button" id="btnFecharModal" style="background:transparent; border:none; color:#888; font-size:1.2rem; cursor:pointer;">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:#aaa; margin-bottom:5px;">
+          Selecione as competições que deseja apagar. <strong>Atenção:</strong> Isso removerá permanentemente a competição e todos os trios/tempos cadastrados nela.
+        </p>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+          <label style="font-size:0.8rem; color:var(--accent-gold); cursor:pointer;">
+            <input type="checkbox" id="checkMarcarTodos" style="accent-color: var(--accent-gold);"> Marcar / Desmarcar Todos
+          </label>
+        </div>
+
+        <div id="listaExcluirCheckboxes">
+          <!-- Renderizado dinamicamente -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-action btn-secondary" id="btnCancelarModal">Cancelar</button>
+        <button type="button" class="btn-action btn-danger" id="btnConfirmarExclusao">Confirmar e Apagar Tudo</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module">
     import { 
@@ -135,6 +188,8 @@
       getDocs, 
       doc,
       updateDoc,
+      deleteDoc,
+      writeBatch,
       query, 
       where, 
       onAuthStateChanged,
@@ -150,6 +205,15 @@
     const btnSalvarComp = document.getElementById("btnSalvarComp");
     const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
     const tituloForm = document.getElementById("tituloForm");
+
+    // Elementos Modal
+    const modalExcluir = document.getElementById("modalExcluir");
+    const btnAbrirModalExcluir = document.getElementById("btnAbrirModalExcluir");
+    const btnFecharModal = document.getElementById("btnFecharModal");
+    const btnCancelarModal = document.getElementById("btnCancelarModal");
+    const btnConfirmarExclusao = document.getElementById("btnConfirmarExclusao");
+    const listaExcluirCheckboxes = document.getElementById("listaExcluirCheckboxes");
+    const checkMarcarTodos = document.getElementById("checkMarcarTodos");
 
     function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, classificados = 10) {
       const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
@@ -280,6 +344,7 @@
 
         if (snapshot.empty) {
           listaProvas.innerHTML = "<p style='color:#888;'>Nenhuma competição cadastrada ainda.</p>";
+          competicoesCache = {};
           return;
         }
 
@@ -298,7 +363,6 @@
             ? comp.categorias.map(c => `${c.nome} (${c.data || comp.dataInicio})`).join(" | ")
             : "Nenhuma categoria";
 
-          // Monta options de categoria dinamicamente
           let optionsCategorias = `<option value="">Selecione...</option>`;
           if (comp.categorias && comp.categorias.length > 0) {
             comp.categorias.forEach((cat) => {
@@ -306,7 +370,6 @@
             });
           }
 
-          // Exibe se já existir vinculo de categoria embutida salvo no documento da competição
           const infoVinculo = comp.vinculoEmbutido 
             ? `<p style="font-size:0.8rem; color:#2a9d8f; margin-top:5px;"><strong>Vínculo Ativo:</strong> ${comp.vinculoEmbutido.catPai} ➔ ${comp.vinculoEmbutido.catEspelho}</p>`
             : '';
@@ -325,7 +388,6 @@
 
             <hr style="border-color: #333; margin: 0;">
 
-            <!-- BLOCO DE CATEGORIA EMBUTIDA (DINÂMICO) -->
             <div class="box-categoria-embutida">
               <h4>🔗 Vincular Categoria Embutida (Espelho)</h4>
               <div class="form-embutida-inline">
@@ -353,7 +415,6 @@
           card.querySelector(".btnInscritos").addEventListener("click", () => irParaCadastro(compId));
           card.querySelector(".btnVincular").addEventListener("click", () => vincularCategoriaEmbutida(compId));
 
-          // Preenche os selects caso já existam valores salvos
           if (comp.vinculoEmbutido) {
             setTimeout(() => {
               const selPai = document.getElementById(`selectCatPai_${compId}`);
@@ -398,13 +459,96 @@
           }
         });
 
-        alert(`Vínculo realizado com sucesso!\n\nCategoria Principal (Pista): ${catPai}\nCategoria Embutida (Espelho): ${catEspelho}`);
+        alert(`Vínculo realizado com sucesso!\n\nCategoria Principal: ${catPai}\nCategoria Embutida: ${catEspelho}`);
         carregarCompeticoes();
       } catch (error) {
         console.error("Erro ao vincular categorias:", error);
         alert("Erro ao salvar o vínculo no banco de dados: " + error.message);
       }
     }
+
+    /* LÓGICA DO MODAL E DELETAR COMPETIÇÃO NO FIRESTORE */
+    btnAbrirModalExcluir.addEventListener("click", () => {
+      const ids = Object.keys(competicoesCache);
+      if (ids.length === 0) {
+        alert("Não há competições cadastradas para excluir.");
+        return;
+      }
+
+      listaExcluirCheckboxes.innerHTML = "";
+      checkMarcarTodos.checked = false;
+
+      ids.forEach(compId => {
+        const comp = competicoesCache[compId];
+        const item = document.createElement("label");
+        item.className = "item-excluir-check";
+        item.innerHTML = `
+          <input type="checkbox" class="chk-comp-item" value="${compId}">
+          <div>
+            <strong style="color:#fff; display:block;">${comp.nome}</strong>
+            <span style="font-size:0.75rem; color:#aaa;">Início: ${comp.dataInicio}</span>
+          </div>
+        `;
+        listaExcluirCheckboxes.appendChild(item);
+      });
+
+      modalExcluir.classList.add("active");
+    });
+
+    function fecharModalExclusao() {
+      modalExcluir.classList.remove("active");
+    }
+
+    btnFecharModal.addEventListener("click", fecharModalExclusao);
+    btnCancelarModal.addEventListener("click", fecharModalExclusao);
+
+    checkMarcarTodos.addEventListener("change", (e) => {
+      const checkboxes = listaExcluirCheckboxes.querySelectorAll(".chk-comp-item");
+      checkboxes.forEach(chk => chk.checked = e.target.checked);
+    });
+
+    btnConfirmarExclusao.addEventListener("click", async () => {
+      const selecionados = Array.from(listaExcluirCheckboxes.querySelectorAll(".chk-comp-item:checked"))
+                                .map(chk => chk.value);
+
+      if (selecionados.length === 0) {
+        alert("Selecione ao menos uma competição para excluir.");
+        return;
+      }
+
+      const confirma = confirm(`TEM CERTEZA?\n\nVocê está prestes a apagar ${selecionados.length} competição(ões) do banco de dados de forma IRREVERSÍVEL.`);
+      if (!confirma) return;
+
+      try {
+        btnConfirmarExclusao.disabled = true;
+        btnConfirmarExclusao.innerText = "Apagando do banco...";
+
+        for (const compId of selecionados) {
+          // 1. Apaga subcoleções vinculadas (ex: categorias e trios) caso existam no caminho /competicoes/compId/...
+          const categoriasSubCol = collection(db, "competicoes", compId, "categorias");
+          const snapshotSub = await getDocs(categoriasSubCol);
+          
+          if (!snapshotSub.empty) {
+            const batchSub = writeBatch(db);
+            snapshotSub.forEach(docSub => batchSub.delete(docSub.ref));
+            await batchSub.commit();
+          }
+
+          // 2. Apaga o documento principal da competição
+          await deleteDoc(doc(db, "competicoes", compId));
+        }
+
+        alert("Competição(ões) e dados relacionados excluídos com sucesso!");
+        fecharModalExclusao();
+        carregarCompeticoes();
+      } catch (error) {
+        console.error("Erro ao excluir competição:", error);
+        alert("Erro ao excluir do banco de dados: " + error.message);
+      } finally {
+        btnConfirmarExclusao.disabled = false;
+        btnConfirmarExclusao.innerText = "Confirmar e Apagar Tudo";
+      }
+    });
 
     function carregarParaEdicao(compId) {
       const comp = competicoesCache[compId];
