@@ -127,6 +127,8 @@
       getDocs, 
       query, 
       where, 
+      doc,        // <--- ADICIONADO
+      updateDoc,  // <--- ADICIONADO
       onAuthStateChanged,
       signOut 
     } from "./firebase-config.js";
@@ -217,16 +219,17 @@
       containerClassificadas.innerHTML = '<p style="color: #888;">Buscando classificados...</p>';
       
       try {
-        // Filtra estritamente classificados oriundos da FASE CLASSIFICATORIA
+        // Filtra apenas as que ainda NÃO foram enviadas para semifinal (status != 'PROCESSADO')
         const q = query(
           collection(db, "classificados"),
           where("competicaoId", "==", compId),
-          where("faseOrigem", "==", "CLASSIFICACAO")
+          where("faseOrigem", "==", "CLASSIFICACAO"),
+          where("status", "==", "PENDENTE") // <--- ADICIONADO FILTRO DE STATUS
         );
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma etapa classificatória finalizada até o momento.</p>';
+          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma etapa classificatória pendente no momento.</p>';
           return;
         }
 
@@ -369,6 +372,7 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Semifinal...";
 
+        // 1. Grava os novos trios para o admin
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
@@ -382,6 +386,12 @@
             status: "INSCRITO",
             criadoEm: new Date()
           });
+        }
+
+        // 2. MARCA OS DOCUMENTOS DE CLASSIFICADOS COMO PROCESSADOS PARA SUMIREM DA TELA
+        for (const item of classificadosUnicos) {
+          const docRef = doc(db, "classificados", item.id);
+          await updateDoc(docRef, { status: "PROCESSADO" });
         }
 
         alert("Semifinal criada com sucesso! Redirecionando para o painel do juiz...");

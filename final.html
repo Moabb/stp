@@ -127,6 +127,8 @@
       getDocs, 
       query, 
       where, 
+      doc, 
+      updateDoc, 
       onAuthStateChanged,
       signOut 
     } from "./firebase-config.js";
@@ -149,23 +151,6 @@
       currentUser = user;
       document.getElementById("inputDataFinal").value = new Date().toISOString().split('T')[0];
       carregarCompeticoes();
-    });
-
-
-    document.addEventListener('DOMContentLoaded', () => {
-    const statusProva = localStorage.getItem('statusProva');
-
-    // Se a prova já foi concluída, limpa a exibição da tela
-        if (statusProva === 'finalizada') {
-            const containerLista = document.getElementById('seu-container-da-lista');
-            if (containerLista) {
-                containerLista.innerHTML = '<p>As provas já foram encerradas!</p>';
-            }
-            return; // Interrompe o carregamento da lista antiga
-        }
-
-        // Se não estiver finalizada, carrega a lista normalmente...
-        carregarListaClassificados();
     });
 
     async function carregarCompeticoes() {
@@ -218,16 +203,17 @@
       containerClassificadas.innerHTML = '<p style="color: #888;">Buscando classificados da Semifinal...</p>';
       
       try {
-        // Filtra classificados vindos EXCLUSIVAMENTE das SEMIFINAIS
+        // Filtra classificados vindos EXCLUSIVAMENTE das SEMIFINAIS e que ainda estejam PENDENTES[cite: 20]
         const q = query(
           collection(db, "classificados"),
           where("competicaoId", "==", compId),
-          where("faseOrigem", "==", "SEMIFINAL")
+          where("faseOrigem", "==", "SEMIFINAL"),
+          where("status", "==", "PENDENTE")
         );
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma semifinal finalizada até o momento.</p>';
+          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma semifinal pendente até o momento.</p>';
           return;
         }
 
@@ -371,6 +357,7 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Grande Final...";
 
+        // 1. Grava os novos trios para o admin
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
@@ -384,6 +371,12 @@
             status: "INSCRITO",
             criadoEm: new Date()
           });
+        }
+
+        // 2. MARCA OS DOCUMENTOS DE CLASSIFICADOS COMO PROCESSADOS PARA SUMIREM DA TELA[cite: 20]
+        for (const item of classificadosUnicos) {
+          const docRef = doc(db, "classificados", item.id);
+          await updateDoc(docRef, { status: "PROCESSADO" });
         }
 
         alert("Grande Final criada com sucesso! Redirecionando para o painel do juiz...");
