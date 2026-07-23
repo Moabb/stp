@@ -39,7 +39,7 @@
 
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
-    .form-group input { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; }
 
     .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
     .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #e76f51; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
@@ -54,11 +54,20 @@
     .btn-salvar:disabled { background: #555; cursor: not-allowed; }
 
     .lista-provas { display: flex; flex-direction: column; gap: 12px; }
-    .card-prova-item { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-gold); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .card-prova-item { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-gold); display: flex; flex-direction: column; gap: 15px; }
+    .card-prova-item .top-info { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
     .card-prova-item .info h3 { font-size: 1.1rem; color: #fff; margin-bottom: 4px; }
     .card-prova-item .info p { font-size: 0.85rem; color: #aaa; }
     .card-prova-item .acoes { display: flex; gap: 6px; flex-wrap: wrap; }
     
+    /* BLOCO EMBUTIDO INTEGRADO */
+    .box-categoria-embutida { background: #141414; padding: 12px; border-radius: 6px; border: 1px solid #333; }
+    .box-categoria-embutida h4 { color: var(--accent-gold); font-size: 0.9rem; margin-bottom: 8px; }
+    .form-embutida-inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .form-embutida-inline select { flex: 1; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; min-width: 140px; }
+    .btn-vincular-emb { background: var(--accent-green); color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .btn-vincular-emb:hover { opacity: 0.9; }
+
     .fixar { position: sticky; top: 20px; align-self: start; }
   </style>
 </head>
@@ -114,42 +123,6 @@
         <p style="color: #888;">Carregando competições...</p>
       </div>
     </section>
-
-    <!-- Exemplo de como fica no card da competição dentro de config.html -->
-    <div class="card-competicao">
-      <h3>1º GRANDE TEAM PENNING DE VEREDA</h3>
-      <p>Início: 2026-07-22 | Categorias: SOMA 9, FEMININA</p>
-      
-      <div class="acoes-competicao">
-        <button class="btn-editar">✏️ Editar / Add Categoria</button>
-        <button class="btn-cadastrar">📄 Iniciar Cadastrar Trios</button>
-      </div>
-
-      <hr style="border-color: #333; margin: 15px 0;">
-
-      <!-- BLOCO DE CATEGORIA EMBUTIDA (INTEGRADO) -->
-      <div class="box-categoria-embutida" style="background: #141414; padding: 12px; border-radius: 6px;">
-        <h4 style="color: #ffb703; font-size: 0.9rem; margin-bottom: 8px;">🔗 Vincular Categoria Embutida (Espelho)</h4>
-        
-        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <select id="selectCatPai_COMPID" style="flex: 1; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px;">
-            <option value="">Categoria Principal (Pista)</option>
-            <option value="cat_soma9">SOMA 9</option>
-          </select>
-
-          <span style="color: #888;">→</span>
-
-          <select id="selectCatEspelho_COMPID" style="flex: 1; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px;">
-            <option value="">Categoria Embutida (Recebe Tempos)</option>
-            <option value="cat_fem">FEMININA</option>
-          </select>
-
-          <button onclick="vincularCategorias('COMPID')" style="background: #2a9d8f; color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-            Vincular
-          </button>
-        </div>
-      </div>
-    </div>
 
   </main>
 
@@ -325,25 +298,111 @@
             ? comp.categorias.map(c => `${c.nome} (${c.data || comp.dataInicio})`).join(" | ")
             : "Nenhuma categoria";
 
+          // Monta options de categoria dinamicamente
+          let optionsCategorias = `<option value="">Selecione...</option>`;
+          if (comp.categorias && comp.categorias.length > 0) {
+            comp.categorias.forEach((cat) => {
+              optionsCategorias += `<option value="${cat.nome}">${cat.nome}</option>`;
+            });
+          }
+
+          // Exibe se já existir vinculo de categoria embutida salvo no documento da competição
+          const infoVinculo = comp.vinculoEmbutido 
+            ? `<p style="font-size:0.8rem; color:#2a9d8f; margin-top:5px;"><strong>Vínculo Ativo:</strong> ${comp.vinculoEmbutido.catPai} ➔ ${comp.vinculoEmbutido.catEspelho}</p>`
+            : '';
+
           card.innerHTML = `
-            <div class="info">
-              <h3>${comp.nome}</h3>
-              <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
+            <div class="top-info">
+              <div class="info">
+                <h3>${comp.nome}</h3>
+                <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
+              </div>
+              <div class="acoes">
+                <button class="btn-action btnEditar" data-id="${compId}">✏️ Editar / Add Categoria</button>
+                <button class="btn-action btnInscritos" data-id="${compId}">📝 Iniciar Cadastrar Trios</button>
+              </div>
             </div>
-            <div class="acoes">
-              <button class="btn-action btnEditar" data-id="${compId}">✏️ Editar / Add Categoria</button>
-              <button class="btn-action btnInscritos" data-id="${compId}">📝 Iniciar Cadastrar Trios</button>
+
+            <hr style="border-color: #333; margin: 0;">
+
+            <!-- BLOCO DE CATEGORIA EMBUTIDA (DINÂMICO) -->
+            <div class="box-categoria-embutida">
+              <h4>🔗 Vincular Categoria Embutida (Espelho)</h4>
+              <div class="form-embutida-inline">
+                <select id="selectCatPai_${compId}">
+                  <option value="">Categoria Principal (Pista)</option>
+                  ${optionsCategorias}
+                </select>
+
+                <span style="color: #888;">➔</span>
+
+                <select id="selectCatEspelho_${compId}">
+                  <option value="">Categoria Embutida (Recebe Tempos)</option>
+                  ${optionsCategorias}
+                </select>
+
+                <button class="btn-vincular-emb btnVincular" data-id="${compId}">
+                  Vincular
+                </button>
+              </div>
+              ${infoVinculo}
             </div>
           `;
 
           card.querySelector(".btnEditar").addEventListener("click", () => carregarParaEdicao(compId));
           card.querySelector(".btnInscritos").addEventListener("click", () => irParaCadastro(compId));
+          card.querySelector(".btnVincular").addEventListener("click", () => vincularCategoriaEmbutida(compId));
+
+          // Preenche os selects caso já existam valores salvos
+          if (comp.vinculoEmbutido) {
+            setTimeout(() => {
+              const selPai = document.getElementById(`selectCatPai_${compId}`);
+              const selEsp = document.getElementById(`selectCatEspelho_${compId}`);
+              if (selPai) selPai.value = comp.vinculoEmbutido.catPai || "";
+              if (selEsp) selEsp.value = comp.vinculoEmbutido.catEspelho || "";
+            }, 50);
+          }
 
           listaProvas.appendChild(card);
         });
       } catch (error) {
         console.error("Erro ao carregar:", error);
         listaProvas.innerHTML = "<p style='color:#e76f51;'>Erro ao carregar competições.</p>";
+      }
+    }
+
+    async function vincularCategoriaEmbutida(compId) {
+      const selectPai = document.getElementById(`selectCatPai_${compId}`);
+      const selectEspelho = document.getElementById(`selectCatEspelho_${compId}`);
+
+      const catPai = selectPai ? selectPai.value : "";
+      const catEspelho = selectEspelho ? selectEspelho.value : "";
+
+      if (!catPai || !catEspelho) {
+        alert("Por favor, selecione tanto a Categoria Principal quanto a Categoria Embutida.");
+        return;
+      }
+
+      if (catPai === catEspelho) {
+        alert("A Categoria Principal e a Categoria Embutida não podem ser a mesma!");
+        return;
+      }
+
+      try {
+        const compRef = doc(db, "competicoes", compId);
+        await updateDoc(compRef, {
+          vinculoEmbutido: {
+            catPai: catPai,
+            catEspelho: catEspelho,
+            vinculadoEm: new Date()
+          }
+        });
+
+        alert(`Vínculo realizado com sucesso!\n\nCategoria Principal (Pista): ${catPai}\nCategoria Embutida (Espelho): ${catEspelho}`);
+        carregarCompeticoes();
+      } catch (error) {
+        console.error("Erro ao vincular categorias:", error);
+        alert("Erro ao salvar o vínculo no banco de dados: " + error.message);
       }
     }
 
