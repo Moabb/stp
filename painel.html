@@ -330,7 +330,7 @@
       });
     }
 
-    // Linha 1: Tabela contínua com os melhores tempos de cada bateria
+    // Linha 1: Tabela com os melhores tempos limitados ao número de vagas da bateria
     function renderizarLinha1Baterias(trios, numBaterias, tamanhoLote, vagas) {
       containerBaterias.innerHTML = "";
 
@@ -354,19 +354,22 @@
         const triosComTempo = baterias[b].filter(t => t.status === "OK" && t.tempo > 0);
         triosComTempo.sort((a, b) => a.tempo - b.tempo);
 
+        // Limita a exibição apenas à quantidade de classificados (vagas)
+        const classificadosExibicao = triosComTempo.slice(0, vagas);
+
         let linhasHtml = "";
-        if (triosComTempo.length === 0) {
+        if (classificadosExibicao.length === 0) {
           linhasHtml = '<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum tempo válido</td></tr>';
         } else {
-          triosComTempo.forEach((trio, idx) => {
-            const ehClassificado = idx < vagas;
-            const tagClassif = ehClassificado ? '<span class="badge-classificado">CLASSIFICADO</span>' : '';
+          classificadosExibicao.forEach((trio, idx) => {
+            const tagClassif = '<span class="badge-classificado">CLASSIFICADO</span>';
+            const tempoFormatado = parseFloat(trio.tempo).toFixed(3);
             
             linhasHtml += `
               <tr>
                 <td><strong>#${idx + 1}</strong></td>
                 <td>${trio.integrantes ? trio.integrantes.join(" / ") : ""} ${tagClassif}</td>
-                <td><strong>${parseFloat(trio.tempo).toFixed(2)}s</strong></td>
+                <td><strong>${tempoFormatado}s</strong></td>
               </tr>
             `;
           });
