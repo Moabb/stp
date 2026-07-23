@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel em Tempo Real - Team Penning</title>
+  <title>Painel Oficial em Tempo Real - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
 
   <style>
@@ -27,7 +27,6 @@
       justify-content: space-between; 
       align-items: center; 
       border-bottom: 2px solid var(--accent-gold); 
-      padding-bottom: 10px; 
       margin-bottom: 15px; 
       background: var(--card-bg);
       padding: 12px 20px;
@@ -78,68 +77,127 @@
       justify-content: space-between;
     }
 
-    /* Linha 2: Sequência de Trios da Pista */
-    .tabela-container { overflow-x: auto; max-height: 400px; }
+    /* Linha 2: Sequência de Trios Pendentes (Subindo Fila) */
+    .tabela-container { overflow-x: auto; max-height: 450px; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th, td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
     th { color: var(--accent-gold); background: #1c1c1c; position: sticky; top: 0; }
     tr:nth-child(even) { background-color: #121212; }
 
-    /* Destaques de Corridas e Status */
-    tr.correndo-agora { background-color: rgba(255, 183, 3, 0.2) !important; border-left: 4px solid var(--accent-gold); }
+    tr.correndo-agora { background-color: rgba(255, 183, 3, 0.25) !important; border-left: 5px solid var(--accent-gold); }
     .badge-classificado { background: var(--accent-green); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
     .badge-status { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
-    .status-ok { background: var(--accent-green); color: #fff; }
-    .status-sat { background: var(--accent-blue); color: #fff; }
-    .status-do { background: var(--danger-red); color: #fff; }
     .status-aguardando { background: #444; color: #fff; }
 
-    /* Tela Cheia Sorteio Live */
-    #areaSorteioLive {
-      display: none;
+    /* Estilo da Modal em Tela Cheia do Sorteio Live */
+    .modal-sorteio-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
-      background: var(--bg-dark);
-      z-index: 1000;
+      background: radial-gradient(circle, #1a1a2e 0%, #0f0f1a 100%);
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
       padding: 30px;
       overflow-y: auto;
     }
-    .sorteio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px; }
-    .sorteio-card { background: var(--card-bg); border: 2px solid var(--accent-gold); border-radius: 8px; padding: 15px; text-align: center; }
+
+    .sorteio-header {
+      text-align: center;
+      margin-bottom: 25px;
+      border-bottom: 3px solid var(--accent-gold);
+      padding-bottom: 15px;
+    }
+    
+    .sorteio-header h2 {
+      font-size: 2.5rem;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      animation: pulso 2s infinite alternate;
+    }
+
+    @keyframes pulso {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.02); }
+    }
+
+    .sorteio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .card-sorteio-item {
+      background: #22223b;
+      border: 1px solid #4a4e69;
+      border-left: 6px solid var(--accent-gold);
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .badge-ordem-sorteio {
+      background: var(--accent-gold);
+      color: #000;
+      font-size: 1.4rem;
+      font-weight: 800;
+      padding: 8px 14px;
+      border-radius: 6px;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .info-trio-sorteio strong {
+      font-size: 1.1rem;
+      color: #fff;
+      display: block;
+    }
+
+    .info-trio-sorteio span {
+      font-size: 0.85rem;
+      color: var(--accent-green);
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Modal do Sorteio em Tempo Real -->
-  <div id="areaSorteioLive">
-    <header>
-      <h1 id="sorteioTitulo">🎲 SORTEIO DE ORDEM DE ENTRADA AO VIVO</h1>
-      <span class="badge-etapa" id="sorteioSubtitulo">PROVA EM ANDAMENTO</span>
-    </header>
-    <div class="sorteio-grid" id="containerSorteioCards"></div>
+  <!-- MODAL DE SORTEIO LIVE (START LIST) -->
+  <div class="modal-sorteio-overlay" id="modalSorteioLive">
+    <div class="sorteio-header">
+      <h2>🎲 SORTEIO DA ORDEM DE ENTRADA (START LIST)</h2>
+      <p style="color: #ccc; font-size: 1.2rem;" id="subtituloSorteio">Definindo a ordem de pista oficial...</p>
+    </div>
+    <div class="sorteio-grid" id="containerSorteioTrios"></div>
   </div>
 
+  <!-- CABEÇALHO PRINCIPAL -->
   <header>
-    <h1>📺 PAINEL OFICIAL DE RESULTADOS</h1>
-    <div class="badge-etapa" id="txtEtapaAtiva">Aguardando início da prova...</div>
+    <h1 id="txtNomeCompeticao">📺 PAINEL OFICIAL DE RESULTADOS</h1>
+    <div class="badge-etapa" id="txtEtapaAtiva">Aguardando ativação pelo Admin...</div>
   </header>
 
   <div class="painel-container">
 
-    <!-- LINHA 1: Classificação Atualizada Bateria por Bateria -->
+    <!-- LINHA 1: Baterias e Resultados -->
     <section class="painel-card">
       <h2>
         <span>🏆 RESULTADOS DAS BATERIAS (TEMPO REAL)</span>
         <small id="txtRegraClassificacao" style="font-size:0.8rem; color:#aaa;"></small>
       </h2>
       <div class="grid-baterias" id="containerBaterias">
-        <p style="color: #888;">Carregando resultados...</p>
+        <p style="color: #888;">Aguardando dados...</p>
       </div>
     </section>
 
-    <!-- LINHA 2: Sequência de Trios e Status de Corridas -->
+    <!-- LINHA 2: Sequência de Pista (Trios Pendentes Subindo na Fila) -->
     <section class="painel-card">
-      <h2>⏱️ SEQUÊNCIA DE ORDEM DE PISTA E RESULTADOS DA ETAPA</h2>
+      <h2>⏱️ SEQUÊNCIA DA PISTA (SUBINDO A FILA DE CORRIDAS)</h2>
       <div class="tabela-container">
         <table>
           <thead>
@@ -148,13 +206,11 @@
               <th>Bateria</th>
               <th>Senha</th>
               <th>Integrantes do Trio</th>
-              <th>Boi</th>
-              <th>Tempo</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody id="tbTriosPainel">
-            <tr><td colspan="7" style="text-align:center; color:#888;">Nenhuma corrida registrada nesta etapa.</td></tr>
+            <tr><td colspan="5" style="text-align:center; color:#888;">Carregando sequência de pista...</td></tr>
           </tbody>
         </table>
       </div>
@@ -165,25 +221,30 @@
   <script type="module">
     import { 
       db, 
+      doc,
       collection, 
       query, 
       where, 
       onSnapshot 
     } from "./firebase-config.js";
 
-    let selectedCompId = localStorage.getItem("selectedCompId") || null;
+    // Pega o ID via URL (Ex: painel.html?compId=ID) ou via LocalStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    let selectedCompId = urlParams.get("compId") || localStorage.getItem("selectedCompId") || null;
+
     let competicaoAtiva = null;
     let triosPainel = [];
+    let unsubTrios = null;
 
+    const txtNomeCompeticao = document.getElementById("txtNomeCompeticao");
     const txtEtapaAtiva = document.getElementById("txtEtapaAtiva");
     const containerBaterias = document.getElementById("containerBaterias");
     const tbTriosPainel = document.getElementById("tbTriosPainel");
     const txtRegraClassificacao = document.getElementById("txtRegraClassificacao");
 
-    const areaSorteioLive = document.getElementById("areaSorteioLive");
-    const sorteioTitulo = document.getElementById("sorteioTitulo");
-    const sorteioSubtitulo = document.getElementById("sorteioSubtitulo");
-    const containerSorteioCards = document.getElementById("containerSorteioCards");
+    const modalSorteioLive = document.getElementById("modalSorteioLive");
+    const subtituloSorteio = document.getElementById("subtituloSorteio");
+    const containerSorteioTrios = document.getElementById("containerSorteioTrios");
 
     function calcularBateria(ordemPista, tamanhoLote, numBaterias) {
       if (!ordemPista || ordemPista <= 0) return 1;
@@ -193,90 +254,83 @@
       return (indiceLote % qtdBaterias) + 1;
     }
 
-    if (selectedCompId) {
-      ouvirCompeticao();
-    } else {
-      txtEtapaAtiva.innerText = "Nenhuma competição selecionada no Admin.";
-    }
+    // Escuta Global para sincronização de qualquer PC sem depender de localStorage local
+    onSnapshot(doc(db, "painel_global", "ativo"), (docGlobalSnap) => {
+      if (docGlobalSnap.exists()) {
+        const dadosGlobais = docGlobalSnap.data();
+        if (dadosGlobais.competicaoId) {
+          selectedCompId = dadosGlobais.competicaoId;
+          iniciarEscutaPainel(selectedCompId);
+        }
+      } else if (selectedCompId) {
+        iniciarEscutaPainel(selectedCompId);
+      }
+    });
 
-    function ouvirCompeticao() {
-      onSnapshot(query(collection(db, "competicoes"), where("__name__", "==", selectedCompId)), (snapshot) => {
-        if (snapshot.empty) return;
-        
-        snapshot.forEach(docSnap => {
-          competicaoAtiva = { id: docSnap.id, ...docSnap.data() };
-        });
+    function iniciarEscutaPainel(compId) {
+      onSnapshot(doc(db, "competicoes", compId), (docSnap) => {
+        if (!docSnap.exists()) return;
+
+        competicaoAtiva = { id: docSnap.id, ...docSnap.data() };
+        txtNomeCompeticao.innerText = competicaoAtiva.nome ? `📺 ${competicaoAtiva.nome.toUpperCase()}` : "📺 PAINEL OFICIAL";
 
         verificarSorteioLive();
-        ouvirTriosAtivos();
+
+        const catNome = competicaoAtiva.categoriaAtivaPainel || competicaoAtiva.categoriaEmSorteio;
+        const faseNome = competicaoAtiva.faseAtivaPainel || competicaoAtiva.faseEmSorteio || "CLASSIFICACAO";
+        const dataNome = competicaoAtiva.dataAtivaPainel || "";
+
+        if (catNome) {
+          txtEtapaAtiva.innerText = `${faseNome} • ${catNome} (${dataNome})`;
+          escutarTriosEtapa(compId, catNome, faseNome, dataNome);
+        }
       });
     }
 
     function verificarSorteioLive() {
-      if (competicaoAtiva.sorteioStatus === "EXIBINDO") {
-        areaSorteioLive.style.display = "block";
-        sorteioTitulo.innerText = `🎲 SORTEIO AO VIVO - ${competicaoAtiva.categoriaEmSorteio || ''}`;
-        sorteioSubtitulo.innerText = `FASE: ${competicaoAtiva.faseEmSorteio || 'CLASSIFICACAO'}`;
+      if (competicaoAtiva && competicaoAtiva.sorteioStatus === "EXIBINDO") {
+        modalSorteioLive.style.display = "flex";
+        subtituloSorteio.innerText = `CATEGORIA: ${competicaoAtiva.categoriaEmSorteio || ''} | FASE: ${competicaoAtiva.faseEmSorteio || 'CLASSIFICACAO'}`;
       } else {
-        areaSorteioLive.style.display = "none";
+        modalSorteioLive.style.display = "none";
       }
     }
 
-    function ouvirTriosAtivos() {
+    function escutarTriosEtapa(compId, catNome, faseNome, dataNome) {
+      if (unsubTrios) unsubTrios();
+
       const q = query(
         collection(db, "trios"),
-        where("competicaoId", "==", selectedCompId)
+        where("competicaoId", "==", compId),
+        where("categoria", "==", catNome),
+        where("fase", "==", faseNome)
       );
 
-      onSnapshot(q, (snapshot) => {
+      unsubTrios = onSnapshot(q, (snapshot) => {
         triosPainel = [];
         snapshot.forEach(docSnap => {
           triosPainel.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        if (triosPainel.length === 0) {
-          tbTriosPainel.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Nenhum trio cadastrado nesta competição.</td></tr>';
-          containerBaterias.innerHTML = '<p style="color: #888;">Sem dados disponíveis.</p>';
-          return;
-        }
+        triosPainel.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
 
-        const triosOrdenadosRecentes = [...triosPainel].sort((a, b) => {
-          const tA = a.finalizadoEm ? a.finalizadoEm.seconds : (a.criadoEm ? a.criadoEm.seconds : 0);
-          const tB = b.finalizadoEm ? b.finalizadoEm.seconds : (b.criadoEm ? b.criadoEm.seconds : 0);
-          return tB - tA;
-        });
-
-        const trioMaisRecente = triosOrdenadosRecentes[0];
-        const categoriaAtiva = trioMaisRecente.categoria;
-        const faseAtiva = trioMaisRecente.fase || "CLASSIFICACAO";
-        const dataAtiva = trioMaisRecente.categoriaData || trioMaisRecente.data || "";
-
-        txtEtapaAtiva.innerText = `${faseAtiva} • ${categoriaAtiva} (${dataAtiva})`;
-
-        const triosDaEtapa = triosPainel.filter(t => 
-          t.categoria === categoriaAtiva && 
-          (t.fase || "CLASSIFICACAO") === faseAtiva &&
-          (t.categoriaData || t.data || "") === dataAtiva
-        );
-
-        triosDaEtapa.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
-
-        const catConfig = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === categoriaAtiva) : null;
+        const catConfig = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catNome) : null;
         const numBaterias = catConfig ? catConfig.qtdBaterias : 2;
         const tamanhoLote = catConfig ? catConfig.limiteGado : 25;
         const vClassificados = catConfig ? (catConfig.classificadosLote || catConfig.classificadosPorBateria || 3) : 3;
 
         txtRegraClassificacao.innerText = `Regra: Top ${vClassificados} por bateria avançam`;
 
-        renderizarLinha1Baterias(triosDaEtapa, numBaterias, tamanhoLote, vClassificados);
-        renderizarLinha2Trios(triosDaEtapa, tamanhoLote, numBaterias);
+        renderizarLinha1Baterias(triosPainel, numBaterias, tamanhoLote, vClassificados);
+        renderizarLinha2FilaDinamica(triosPainel, tamanhoLote, numBaterias);
 
         if (competicaoAtiva.sorteioStatus === "EXIBINDO") {
-          renderizarCardsSorteio(triosDaEtapa);
+          renderizarCardsSorteio(triosPainel);
         }
       });
     }
 
+    // Linha 1: Tabela contínua com os melhores tempos de cada bateria
     function renderizarLinha1Baterias(trios, numBaterias, tamanhoLote, vagas) {
       containerBaterias.innerHTML = "";
 
@@ -335,51 +389,61 @@
       }
     }
 
-    function renderizarLinha2Trios(trios, tamanhoLote, numBaterias) {
+    // Linha 2: Oculta quem já correu. Sempre mantém o trio atual em destaque e a lista subindo
+    function renderizarLinha2FilaDinamica(trios, tamanhoLote, numBaterias) {
       tbTriosPainel.innerHTML = "";
 
-      const trioCorrendo = trios.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
+      // Filtra APENAS quem ainda não tem resultado finalizado
+      const triosPendentes = trios.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
-      trios.forEach(trio => {
+      if (triosPendentes.length === 0) {
+        tbTriosPainel.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888; padding: 20px;">🏁 Todos os trios desta categoria já correram!</td></tr>';
+        return;
+      }
+
+      triosPendentes.forEach((trio, index) => {
         const ordemNum = trio.ordemPista || trio.senha;
         const ordemStr = trio.ordemPista ? `#${trio.ordemPista}` : "--";
         const batNum = calcularBateria(ordemNum, tamanhoLote, numBaterias);
-        const tempoStr = trio.tempo ? `${parseFloat(trio.tempo).toFixed(2)}s` : "--";
-
-        let statusClass = "status-aguardando";
-        if (trio.status === "OK") statusClass = "status-ok";
-        else if (trio.status === "SAT") statusClass = "status-sat";
-        else if (trio.status === "DO") statusClass = "status-do";
-
-        const ehAtual = trioCorrendo && trioCorrendo.id === trio.id;
+        
+        const ehAtual = (index === 0); // O primeiro da fila é o que está correndo agora
         const tr = document.createElement("tr");
         if (ehAtual) tr.className = "correndo-agora";
 
         tr.innerHTML = `
-          <td><strong>${ordemStr}</strong> ${ehAtual ? '🏃 (NA PISTA)' : ''}</td>
+          <td><strong>${ordemStr}</strong> ${ehAtual ? '🏃 (NA PISTA AGORA)' : ''}</td>
           <td>Bat. ${batNum}</td>
           <td>#${trio.senha}</td>
           <td>${trio.integrantes ? trio.integrantes.join(" • ") : ""}</td>
-          <td>${trio.boiSorteado || "--"}</td>
-          <td><strong>${tempoStr}</strong></td>
-          <td><span class="badge-status ${statusClass}">${trio.status || "AGUARDANDO"}</span></td>
+          <td><span class="badge-status status-aguardando">${ehAtual ? 'EM ANDAMENTO' : 'AGUARDANDO'}</span></td>
         `;
 
         tbTriosPainel.appendChild(tr);
       });
     }
 
+    // Renderiza Sorteio Live nos cards estilizados da versão anterior
     function renderizarCardsSorteio(trios) {
-      containerSorteioCards.innerHTML = "";
-      trios.forEach(trio => {
+      containerSorteioTrios.innerHTML = "";
+      
+      const sorteados = trios.filter(t => t.ordemPista);
+
+      if (sorteados.length === 0) {
+        containerSorteioTrios.innerHTML = '<p style="color:#aaa; text-align:center; grid-column: 1/-1;">Realizando sorteio na mesa diretora...</p>';
+        return;
+      }
+
+      sorteados.forEach(trio => {
         const card = document.createElement("div");
-        card.className = "sorteio-card";
+        card.className = "card-sorteio-item";
         card.innerHTML = `
-          <div style="font-size: 1.8rem; font-weight: bold; color: var(--accent-gold);">ORDEM #${trio.ordemPista || '--'}</div>
-          <div style="font-size: 1.1rem; margin: 10px 0; color: #fff;">Senha: #${trio.senha}</div>
-          <div style="font-size: 0.95rem; color: #ccc;">${trio.integrantes ? trio.integrantes.join("<br>") : ""}</div>
+          <div class="badge-ordem-sorteio">#${trio.ordemPista}</div>
+          <div class="info-trio-sorteio">
+            <strong>${trio.integrantes ? trio.integrantes.join(" • ") : ""}</strong>
+            <span>Senha de Compra: #${trio.senha}</span>
+          </div>
         `;
-        containerSorteioCards.appendChild(card);
+        containerSorteioTrios.appendChild(card);
       });
     }
   </script>
