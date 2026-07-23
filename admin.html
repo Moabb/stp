@@ -116,9 +116,9 @@
     <!-- COLUNA 1: Seleção, Regulamento, Cadastro Rápido e Sorteio Live -->
     <aside>
       
-      <!-- Card 1: Seleção da Competição e Categoria -->
+      <!-- Card 1: Seleção da Competição e Categoria/Fase -->
       <article class="card">
-        <h2>1. Seleção de Categoria</h2>
+        <h2>1. Seleção de Categoria e Fase</h2>
         <div class="form-group">
           <label for="selectCompeticao">Competição Ativa:</label>
           <select id="selectCompeticao">
@@ -126,7 +126,7 @@
           </select>
         </div>
         <div class="form-group" style="margin-bottom: 0;">
-          <label for="selectCategoria">Categoria Selecionada:</label>
+          <label for="selectCategoria">Categoria / Fase Selecionada:</label>
           <select id="selectCategoria" disabled>
             <option value="">Selecione a competição</option>
           </select>
@@ -146,7 +146,7 @@
             <input type="number" id="inputLimiteGado" min="1" value="25" required>
           </div>
           <div class="form-group">
-            <label for="inputClassificadosLote">Classificados p/ Segunda Passada:</label>
+            <label for="inputClassificadosLote">Classificados p/ Próxima Fase:</label>
             <input type="number" id="inputClassificadosLote" min="1" value="3" required>
           </div>
           <button type="submit" class="btn btn-primary" id="btnSalvarRegulamento" disabled>Salvar Regulamento</button>
@@ -346,6 +346,7 @@
     let selectedCompId = localStorage.getItem("selectedCompId") || null;
     let selectedCategoriaNome = null;
     let selectedCategoriaData = null;
+    let selectedFase = "CLASSIFICACAO"; // CLASSIFICACAO | SEMIFINAL | FINAL
 
     // Elementos DOM
     const selectCompeticao = document.getElementById("selectCompeticao");
@@ -370,7 +371,7 @@
     const modalEditarTrio = document.getElementById("modalEditarTrio");
     const btnFecharModalEdit = document.getElementById("btnFecharModalEdit");
 
-    // Helper: Função para calcular em qual Bateria o Trio está (baseado na ordem de pista/corrida)
+    // Helper: Função para calcular em qual Bateria o Trio está
     function calcularBateria(ordemPista, tamanhoLote, numBaterias) {
       if (!ordemPista || ordemPista <= 0) return 1;
       const qtdBaterias = numBaterias || 2;
@@ -435,8 +436,8 @@
         return;
       }
 
-      // 1. Chave única de categorias classificatórias finalizadas
-      const categoriasFinalizadas = new Set();
+      // 1. Busca todas as etapas e fases já finalizadas
+      const etapasFinalizadas = new Set();
       try {
         const qClassificados = query(
           collection(db, "classificados"),
@@ -446,86 +447,90 @@
         snapClassificados.forEach(d => {
           const data = d.data();
           if (data.categoria) {
-            const chaveUnica = `${data.categoria}|${data.dataCategoria || ""}`;
-            categoriasFinalizadas.add(chaveUnica);
+            const fase = data.faseOrigem || "CLASSIFICACAO";
+            const chaveUnica = `${data.categoria}|${data.dataCategoria || ""}|${fase}`;
+            etapasFinalizadas.add(chaveUnica);
           }
         });
       } catch (err) {
-        console.error("Erro ao consultar categorias finalizadas:", err);
+        console.error("Erro ao consultar etapas finalizadas:", err);
       }
 
-      const categorias = competicoesCache[compId].categorias || [];
+      const categoriasConfig = competicoesCache[compId].categorias || [];
       
-      // Filtra categorias normais ativas
-      const categoriasAtivas = categorias.filter(cat => {
+      // Categorias Classificatórias ativas
+      const classificatoriasAtivas = categoriasConfig.filter(cat => {
         const catData = cat.data || competicoesCache[compId].dataInicio || "";
-        const chaveUnica = `${cat.nome}|${catData}`;
-        return !categoriasFinalizadas.has(chaveUnica);
+        const chaveUnica = `${cat.nome}|${catData}|CLASSIFICACAO`;
+        return !etapasFinalizadas.has(chaveUnica);
       });
 
-      // 2. Busca Semifinais criadas na coleção "trios"
-      const semifinaisEncontradas = new Map();
+      // 2. Busca Semifinais e Finais ativas na coleção "trios"
+      const fasesEspeciaisEncontradas = new Map();
       try {
-        const qSemifinais = query(
+        const qTrios = query(
           collection(db, "trios"),
-          where("competicaoId", "==", compId),
-          where("fase", "==", "SEMIFINAL")
+          where("competicaoId", "==", compId)
         );
-        const snapSemifinais = await getDocs(qSemifinais);
-        snapSemifinais.forEach(d => {
+        const snapTrios = await getDocs(qTrios);
+        snapTrios.forEach(d => {
           const data = d.data();
-          if (data.categoria) {
+          const fase = data.fase || "CLASSIFICACAO";
+          if (fase === "SEMIFINAL" || fase === "FINAL") {
             const catData = data.categoriaData || data.data || "";
-            const chaveUnica = `${data.categoria}|${catData}`;
-            if (!semifinaisEncontradas.has(chaveUnica)) {
-              semifinaisEncontradas.set(chaveUnica, {
+            const chaveUnica = `${data.categoria}|${catData}|${fase}`;
+            
+            if (!etapasFinalizadas.has(chaveUnica) && !fasesEspeciaisEncontradas.has(chaveUnica)) {
+              fasesEspeciaisEncontradas.set(chaveUnica, {
                 nome: data.categoria,
-                data: catData
+                data: catData,
+                fase: fase
               });
             }
           }
         });
       } catch (err) {
-        console.error("Erro ao consultar semifinais:", err);
+        console.error("Erro ao consultar fases especiais:", err);
       }
 
-      selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
+      selectCategoria.innerHTML = '<option value="">-- Selecione uma Categoria/Fase --</option>';
 
-      const totalDisponivel = categoriasAtivas.length + semifinaisEncontradas.size;
+      const totalDisponivel = classificatoriasAtivas.length + fasesEspeciaisEncontradas.size;
 
       if (totalDisponivel === 0) {
-        selectCategoria.innerHTML = '<option value="">Nenhuma categoria pendente</option>';
+        selectCategoria.innerHTML = '<option value="">Nenhuma etapa pendente</option>';
         selectCategoria.disabled = true;
         desativarControles();
         limparPistaETabela();
         return;
       }
 
-      // Adiciona as Categorias Classificatórias Ativas
-      if (categoriasAtivas.length > 0) {
+      // Adiciona Classificatórias
+      if (classificatoriasAtivas.length > 0) {
         const groupNormal = document.createElement("optgroup");
         groupNormal.label = "Etapa Classificatória";
-        categoriasAtivas.forEach(cat => {
+        classificatoriasAtivas.forEach(cat => {
           const option = document.createElement("option");
           const catData = cat.data || competicoesCache[compId].dataInicio || "";
-          option.value = `${cat.nome}|${catData}`;
+          option.value = `${cat.nome}|${catData}|CLASSIFICACAO`;
           option.textContent = `${cat.nome} (${catData})`;
           groupNormal.appendChild(option);
         });
         selectCategoria.appendChild(groupNormal);
       }
 
-      // Adiciona as Semifinais no menu
-      if (semifinaisEncontradas.size > 0) {
-        const groupSemi = document.createElement("optgroup");
-        groupSemi.label = "🔥 Semifinais / Finais";
-        semifinaisEncontradas.forEach(semi => {
+      // Adiciona Semifinais e Finais
+      if (fasesEspeciaisEncontradas.size > 0) {
+        const groupEspecial = document.createElement("optgroup");
+        groupEspecial.label = "🔥 Semifinais & 🏆 Finais";
+        fasesEspeciaisEncontradas.forEach(item => {
           const option = document.createElement("option");
-          option.value = `${semi.nome}|${semi.data}`;
-          option.textContent = `${semi.nome} (${semi.data})`;
-          groupSemi.appendChild(option);
+          option.value = `${item.nome}|${item.data}|${item.fase}`;
+          const prefixo = item.fase === "SEMIFINAL" ? "🔥 [SEMIFINAL]" : "🏆 [FINAL]";
+          option.textContent = `${prefixo} ${item.nome} (${item.data})`;
+          groupEspecial.appendChild(option);
         });
-        selectCategoria.appendChild(groupSemi);
+        selectCategoria.appendChild(groupEspecial);
       }
 
       selectCategoria.disabled = false;
@@ -536,11 +541,10 @@
       }
     }
 
-    // Helper para limpar os campos da tela quando a categoria é concluída
     function limparPistaETabela() {
       document.getElementById("juizTrioAtual").innerText = "Selecione uma categoria ativa";
       document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: -- | Bateria: --";
-      document.getElementById("tbTriosAdmin").innerHTML = '<tr><td colspan="7" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>';
+      document.getElementById("tbTriosAdmin").innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>';
     }
 
     selectCompeticao.addEventListener("change", (e) => {
@@ -555,6 +559,7 @@
         const parts = val.split("|");
         selectedCategoriaNome = parts[0];
         selectedCategoriaData = parts[1] || "";
+        selectedFase = parts[2] || "CLASSIFICACAO";
 
         jaFinalizouCategoria = false;
         
@@ -591,7 +596,7 @@
       btnDO.disabled = true;
     }
 
-    // Carrega Regulamento e Escuta Trios da Categoria Selecionada
+    // Carrega Regulamento e Escuta Trios da Categoria + Fase Selecionada
     function carregarDadosCategoria() {
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
@@ -603,11 +608,13 @@
         document.getElementById("inputClassificadosLote").value = catInfo.classificadosLote || 3;
       }
 
+      // Consulta refinada filtrando por FASE para evitar carregamento duplicado de Semifinais/Finais
       const q = query(
         collection(db, "trios"),
         where("competicaoId", "==", selectedCompId),
         where("categoria", "==", selectedCategoriaNome),
-        where("categoriaData", "==", selectedCategoriaData)
+        where("categoriaData", "==", selectedCategoriaData),
+        where("fase", "==", selectedFase)
       );
 
       onSnapshot(q, (snapshot) => {
@@ -672,7 +679,8 @@
 
         await updateDoc(doc(db, "competicoes", selectedCompId), {
           sorteioStatus: "EXIBINDO",
-          categoriaEmSorteio: selectedCategoriaNome
+          categoriaEmSorteio: selectedCategoriaNome,
+          faseEmSorteio: selectedFase
         });
 
         btnEncerrarSorteioLive.style.display = "block";
@@ -695,7 +703,7 @@
       }
     });
 
-    // Botão Compartilhar Lista (Gera PDF em ordem de corrida com bateria)
+    // Botão Compartilhar Lista (PDF)
     btnCompartilharLista.addEventListener("click", () => {
       if (triosAtuais.length === 0) {
         alert("Não há trios para gerar o relatório.");
@@ -709,11 +717,10 @@
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
       const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
 
-      // Cabeçalho do PDF
       docPdf.setFontSize(16);
       docPdf.text(`Ordem de Corridas - ${compNome}`, 14, 15);
       docPdf.setFontSize(11);
-      docPdf.text(`Categoria: ${selectedCategoriaNome} | Data: ${selectedCategoriaData}`, 14, 23);
+      docPdf.text(`Categoria: ${selectedCategoriaNome} | Fase: ${selectedFase} | Data: ${selectedCategoriaData}`, 14, 23);
 
       const tableData = triosAtuais.map((trio) => {
         const ordem = trio.ordemPista || trio.senha;
@@ -740,7 +747,7 @@
         headStyles: { fillColor: [42, 157, 143] }
       });
 
-      docPdf.save(`Ordem_Corridas_${selectedCategoriaNome.replace(/\s+/g, '_')}.pdf`);
+      docPdf.save(`Ordem_Corridas_${selectedCategoriaNome.replace(/\s+/g, '_')}_${selectedFase}.pdf`);
     });
 
     // Renderiza a Tabela apenas com os pendentes (Inscrito/Aguardando)
@@ -751,7 +758,7 @@
       const triosPendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {
-        tbBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Todos os trios desta categoria já correram!</td></tr>';
+        tbBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Todos os trios desta etapa já correram!</td></tr>';
         return;
       }
 
@@ -844,7 +851,7 @@
       }
     });
 
-    // Atualiza a Pista (Mesa do Juiz)
+    // Atualiza Mesa do Juiz
     function atualizarMesaJuiz() {
       trioAtualPista = triosAtuais.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
@@ -855,9 +862,9 @@
         const batNum = calcularBateria(ordemNum, limiteGado, numBaterias);
 
         document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ");
-        document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha: #${trioAtualPista.senha} | Bateria: ${batNum}`;
+        document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha: #${trioAtualPista.senha} | Bateria: ${batNum} | Fase: ${selectedFase}`;
       } else {
-        document.getElementById("juizTrioAtual").innerText = "Todos os trios desta categoria já correram.";
+        document.getElementById("juizTrioAtual").innerText = "Todos os trios desta etapa já correram.";
         document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: -- | Bateria: --";
       }
     }
@@ -884,6 +891,7 @@
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
           categoriaData: selectedCategoriaData,
+          fase: selectedFase,
           senha: senha,
           integrantes: [c1, c2, c3],
           animais: animais,
@@ -899,7 +907,7 @@
       }
     });
 
-    // Lançamento de Tempos na Mesa do Juiz
+    // Lançamento de Resultados
     btnConfirmarTempo.addEventListener("click", () => lancarResultado("OK"));
     btnSAT.addEventListener("click", () => lancarResultado("SAT"));
     btnDO.addEventListener("click", () => lancarResultado("DO"));
@@ -936,24 +944,20 @@
       }
     }
 
-    let jaFinalizouCategoria = false; // Trava para impedir execuções duplicadas do onSnapshot
+    let jaFinalizouCategoria = false;
 
     async function verificarEProcessarFinalizacaoCategoria() {
       if (triosAtuais.length === 0 || jaFinalizouCategoria) return;
 
       const pendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
-      
-      // Se ainda houver trios pendentes, aborta a finalização
       if (pendentes.length > 0) return;
 
-      // Ativa a trava para o listener do Firestore não rodar essa gravação 2 vezes
       jaFinalizouCategoria = true;
 
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
       const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
       const vagasClassificacao = parseInt(document.getElementById("inputClassificadosLote").value) || 3;
 
-      // Agrupar trios por bateria
       const baterias = {};
       for (let i = 1; i <= numBaterias; i++) {
         baterias[i] = [];
@@ -987,38 +991,33 @@
       }
 
       try {
-        // Agora o ID incluirá a data: ex "COMP1_SOMA_3_2026-05-10"
         const dataFormatada = (selectedCategoriaData || "").replace(/[^a-zA-Z0-9]/g, '_');
         const nomeFormatado = selectedCategoriaNome.replace(/\s+/g, '_');
-        const idDocumentoFinal = `${selectedCompId}_${nomeFormatado}_${dataFormatada}`;
+        const idDocumentoFinal = `${selectedCompId}_${nomeFormatado}_${selectedFase}_${dataFormatada}`;
 
         const refClassificados = doc(db, "classificados", idDocumentoFinal);
 
-        // Grava/Sobrescreve com o ID fixo e exclusivo da categoria + data
         await setDoc(refClassificados, {
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
           dataCategoria: selectedCategoriaData,
+          faseOrigem: selectedFase,
           vagasPorBateria: vagasClassificacao,
           totalBaterias: numBaterias,
           resultadosPorBateria: resultadoFinalPorBateria,
           criadoEm: new Date()
         }, { merge: true });
 
-        console.log("Resultados dos classificados gravados com sucesso!");
+        alert(`Etapa ${selectedCategoriaNome} (${selectedFase}) finalizada e salva nos Classificados com sucesso!`);
 
-        alert(`Categoria ${selectedCategoriaNome} finalizada e salva nos Classificados com sucesso!`);
-
-        // Reseta as variáveis da categoria atual
         selectedCategoriaNome = null;
         selectedCategoriaData = null;
 
-        // Recarrega o dropdown de categorias sem a que acabou de finalizar
         await atualizarCategoriasSelect(selectedCompId);
 
       } catch (err) {
         console.error("Erro ao salvar classificados finais:", err);
-        jaFinalizouCategoria = false; // Destrava em caso de erro para permitir tentar novamente
+        jaFinalizouCategoria = false;
       }
     }    
 

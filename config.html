@@ -35,14 +35,12 @@
     .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
     .secao-card h2 { color: var(--accent-gold); font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
 
-    /* Barra de botões das fases abaixo do título */
     .fases-nav { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
 
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
     .form-group input { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; }
 
-    /* Bloco dinâmico de Categorias */
     .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
     .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #e76f51; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
     
@@ -55,7 +53,6 @@
     .btn-salvar { width: 100%; padding: 12px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; }
     .btn-salvar:disabled { background: #555; cursor: not-allowed; }
 
-    /* Lista de Provas */
     .lista-provas { display: flex; flex-direction: column; gap: 12px; }
     .card-prova-item { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-gold); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .card-prova-item .info h3 { font-size: 1.1rem; color: #fff; margin-bottom: 4px; }
@@ -78,7 +75,6 @@
 
   <main class="grid-config">
     
-    <!-- Formulário de Cadastro / Edição de Competição -->
     <section class="secao-card fixar">
       <h2 id="tituloForm">CRIAR NOVA COMPETIÇÃO</h2>
       <form id="formCompeticao">
@@ -95,7 +91,6 @@
 
         <h3 style="font-size: 1rem; color: #ccc; margin: 15px 0 10px 0;">Categorias da Prova:</h3>
         
-        <!-- Container onde os blocos de categoria serão inseridos -->
         <div id="containerCategorias"></div>
 
         <button type="button" class="btn-add-cat" id="btnAddCategoria">+ Adicionar Categoria</button>
@@ -107,11 +102,9 @@
       </form>
     </section>
 
-    <!-- Lista de Competições Existentes -->
     <section class="secao-card">
       <h2>MINHAS COMPETIÇÕES CADASTRADAS</h2>
       
-      <!-- Botões de acesso rápido para as próximas fases -->
       <div class="fases-nav">
         <button class="btn-action btn-fase" onclick="window.location.href='./semifinais.html'">🔥 Semifinais</button>
         <button class="btn-action btn-fase" onclick="window.location.href='./final.html'">🏆 Final</button>
@@ -140,8 +133,8 @@
     } from "./firebase-config.js";
 
     let currentUser = null;
-    let modoEdicaoId = null; // Guarda o ID da competição sendo editada
-    let competicoesCache = {}; // Cache local dos dados das competições
+    let modoEdicaoId = null;
+    let competicoesCache = {};
 
     const containerCategorias = document.getElementById("containerCategorias");
     const btnAddCategoria = document.getElementById("btnAddCategoria");
@@ -149,7 +142,6 @@
     const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
     const tituloForm = document.getElementById("tituloForm");
 
-    // Adiciona bloco HTML para preenchimento de uma categoria
     function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, classificados = 10) {
       const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
 
@@ -196,7 +188,6 @@
       carregarCompeticoes();
     });
 
-    // Salvar/Atualizar Competição no Firestore
     document.getElementById("formCompeticao").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -224,7 +215,6 @@
         btnSalvarComp.innerText = "Salvando...";
 
         if (modoEdicaoId) {
-          // MODO EDIÇÃO: Atualiza o documento existente no Firestore
           const compRef = doc(db, "competicoes", modoEdicaoId);
           await updateDoc(compRef, {
             nome: nomeComp,
@@ -234,7 +224,6 @@
           });
           alert("Competição e categorias atualizadas com sucesso!");
         } else {
-          // MODO CRIAÇÃO: Cria um novo documento
           await addDoc(collection(db, "competicoes"), {
             organizadorId: currentUser.uid,
             nome: nomeComp,
@@ -264,12 +253,11 @@
       tituloForm.innerText = "CRIAR NOVA COMPETIÇÃO";
       btnSalvarComp.innerText = "Salvar e Criar Competição";
       btnCancelarEdicao.style.display = "none";
-      adicionarCampoCategoria(); // Adiciona 1 campo limpo por padrão
+      adicionarCampoCategoria();
     }
 
     btnCancelarEdicao.addEventListener("click", resetarFormulario);
 
-    // Carregar Lista de Provas
     async function carregarCompeticoes() {
       const listaProvas = document.getElementById("listaProvas");
       listaProvas.innerHTML = "<p style='color:#888;'>Carregando competições...</p>";
@@ -323,7 +311,6 @@
       }
     }
 
-    // Preenche o formulário com a competição selecionada para editar/adicionar categorias
     function carregarParaEdicao(compId) {
       const comp = competicoesCache[compId];
       if (!comp) return;
@@ -336,10 +323,8 @@
       document.getElementById("nomeComp").value = comp.nome || "";
       document.getElementById("dataComp").value = comp.dataInicio || "";
 
-      // Limpa as categorias anteriores do formulário
       containerCategorias.innerHTML = "";
 
-      // Preenche as categorias já cadastradas
       if (comp.categorias && comp.categorias.length > 0) {
         comp.categorias.forEach(cat => {
           adicionarCampoCategoria(
@@ -353,7 +338,6 @@
         adicionarCampoCategoria();
       }
 
-      // Rola suavemente até o formulário
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -370,7 +354,6 @@
       signOut(auth).then(() => window.location.href = "./index.html");
     });
 
-    // Inicia com um campo de categoria vazio
     adicionarCampoCategoria();
   </script>
 </body>

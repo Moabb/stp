@@ -29,7 +29,7 @@
     .grid-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 25px; align-items: start; }
     @media (max-width: 900px) { 
       .grid-layout { grid-template-columns: 1fr; } 
-      .fixar { position: static; } /* Remove o sticky em telas pequenas para evitar bugs visuais */
+      .fixar { position: static; }
     }
 
     .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
@@ -44,7 +44,6 @@
     .btn-salvar { width: 100%; padding: 12px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-top: 10px; }
     .btn-salvar:disabled { background: #555; cursor: not-allowed; }
 
-    /* Tabela de Inscritos */
     .tabela-container { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
     th, td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
@@ -53,13 +52,7 @@
     
     .badge-senha { background: var(--accent-gold); color: #000; font-weight: bold; padding: 3px 8px; border-radius: 4px; display: inline-block; }
     
-    /* Classe para manter o card fixo ao rolar a página */
-    .fixar {
-      position: sticky;
-      top: 20px;
-      align-self: start;
-      z-index: 10;
-    }
+    .fixar { position: sticky; top: 20px; align-self: start; z-index: 10; }
   </style>
 </head>
 <body>
@@ -75,7 +68,7 @@
 
   <main class="grid-layout">
     
-    <!-- Formulário de Inscrição de Trio (FIXADO) -->
+    <!-- Formulário de Inscrição -->
     <section class="secao-card fixar">
       <h2>INSCREVER NOVO TRIO</h2>
       <form id="formTrio">
@@ -111,10 +104,9 @@
       </form>
     </section>
 
-    <!-- Lista de Trios Cadastrados na Categoria -->
+    <!-- Lista de Trios Cadastrados -->
     <section class="secao-card">
 
-      <!-- Filtro de Competição e Categoria -->
       <section class="secao-card" style="margin-bottom: 25px; background: #262626;">
         <h2>SELECIONE A PROVA E CATEGORIA</h2>
         <div class="grid-2-col">
@@ -283,7 +275,8 @@
           collection(db, "trios"),
           where("competicaoId", "==", selectedCompId),
           where("categoria", "==", selectedCategoriaNome),
-          where("categoriaData", "==", selectedCategoriaData)
+          where("categoriaData", "==", selectedCategoriaData),
+          where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
         document.getElementById("numSenha").value = snapshot.size + 1;
@@ -323,7 +316,8 @@
           collection(db, "trios"),
           where("competicaoId", "==", selectedCompId),
           where("categoria", "==", selectedCategoriaNome),
-          where("categoriaData", "==", selectedCategoriaData)
+          where("categoriaData", "==", selectedCategoriaData),
+          where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
 
@@ -347,11 +341,12 @@
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
           categoriaData: selectedCategoriaData,
+          fase: "CLASSIFICACAO",
           senha: senha,
           integrantes: [c1, c2, c3],
           animais: animais,
           criadoEm: new Date(),
-          tempos: {} 
+          status: "INSCRITO"
         });
 
         alert("Trio cadastrado com sucesso!");
@@ -381,7 +376,8 @@
           collection(db, "trios"),
           where("competicaoId", "==", selectedCompId),
           where("categoria", "==", selectedCategoriaNome),
-          where("categoriaData", "==", selectedCategoriaData)
+          where("categoriaData", "==", selectedCategoriaData),
+          where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
 

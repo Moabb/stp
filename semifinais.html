@@ -37,11 +37,9 @@
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
     .form-group input, .form-group select { width: 100%; padding: 10px; background-color: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 0.95rem; }
 
-    /* Bloco da Categoria */
     .bloco-classificada { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
     .bloco-classificada h3 { color: var(--accent-green); font-size: 1.1rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 6px; }
 
-    /* Grid para colocar as baterias LADO A LADO */
     .grid-baterias { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 
     .tabela-classificados { width: 100%; border-collapse: collapse; margin-top: 8px; }
@@ -63,6 +61,7 @@
     <h1>🔥 MONTAGEM DE SEMIFINAIS</h1>
     <div>
       <a href="./config.html" class="btn-header">⚙️ CONFIG</a>
+      <a href="./final.html" class="btn-header">🏆 FINAL</a>
       <a href="./admin.html" class="btn-header">⏱️ PROVA (ADMIN)</a>
       <button class="btn-header" id="btnSair" style="background:#e76f51; color:#fff;">SAIR</button>
     </div>
@@ -70,12 +69,12 @@
 
   <div class="grid-semifinal">
 
-    <!-- COLUNA 1: Lista de Categorias Classificadas -->
+    <!-- COLUNA 1: Classificados na Etapa Classificatória -->
     <main>
       <article class="card">
-        <h2>1. Seletor de Baterias Classificadas</h2>
+        <h2>1. Selecionar Classificados das Etapas</h2>
         <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 15px;">
-          Selecione abaixo as baterias das etapas classificatórias que serão unidas para esta semifinal.
+          Selecione abaixo as baterias da fase classificatória que participarão desta Semifinal.
         </p>
 
         <div class="form-group">
@@ -94,27 +93,17 @@
     <!-- COLUNA 2: Configuração da Semifinal -->
     <aside class="fixar">
       <article class="card">
-        <h2>2. Configurar a Semifinal</h2>
-        <form id="formGerarSemifinal">
+        <h2>2. Configurar Semifinal</h2>
+        <form id="formGerarSemi">
           
           <div class="form-group">
-            <label for="inputNomeSemifinal">Nome da Semifinal:</label>
-            <input type="text" id="inputNomeSemifinal" placeholder="Ex: Semifinal - Soma 3" required>
+            <label for="inputNomeSemi">Nome da Categoria Semifinal:</label>
+            <input type="text" id="inputNomeSemi" placeholder="Ex: Semifinal - SOMA 3" required>
           </div>
 
           <div class="form-group">
-            <label for="inputDataSemifinal">Data da Prova:</label>
-            <input type="date" id="inputDataSemifinal" required>
-          </div>
-
-          <div class="form-group">
-            <label for="inputLimiteGado">Nº Corridas por Lote (Troca de Boi):</label>
-            <input type="number" id="inputLimiteGado" min="1" value="10" required>
-          </div>
-
-          <div class="form-group">
-            <label for="inputVagasFinal">Classificados para a Grande Final:</label>
-            <input type="number" id="inputVagasFinal" min="1" value="10" required>
+            <label for="inputDataSemi">Data da Prova:</label>
+            <input type="date" id="inputDataSemi" required>
           </div>
 
           <div style="background: #2b2b2b; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid var(--accent-gold);">
@@ -122,7 +111,7 @@
             <h3 id="txtTotalSelecionados" style="color: var(--accent-gold); font-size: 1.3rem;">0 Trios</h3>
           </div>
 
-          <button type="submit" class="btn-gerar" id="btnGerar" disabled>🚀 Gerar e Enviar para Admin</button>
+          <button type="submit" class="btn-gerar" id="btnGerar" disabled>🔥 Gerar Semifinal e Enviar para Admin</button>
         </form>
       </article>
     </aside>
@@ -158,7 +147,7 @@
         return;
       }
       currentUser = user;
-      document.getElementById("inputDataSemifinal").value = new Date().toISOString().split('T')[0];
+      document.getElementById("inputDataSemi").value = new Date().toISOString().split('T')[0];
       carregarCompeticoes();
     });
 
@@ -209,28 +198,28 @@
     });
 
     async function carregarClassificados(compId) {
-      containerClassificadas.innerHTML = '<p style="color: #888;">Carregando e filtrando duplicatas...</p>';
+      containerClassificadas.innerHTML = '<p style="color: #888;">Buscando classificados...</p>';
       
       try {
+        // Filtra estritamente classificados oriundos da FASE CLASSIFICATORIA
         const q = query(
           collection(db, "classificados"),
-          where("competicaoId", "==", compId)
+          where("competicaoId", "==", compId),
+          where("faseOrigem", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma categoria finalizada até o momento.</p>';
+          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma etapa classificatória finalizada até o momento.</p>';
           return;
         }
 
-        // REMOVE DUPLICATAS: Mantém apenas o registro mais recente por Categoria + Data
         const mapaUnicos = {};
 
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
           const chaveUnica = `${data.categoria}_${data.dataCategoria || 'semdata'}`;
 
-          // Se não existe ou se o registro atual possui criadoEm mais recente, substitui
           if (!mapaUnicos[chaveUnica]) {
             mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
           } else {
@@ -242,7 +231,6 @@
           }
         });
 
-        // Transforma o objeto de únicos em Array e ordena por Data
         classificadosUnicos = Object.values(mapaUnicos).sort((a, b) => {
           return (a.dataCategoria || "").localeCompare(b.dataCategoria || "");
         });
@@ -251,7 +239,7 @@
 
       } catch (err) {
         console.error("Erro ao carregar classificados:", err);
-        containerClassificadas.innerHTML = '<p style="color: #e76f51;">Erro ao carregar classificações.</p>';
+        containerClassificadas.innerHTML = '<p style="color: #e76f51;">Erro ao carregar classificados.</p>';
       }
     }
 
@@ -266,8 +254,6 @@
 
         let htmlBaterias = "";
         const resPorBat = item.resultadosPorBateria || {};
-
-        // Ordena as baterias (bateria1, bateria2...)
         const bateriasOrdenadas = Object.keys(resPorBat).sort();
 
         bateriasOrdenadas.forEach(batKey => {
@@ -290,7 +276,7 @@
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                 <label style="font-weight:bold; color:var(--accent-gold); cursor:pointer; display:flex; align-items:center; gap:8px;">
                   <input type="checkbox" class="checkbox-bateria" data-doc-id="${item.id}" data-bat-key="${batKey}">
-                  Incorporar Bateria ${numeroBateria} (${triosClassificados.length} Trios)
+                  Incluir na Semifinal - Bat. ${numeroBateria} (${triosClassificados.length} Trios)
                 </label>
               </div>
               <table class="tabela-classificados">
@@ -343,27 +329,25 @@
       txtTotalSelecionados.innerText = `${total} Trio${total !== 1 ? 's' : ''}`;
       btnGerar.disabled = total === 0;
 
-      const inputNome = document.getElementById("inputNomeSemifinal");
+      const inputNome = document.getElementById("inputNomeSemi");
       if (!inputNome.value && classificadosUnicos.length > 0) {
         inputNome.value = `Semifinal - ${classificadosUnicos[0].categoria}`;
       }
     }
 
-    document.getElementById("formGerarSemifinal").addEventListener("submit", async (e) => {
+    document.getElementById("formGerarSemi").addEventListener("submit", async (e) => {
       e.preventDefault();
 
       if (triosUnificadosSelecionados.length === 0) {
-        alert("Selecione ao menos uma bateria para gerar a semifinal!");
+        alert("Selecione ao menos uma bateria para gerar a Semifinal!");
         return;
       }
 
       const compId = selectCompeticao.value;
-      const nomeSemifinal = document.getElementById("inputNomeSemifinal").value.trim();
-      const dataSemifinal = document.getElementById("inputDataSemifinal").value;
-      const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 10;
-      const vagasFinal = parseInt(document.getElementById("inputVagasFinal").value) || 10;
+      const nomeSemi = document.getElementById("inputNomeSemi").value.trim();
+      const dataSemi = document.getElementById("inputDataSemi").value;
 
-      if (!confirm(`Confirmar a criação da "${nomeSemifinal}" com ${triosUnificadosSelecionados.length} trios?`)) return;
+      if (!confirm(`Confirmar a criação da "${nomeSemi}" com ${triosUnificadosSelecionados.length} trios semifinalistas?`)) return;
 
       try {
         btnGerar.disabled = true;
@@ -373,9 +357,9 @@
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
             competicaoId: compId,
-            categoria: nomeSemifinal,
-            data: dataSemifinal,
-            categoriaData: dataSemifinal,
+            categoria: nomeSemi,
+            data: dataSemi,
+            categoriaData: dataSemi,
             fase: "SEMIFINAL",
             senha: i + 1,
             integrantes: t.integrantes,
@@ -384,14 +368,14 @@
           });
         }
 
-        alert("Semifinal criada com sucesso! Redirecionando para a mesa do juiz...");
+        alert("Semifinal criada com sucesso! Redirecionando para o painel do juiz...");
         window.location.href = "./admin.html";
 
       } catch (err) {
         console.error("Erro ao gerar semifinal:", err);
-        alert("Erro ao criar semifinal: " + err.message);
+        alert("Erro ao criar a Semifinal: " + err.message);
         btnGerar.disabled = false;
-        btnGerar.innerText = "🚀 Gerar e Enviar para Admin";
+        btnGerar.innerText = "🔥 Gerar Semifinal e Enviar para Admin";
       }
     });
 

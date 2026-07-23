@@ -37,7 +37,6 @@
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
     .form-group input, .form-group select { width: 100%; padding: 10px; background-color: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 0.95rem; }
 
-    /* Bloco da Categoria */
     .bloco-classificada { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
     .bloco-classificada h3 { color: var(--accent-green); font-size: 1.1rem; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 6px; }
 
@@ -70,12 +69,12 @@
 
   <div class="grid-final">
 
-    <!-- COLUNA 1: Conferência dos Classificados -->
+    <!-- COLUNA 1: Classificados das Semifinais -->
     <main>
       <article class="card">
-        <h2>1. Conferência dos Finalistas</h2>
+        <h2>1. Conferência dos Finalistas (da Semifinal)</h2>
         <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 15px;">
-          Selecione abaixo as baterias/etapas que farão parte da Grande Final.
+          Selecione abaixo os trios classificados na Semifinal para montar a Grande Final.
         </p>
 
         <div class="form-group">
@@ -105,11 +104,6 @@
           <div class="form-group">
             <label for="inputDataFinal">Data da Prova:</label>
             <input type="date" id="inputDataFinal" required>
-          </div>
-
-          <div class="form-group">
-            <label for="inputLimiteGado">Nº Corridas por Lote (Troca de Boi):</label>
-            <input type="number" id="inputLimiteGado" min="1" value="10" required>
           </div>
 
           <div style="background: #2b2b2b; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid var(--accent-gold);">
@@ -204,32 +198,31 @@
     });
 
     async function carregarClassificados(compId) {
-      containerClassificadas.innerHTML = '<p style="color: #888;">Buscando classificados...</p>';
+      containerClassificadas.innerHTML = '<p style="color: #888;">Buscando classificados da Semifinal...</p>';
       
       try {
+        // Filtra classificados vindos EXCLUSIVAMENTE das SEMIFINAIS
         const q = query(
           collection(db, "classificados"),
-          where("competicaoId", "==", compId)
+          where("competicaoId", "==", compId),
+          where("faseOrigem", "==", "SEMIFINAL")
         );
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma etapa/semifinal finalizada até o momento.</p>';
+          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma semifinal finalizada até o momento.</p>';
           return;
         }
 
-        // Dicionário para garantir apenas o documento MAIS RECENTE de cada chave
         const mapaUnicos = {};
 
         snapshot.forEach(docSnap => {
           const data = docSnap.data();
-          // Chave única combinando Categoria e Data da Categoria
           const chaveUnica = `${data.categoria}_${data.dataCategoria || 'semdata'}`;
 
           if (!mapaUnicos[chaveUnica]) {
             mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
           } else {
-            // Se já existe, compara a data de criação (criadoEm) e mantém o mais recente
             const dataExistente = mapaUnicos[chaveUnica].criadoEm?.seconds || 0;
             const dataNova = data.criadoEm?.seconds || 0;
             
@@ -239,7 +232,6 @@
           }
         });
 
-        // Transforma em array e ordena por data da categoria
         classificadosUnicos = Object.values(mapaUnicos).sort((a, b) => {
           return (a.dataCategoria || "").localeCompare(b.dataCategoria || "");
         });
