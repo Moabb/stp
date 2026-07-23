@@ -158,7 +158,7 @@
       
       <div class="modal-body">
         <p style="font-size:0.85rem; color:#aaa; margin-bottom:5px;">
-          Selecione as competições que deseja apagar. <strong>Atenção:</strong> Isso removerá permanentemente a competição e todos os trios/tempos cadastrados nela.
+          Selecione as competições que deseja apagar. <strong>Atenção:</strong> Isso removerá permanentemente a competição e seus dados do banco.
         </p>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
@@ -189,7 +189,6 @@
       doc,
       updateDoc,
       deleteDoc,
-      writeBatch,
       query, 
       where, 
       onAuthStateChanged,
@@ -467,7 +466,7 @@
       }
     }
 
-    /* LÓGICA DO MODAL E DELETAR COMPETIÇÃO NO FIRESTORE */
+    /* MODAL E EXCLUSÃO DE COMPETIÇÃO NO FIRESTORE */
     btnAbrirModalExcluir.addEventListener("click", () => {
       const ids = Object.keys(competicoesCache);
       if (ids.length === 0) {
@@ -524,21 +523,10 @@
         btnConfirmarExclusao.innerText = "Apagando do banco...";
 
         for (const compId of selecionados) {
-          // 1. Apaga subcoleções vinculadas (ex: categorias e trios) caso existam no caminho /competicoes/compId/...
-          const categoriasSubCol = collection(db, "competicoes", compId, "categorias");
-          const snapshotSub = await getDocs(categoriasSubCol);
-          
-          if (!snapshotSub.empty) {
-            const batchSub = writeBatch(db);
-            snapshotSub.forEach(docSub => batchSub.delete(docSub.ref));
-            await batchSub.commit();
-          }
-
-          // 2. Apaga o documento principal da competição
           await deleteDoc(doc(db, "competicoes", compId));
         }
 
-        alert("Competição(ões) e dados relacionados excluídos com sucesso!");
+        alert("Competição(ões) excluída(s) com sucesso!");
         fecharModalExclusao();
         carregarCompeticoes();
       } catch (error) {
