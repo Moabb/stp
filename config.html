@@ -115,6 +115,42 @@
       </div>
     </section>
 
+    <!-- Exemplo de como fica no card da competição dentro de config.html -->
+    <div class="card-competicao">
+      <h3>1º GRANDE TEAM PENNING DE VEREDA</h3>
+      <p>Início: 2026-07-22 | Categorias: SOMA 9, FEMININA</p>
+      
+      <div class="acoes-competicao">
+        <button class="btn-editar">✏️ Editar / Add Categoria</button>
+        <button class="btn-cadastrar">📄 Iniciar Cadastrar Trios</button>
+      </div>
+
+      <hr style="border-color: #333; margin: 15px 0;">
+
+      <!-- BLOCO DE CATEGORIA EMBUTIDA (INTEGRADO) -->
+      <div class="box-categoria-embutida" style="background: #141414; padding: 12px; border-radius: 6px;">
+        <h4 style="color: #ffb703; font-size: 0.9rem; margin-bottom: 8px;">🔗 Vincular Categoria Embutida (Espelho)</h4>
+        
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <select id="selectCatPai_COMPID" style="flex: 1; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px;">
+            <option value="">Categoria Principal (Pista)</option>
+            <option value="cat_soma9">SOMA 9</option>
+          </select>
+
+          <span style="color: #888;">→</span>
+
+          <select id="selectCatEspelho_COMPID" style="flex: 1; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px;">
+            <option value="">Categoria Embutida (Recebe Tempos)</option>
+            <option value="cat_fem">FEMININA</option>
+          </select>
+
+          <button onclick="vincularCategorias('COMPID')" style="background: #2a9d8f; color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+            Vincular
+          </button>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <script type="module">
