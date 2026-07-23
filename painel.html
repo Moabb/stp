@@ -86,6 +86,11 @@
 
     tr.correndo-agora { background-color: rgba(255, 183, 3, 0.25) !important; border-left: 5px solid var(--accent-gold); }
     .badge-classificado { background: var(--accent-green); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+    
+    /* Destaque para o Tempo de Corte */
+    .badge-corte { background: var(--accent-gold); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+    tr.linha-corte { background-color: rgba(255, 183, 3, 0.12) !important; border-bottom: 2px dashed var(--accent-gold); }
+
     .badge-status { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
     .status-aguardando { background: #444; color: #fff; }
 
@@ -330,7 +335,7 @@
       });
     }
 
-    // Linha 1: Tabela com os melhores tempos limitados ao número de vagas da bateria
+    // Linha 1: Tabela com os melhores tempos e destaque para o tempo de corte
     function renderizarLinha1Baterias(trios, numBaterias, tamanhoLote, vagas) {
       containerBaterias.innerHTML = "";
 
@@ -362,13 +367,21 @@
           linhasHtml = '<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum tempo válido</td></tr>';
         } else {
           classificadosExibicao.forEach((trio, idx) => {
-            const tagClassif = '<span class="badge-classificado">CLASSIFICADO</span>';
             const tempoFormatado = parseFloat(trio.tempo).toFixed(3);
             
+            // Verifica se é a última vaga preenchida da bateria (Tempo de Corte)
+            const ehCorte = (idx === vagas - 1) || (idx === classificadosExibicao.length - 1 && classificadosExibicao.length === vagas);
+            
+            const badgeTag = ehCorte 
+              ? '<span class="badge-corte">TEMPO DE CORTE</span>' 
+              : '<span class="badge-classificado">CLASSIFICADO</span>';
+            
+            const classeLinha = ehCorte ? 'class="linha-corte"' : '';
+
             linhasHtml += `
-              <tr>
+              <tr ${classeLinha}>
                 <td><strong>#${idx + 1}</strong></td>
-                <td>${trio.integrantes ? trio.integrantes.join(" / ") : ""} ${tagClassif}</td>
+                <td>${trio.integrantes ? trio.integrantes.join(" / ") : ""} ${badgeTag}</td>
                 <td><strong>${tempoFormatado}s</strong></td>
               </tr>
             `;
