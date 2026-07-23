@@ -151,6 +151,23 @@
       carregarCompeticoes();
     });
 
+
+    document.addEventListener('DOMContentLoaded', () => {
+    const statusProva = localStorage.getItem('statusProva');
+
+    // Se a prova já foi concluída, limpa a exibição da tela
+        if (statusProva === 'finalizada') {
+            const containerLista = document.getElementById('seu-container-da-lista');
+            if (containerLista) {
+                containerLista.innerHTML = '<p>As provas já foram encerradas!</p>';
+            }
+            return; // Interrompe o carregamento da lista antiga
+        }
+
+        // Se não estiver finalizada, carrega a lista normalmente...
+        carregarListaClassificados();
+    });
+
     async function carregarCompeticoes() {
       try {
         const q = query(
