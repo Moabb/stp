@@ -414,6 +414,10 @@
         return;
       }
 
+      // Pega os dados de vínculo embutido se existirem
+      const comp = competicoesCache[compId];
+      const catEspelhoNome = comp.vinculoEmbutido ? comp.vinculoEmbutido.catEspelho : null;
+
       const etapasFinalizadas = new Set();
       try {
         const qClassificados = query(
@@ -433,10 +437,16 @@
         console.error("Erro ao consultar etapas finalizadas:", err);
       }
 
-      const categoriasConfig = competicoesCache[compId].categorias || [];
+      const categoriasConfig = comp.categorias || [];
       const classificatoriasAtivas = categoriasConfig.filter(cat => {
-        const catData = cat.data || competicoesCache[compId].dataInicio || "";
+        const catData = cat.data || comp.dataInicio || "";
         const chaveUnica = `${cat.nome}|${catData}|CLASSIFICACAO`;
+        
+        // CORREÇÃO AQUI: Se for a categoria embutida (espelho), ignora da listagem principal
+        if (catEspelhoNome && cat.nome === catEspelhoNome) {
+          return false;
+        }
+
         return !etapasFinalizadas.has(chaveUnica);
       });
 
@@ -483,9 +493,15 @@
         groupNormal.label = "Etapa Classificatória";
         classificatoriasAtivas.forEach(cat => {
           const option = document.createElement("option");
-          const catData = cat.data || competicoesCache[compId].dataInicio || "";
+          const catData = cat.data || comp.dataInicio || "";
           option.value = `${cat.nome}|${catData}|CLASSIFICACAO`;
-          option.textContent = `${cat.nome} (${catData})`;
+          
+          // Se tiver categoria embutida, adiciona um indicativo visual no select
+          const tagEmbutida = (comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === cat.nome)
+            ? ` [c/ ${comp.vinculoEmbutido.catEspelho} Embutida]`
+            : "";
+
+          option.textContent = `${cat.nome}${tagEmbutida} (${catData})`;
           groupNormal.appendChild(option);
         });
         selectCategoria.appendChild(groupNormal);
@@ -922,14 +938,23 @@
       }
 
       try {
-        const trioRef = doc(db, "trios", trioAtualPista.id);
-        await updateDoc(trioRef, {
+        const dadosResultado = {
           tempo: status === "OK" ? tempo : null,
           boiSorteado: boi || "N/A",
           boisCurralados: boisCurral,
           status: status,
           finalizadoEm: new Date()
-        });
+        };
+
+        // 1. Atualiza na categoria principal
+        const trioRef = doc(db, "trios", trioAtualPista.id);
+        await updateDoc(trioRef, dadosResultado);
+
+        // 2. Se o trio possuir vínculo com categoria espelho (ex: Feminina), sincroniza o tempo nela
+        if (trioAtualPista.trioEspelhoId) {
+          const trioEspelhoRef = doc(db, "trios", trioAtualPista.trioEspelhoId);
+          await updateDoc(trioEspelhoRef, dadosResultado);
+        }
 
         inputTempo.value = "";
         inputBoiSorteado.value = "";
