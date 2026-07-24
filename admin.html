@@ -75,6 +75,7 @@
     }
     .badge-troca { background: var(--danger-red); color: #fff; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 6px; display: inline-block; }
     .badge-bateria { background: #3a86ff; color: #fff; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-espelho { background: #e0aaff; color: #3c096c; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin-left: 6px; display: inline-block; }
 
     .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
     .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; width: 100%; max-width: 450px; border: 1px solid var(--accent-gold); max-height: 90vh; overflow-y: auto; }
@@ -442,7 +443,7 @@
         const catData = cat.data || comp.dataInicio || "";
         const chaveUnica = `${cat.nome}|${catData}|CLASSIFICACAO`;
         
-        // CORREÇÃO AQUI: Se for a categoria embutida (espelho), ignora da listagem principal
+        // CORREÇÃO: Se for a categoria embutida (espelho), ignora da listagem principal
         if (catEspelhoNome && cat.nome === catEspelhoNome) {
           return false;
         }
@@ -627,13 +628,29 @@
         document.getElementById("inputClassificadosLote").value = catInfo.classificadosLote || 3;
       }
 
-      const q = query(
-        collection(db, "trios"),
-        where("competicaoId", "==", selectedCompId),
-        where("categoria", "==", selectedCategoriaNome),
-        where("categoriaData", "==", selectedCategoriaData),
-        where("fase", "==", selectedFase)
-      );
+      // CORREÇÃO: Monta lista de categorias para buscar caso haja vinculo embutido
+      let categoriasParaBuscar = [selectedCategoriaNome];
+      if (comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
+        categoriasParaBuscar.push(comp.vinculoEmbutido.catEspelho);
+      }
+
+      let q;
+      if (categoriasParaBuscar.length > 1) {
+        q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId),
+          where("categoria", "in", categoriasParaBuscar),
+          where("fase", "==", selectedFase)
+        );
+      } else {
+        q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId),
+          where("categoria", "==", selectedCategoriaNome),
+          where("categoriaData", "==", selectedCategoriaData),
+          where("fase", "==", selectedFase)
+        );
+      }
 
       onSnapshot(q, (snapshot) => {
         triosAtuais = [];
@@ -778,6 +795,7 @@
 
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
       const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
+      const comp = competicoesCache[selectedCompId];
 
       triosPendentes.forEach((trio) => {
         const ordemNum = trio.ordemPista || trio.senha;
@@ -790,6 +808,11 @@
         const classeTroca = ehTrocaBateria ? "troca-bateria" : "";
         const tagTroca = ehTrocaBateria ? `<span class="badge-troca">⚠️ TROCA DE LOTE</span>` : "";
 
+        // Tag indicando se é trio da Categoria Espelho (ex: Feminina)
+        const tagEspelho = (comp && comp.vinculoEmbutido && trio.categoria === comp.vinculoEmbutido.catEspelho)
+          ? `<span class="badge-espelho">🎀 ${comp.vinculoEmbutido.catEspelho}</span>`
+          : "";
+
         const tr = document.createElement("tr");
         if (classeTroca) tr.className = classeTroca;
 
@@ -797,7 +820,7 @@
           <td><strong>${ordem}</strong> ${tagTroca}</td>
           <td><span class="badge-bateria">Bat. ${batNum}</span></td>
           <td><span class="badge-senha">#${trio.senha}</span></td>
-          <td>${nomes}</td>
+          <td>${nomes} ${tagEspelho}</td>
           <td>${trio.boiSorteado || "--"}</td>
           <td><strong>${tempo}</strong></td>
           <td>${trio.status || "INSCRITO"}</td>
@@ -872,8 +895,13 @@
         const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
         const ordemNum = trioAtualPista.ordemPista || trioAtualPista.senha;
         const batNum = calcularBateria(ordemNum, limiteGado, numBaterias);
+        const comp = competicoesCache[selectedCompId];
 
-        document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ");
+        const tagCat = (comp && comp.vinculoEmbutido && trioAtualPista.categoria === comp.vinculoEmbutido.catEspelho)
+          ? ` [🎀 ${comp.vinculoEmbutido.catEspelho}]`
+          : "";
+
+        document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ") + tagCat;
         document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha: #${trioAtualPista.senha} | Bateria: ${batNum} | Fase: ${selectedFase}`;
       } else {
         document.getElementById("juizTrioAtual").innerText = "Todos os trios desta etapa já correram.";
