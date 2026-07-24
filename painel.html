@@ -411,30 +411,46 @@
     function escutarTriosEtapa(compId, catNome, faseNome, dataNome) {
       if (unsubTrios) unsubTrios();
 
-      // Se a categoria possui sufixos ou tags (ex: "[c/ FEMININA Embutida]"), extrai o nome base
-      const catBase = catNome.split('[')[0].trim();
+      // 1. Verifica se a competição tem vínculo de categoria embutida/espelho (ex: SOMA 3 + FEMININA)
+      let categoriasParaBuscar = [catNome];
+      
+      if (competicaoAtiva && competicaoAtiva.vinculoEmbutido) {
+        // Se a categoria transmitida for a pai (ex: SOMA 3), inclui a espelho (ex: FEMININA)
+        if (competicaoAtiva.vinculoEmbutido.catPai === catNome) {
+          categoriasParaBuscar.push(competicaoAtiva.vinculoEmbutido.catEspelho);
+        }
+      }
 
-      // Busca todos os trios da competição e fase atual para não filtrar rigorosamente por string exata do nome da categoria
-      const q = query(
-        collection(db, "trios"),
-        where("competicaoId", "==", compId),
-        where("fase", "==", faseNome)
-      );
+      // 2. Monta a consulta no Firestore
+      let q;
+      if (categoriasParaBuscar.length > 1) {
+        // Busca os trios de SOMA 3 E FEMININA na mesma chamada
+        q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", compId),
+          where("categoria", "in", categoriasParaBuscar),
+          where("fase", "==", faseNome)
+        );
+      } else {
+        q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", compId),
+          where("categoria", "==", catNome),
+          where("fase", "==", faseNome)
+        );
+      }
 
+      // 3. Ouve as atualizações em tempo real
       unsubTrios = onSnapshot(q, (snapshot) => {
         triosPainel = [];
         snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          
-          // Valida se o trio pertence à categoria selecionada (compatível com a categoria principal/base)
-          if (data.categoria && (data.categoria === catNome || data.categoria.startsWith(catBase))) {
-            triosPainel.push({ id: docSnap.id, ...data });
-          }
+          triosPainel.push({ id: docSnap.id, ...docSnap.data() });
         });
 
+        // Ordena pela Ordem de Pista / Senha
         triosPainel.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
 
-        const catConfig = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catNome || c.nome.startsWith(catBase)) : null;
+        const catConfig = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catNome) : null;
         const numBaterias = catConfig ? catConfig.qtdBaterias : 2;
         const tamanhoLote = catConfig ? catConfig.limiteGado : 25;
         const vClassificados = catConfig ? (catConfig.classificadosLote || catConfig.classificadosPorBateria || 3) : 3;
