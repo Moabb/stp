@@ -1001,61 +1001,74 @@
 
       jaFinalizouCategoria = true;
 
+      const comp = competicoesCache[selectedCompId];
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
       const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
       const vagasClassificacao = parseInt(document.getElementById("inputClassificadosLote").value) || 3;
 
-      const baterias = {};
-      for (let i = 1; i <= numBaterias; i++) {
-        baterias[i] = [];
-      }
-
-      triosAtuais.forEach(trio => {
-        if (trio.status === "OK" && trio.tempo > 0) {
-          const ordemNum = trio.ordemPista || trio.senha;
-          const batNum = calcularBateria(ordemNum, limiteGado, numBaterias);
-          if (baterias[batNum]) {
-            baterias[batNum].push(trio);
-          }
-        }
-      });
-
-      const resultadoFinalPorBateria = {};
-
-      for (let b = 1; b <= numBaterias; b++) {
-        baterias[b].sort((a, b) => a.tempo - b.tempo);
-        
-        const classificadosBateria = baterias[b].slice(0, vagasClassificacao).map((t, idx) => ({
-          posicao: idx + 1,
-          trioId: t.id,
-          senha: t.senha,
-          integrantes: t.integrantes,
-          tempo: t.tempo,
-          boiSorteado: t.boiSorteado
-        }));
-
-        resultadoFinalPorBateria[`bateria${b}`] = classificadosBateria;
+      // 1. Identifica as categorias presentes na rodada (Ex: Soma 3 e Feminina)
+      let categoriasPresentes = [selectedCategoriaNome];
+      if (comp && comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
+        categoriasPresentes.push(comp.vinculoEmbutido.catEspelho);
       }
 
       try {
-        const dataFormatada = (selectedCategoriaData || "").replace(/[^a-zA-Z0-9]/g, '_');
-        const nomeFormatado = selectedCategoriaNome.replace(/\s+/g, '_');
-        const idDocumentoFinal = `${selectedCompId}_${nomeFormatado}_${selectedFase}_${dataFormatada}`;
+        // 2. Loop para processar e salvar OS CLASSIFICADOS SEPARADAMENTE para cada categoria
+        for (const catNome of categoriasPresentes) {
+          const triosDaCat = triosAtuais.filter(t => t.categoria === catNome);
 
-        const refClassificados = doc(db, "classificados", idDocumentoFinal);
+          const baterias = {};
+          for (let i = 1; i <= numBaterias; i++) {
+            baterias[i] = [];
+          }
 
-        await setDoc(refClassificados, {
-          competicaoId: selectedCompId,
-          categoria: selectedCategoriaNome,
-          dataCategoria: selectedCategoriaData,
-          faseOrigem: selectedFase,
-          vagasPorBateria: vagasClassificacao,
-          totalBaterias: numBaterias,
-          resultadosPorBateria: resultadoFinalPorBateria,
-          criadoEm: new Date()
-        }, { merge: true });
+          triosDaCat.forEach(trio => {
+            if (trio.status === "OK" && trio.tempo > 0) {
+              const ordemNum = trio.ordemPista || trio.senha;
+              const batNum = calcularBateria(ordemNum, limiteGado, numBaterias);
+              if (baterias[batNum]) {
+                baterias[batNum].push(trio);
+              }
+            }
+          });
 
-        alert(`Etapa ${selectedCategoriaNome} (${selectedFase}) finalizada e salva nos Classificados com sucesso!`);
+          const resultadoFinalPorBateria = {};
+
+          for (let b = 1; b <= numBaterias; b++) {
+            baterias[b].sort((a, b) => a.tempo - b.tempo);
+            
+            const classificadosBateria = baterias[b].slice(0, vagasClassificacao).map((t, idx) => ({
+              posicao: idx + 1,
+              trioId: t.id,
+              senha: t.senha,
+              integrantes: t.integrantes,
+              tempo: t.tempo,
+              boiSorteado: t.boiSorteado,
+              categoria: t.categoria
+            }));
+
+            resultadoFinalPorBateria[`bateria${b}`] = classificadosBateria;
+          }
+
+          const dataFormatada = (selectedCategoriaData || "").replace(/[^a-zA-Z0-9]/g, '_');
+          const nomeFormatado = catNome.replace(/\s+/g, '_');
+          const idDocumentoFinal = `${selectedCompId}_${nomeFormatado}_${selectedFase}_${dataFormatada}`;
+
+          const refClassificados = doc(db, "classificados", idDocumentoFinal);
+
+          await setDoc(refClassificados, {
+            competicaoId: selectedCompId,
+            categoria: catNome,
+            dataCategoria: selectedCategoriaData,
+            faseOrigem: selectedFase,
+            vagasPorBateria: vagasClassificacao,
+            totalBaterias: numBaterias,
+            resultadosPorBateria: resultadoFinalPorBateria,
+            criadoEm: new Date()
+          }, { merge: true });
+        }
+
+        alert(`Etapa finalizada com sucesso! Os classificados de ${categoriasPresentes.join(" e ")} foram salvos separadamente.`);
 
         selectedCategoriaNome = null;
         selectedCategoriaData = null;
@@ -1066,8 +1079,8 @@
         console.error("Erro ao salvar classificados finais:", err);
         jaFinalizouCategoria = false;
       }
-    }    
-
+    }
+    
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");
     });
