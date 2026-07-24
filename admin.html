@@ -56,44 +56,6 @@
     .btn-danger { background-color: var(--danger-red); color: #fff; }
     .btn-sm { width: auto; padding: 4px 8px; font-size: 0.75rem; margin-bottom: 0; }
 
-    /* SELETOR DE CATEGORIA EMBUTIDA NO TOPO DA MESA DO JUIZ */
-    .container-troca-categoria-embutida {
-      background: #121212;
-      border: 1px solid var(--accent-gold);
-      border-radius: 6px;
-      padding: 10px;
-      margin-bottom: 15px;
-      display: none;
-    }
-    .container-troca-categoria-embutida label {
-      font-size: 0.8rem;
-      color: var(--accent-gold);
-      font-weight: bold;
-      display: block;
-      margin-bottom: 6px;
-    }
-    .botoes-alternar-cat {
-      display: flex;
-      gap: 10px;
-    }
-    .btn-alternar {
-      flex: 1;
-      padding: 8px;
-      border: 1px solid #555;
-      background: #252525;
-      color: #fff;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: bold;
-      transition: 0.2s;
-    }
-    .btn-alternar.ativo {
-      background: var(--accent-gold);
-      color: #000;
-      border-color: var(--accent-gold);
-    }
-
     .mesa-juiz { background: linear-gradient(135deg, #1c2541, #0b132b); border: 2px solid var(--accent-gold); border-radius: 8px; padding: 20px; }
     .trio-destaque { font-size: 1.4rem; font-weight: bold; color: #fff; margin-bottom: 8px; }
     
@@ -166,7 +128,7 @@
             <input type="number" id="inputLimiteGado" min="1" value="25" required>
           </div>
           <div class="form-group">
-            <label for="inputClassificadosLote">Classificados p/ Próxima Fase (por Bat.):</label>
+            <label for="inputClassificadosLote">Classificados p/ Próxima Fase:</label>
             <input type="number" id="inputClassificadosLote" min="1" value="3" required>
           </div>
           <button type="submit" class="btn btn-primary" id="btnSalvarRegulamento" disabled>Salvar Regulamento</button>
@@ -196,17 +158,8 @@
       
       <!-- Mesa do Juiz -->
       <article class="mesa-juiz">
-        <h2 style="color: var(--accent-gold); border: none; padding: 0; margin-bottom: 12px;">⏱️ MESA DO JUIZ DE PISTA</h2>
+        <h2 style="color: var(--accent-gold); border: none; padding: 0;">⏱️ MESA DO JUIZ DE PISTA</h2>
         
-        <!-- BLOCÃO DE ALTERNÂNCIA SE HOUVER CATEGORIA EMBUTIDA -->
-        <div class="container-troca-categoria-embutida" id="boxTrocaCatEmbutida">
-          <label>🔗 CATEGORIA EMBUTIDA DETECTADA (ALTERNAR VISUALIZAÇÃO):</label>
-          <div class="botoes-alternar-cat">
-            <button type="button" class="btn-alternar ativo" id="btnCatPaiVis">SOMA 3 (Principal)</button>
-            <button type="button" class="btn-alternar" id="btnCatEspelhoVis">FEMININA (Embutida)</button>
-          </div>
-        </div>
-
         <div class="trio-destaque" id="juizTrioAtual">Selecione uma categoria ativa</div>
         <div id="juizTrioDetalhes" style="color: #aaa; font-size: 0.9rem;">Ordem de Pista: -- | Senha: -- | Bateria: --</div>
 
@@ -241,7 +194,7 @@
       <!-- Lista Completa dos Trios Pendentes -->
       <article class="card" style="margin-top: 20px;">
         <div class="card-header-flex">
-          <h2 id="tituloFilaCorredores">Próximos Corredores / Fila da Categoria</h2>
+          <h2>Próximos Corredores / Fila da Categoria</h2>
           <button class="btn btn-warning btn-sm" id="btnCompartilharLista" disabled>📄 Compartilhar Lista (PDF)</button>
         </div>
         <div class="tabela-container">
@@ -274,10 +227,6 @@
     <div class="modal-content">
       <h2 style="color: var(--accent-gold); margin-bottom: 15px;">Cadastrar Novo Trio</h2>
       <form id="formModalTrio">
-        <div class="form-group" id="groupModalCategoria" style="display:none;">
-          <label for="modalCategoria">Cadastrar na Categoria:</label>
-          <select id="modalCategoria"></select>
-        </div>
         <div class="form-group">
           <label for="modalSenha">Número da Senha:</label>
           <input type="number" id="modalSenha" min="1" required>
@@ -380,7 +329,6 @@
     let selectedCategoriaNome = null;
     let selectedCategoriaData = null;
     let selectedFase = "CLASSIFICACAO";
-    let categoriaVisualizacaoAtual = null; // Para alternar entre Soma 3 e Feminina
 
     const selectCompeticao = document.getElementById("selectCompeticao");
     const selectCategoria = document.getElementById("selectCategoria");
@@ -403,12 +351,6 @@
 
     const modalEditarTrio = document.getElementById("modalEditarTrio");
     const btnFecharModalEdit = document.getElementById("btnFecharModalEdit");
-
-    // Elementos da alternância de Categoria Embutida
-    const boxTrocaCatEmbutida = document.getElementById("boxTrocaCatEmbutida");
-    const btnCatPaiVis = document.getElementById("btnCatPaiVis");
-    const btnCatEspelhoVis = document.getElementById("btnCatEspelhoVis");
-    const tituloFilaCorredores = document.getElementById("tituloFilaCorredores");
 
     function calcularBateria(ordemPista, tamanhoLote, numBaterias) {
       if (!ordemPista || ordemPista <= 0) return 1;
@@ -473,6 +415,7 @@
         return;
       }
 
+      // Pega os dados de vínculo embutido se existirem
       const comp = competicoesCache[compId];
       const catEspelhoNome = comp.vinculoEmbutido ? comp.vinculoEmbutido.catEspelho : null;
 
@@ -500,7 +443,7 @@
         const catData = cat.data || comp.dataInicio || "";
         const chaveUnica = `${cat.nome}|${catData}|CLASSIFICACAO`;
         
-        // Se for categoria embutida, não exibe duplicada no select principal
+        // CORREÇÃO: Se for a categoria embutida (espelho), ignora da listagem principal
         if (catEspelhoNome && cat.nome === catEspelhoNome) {
           return false;
         }
@@ -554,6 +497,7 @@
           const catData = cat.data || comp.dataInicio || "";
           option.value = `${cat.nome}|${catData}|CLASSIFICACAO`;
           
+          // Se tiver categoria embutida, adiciona um indicativo visual no select
           const tagEmbutida = (comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === cat.nome)
             ? ` [c/ ${comp.vinculoEmbutido.catEspelho} Embutida]`
             : "";
@@ -589,7 +533,6 @@
       document.getElementById("juizTrioAtual").innerText = "Selecione uma categoria ativa";
       document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: -- | Bateria: --";
       document.getElementById("tbTriosAdmin").innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>';
-      boxTrocaCatEmbutida.style.display = "none";
     }
 
     selectCompeticao.addEventListener("change", (e) => {
@@ -605,11 +548,9 @@
         selectedCategoriaNome = parts[0];
         selectedCategoriaData = parts[1] || "";
         selectedFase = parts[2] || "CLASSIFICACAO";
-        categoriaVisualizacaoAtual = selectedCategoriaNome; // Categoria ativa padrão
 
         jaFinalizouCategoria = false;
         
-        preencherConfiguracoesDaCategoria(); // CORREÇÃO 1: Preenche o regulamento com o que foi salvo na config.html
         carregarDadosCategoria();
         ativarControles();
       } else {
@@ -617,20 +558,7 @@
       }
     });
 
-    // CORREÇÃO 1: Carrega os dados salvos em config.html para os campos de regulamento
-    function preencherConfiguracoesDaCategoria() {
-      const comp = competicoesCache[selectedCompId];
-      if (!comp || !comp.categorias) return;
-
-      const catInfo = comp.categorias.find(c => c.nome === selectedCategoriaNome);
-      if (catInfo) {
-        document.getElementById("inputQtdBaterias").value = catInfo.qtdBaterias || 2;
-        document.getElementById("inputLimiteGado").value = catInfo.limiteGado || 25;
-        // Lê tanto classificadosPorBateria (gravado na config.html) quanto classificadosLote
-        document.getElementById("inputClassificadosLote").value = catInfo.classificadosPorBateria || catInfo.classificadosLote || 3;
-      }
-    }
-
+    // BOTÃO ATIVAR PAINEL LIVE: Atualiza no Firebase a competição ativa e a categoria em andamento
     btnAtivarPainel.addEventListener("click", async () => {
       if (!selectedCompId || !selectedCategoriaNome) {
         alert("Selecione uma competição e uma categoria primeiro!");
@@ -646,6 +574,7 @@
           atualizadoEm: new Date()
         });
 
+        // Grava no painel global publico para facil acesso de outros computadores
         await setDoc(doc(db, "painel_global", "ativo"), {
           competicaoId: selectedCompId,
           categoriaAtiva: selectedCategoriaNome,
@@ -654,7 +583,7 @@
           atualizadoEm: new Date()
         }, { merge: true });
 
-        alert("📺 Categoria ativada no Painel em tempo real com sucesso!");
+        alert("📺 Categoria ativada no Painel em tempo real com sucesso! Todos os monitores sincronizados.");
       } catch (err) {
         alert("Erro ao ativar painel: " + err.message);
       }
@@ -692,21 +621,17 @@
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
 
-      // CORREÇÃO 2: Configura botões de alternância de visualização caso exista Categoria Embutida
+      const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
+      if (catInfo) {
+        document.getElementById("inputQtdBaterias").value = catInfo.qtdBaterias || 2;
+        document.getElementById("inputLimiteGado").value = catInfo.limiteGado || 25;
+        document.getElementById("inputClassificadosLote").value = catInfo.classificadosLote || 3;
+      }
+
+      // CORREÇÃO: Monta lista de categorias para buscar caso haja vinculo embutido
       let categoriasParaBuscar = [selectedCategoriaNome];
       if (comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
-        const catEspelho = comp.vinculoEmbutido.catEspelho;
-        categoriasParaBuscar.push(catEspelho);
-
-        boxTrocaCatEmbutida.style.display = "block";
-        btnCatPaiVis.innerText = `${selectedCategoriaNome} (Principal)`;
-        btnCatEspelhoVis.innerText = `${catEspelho} (Embutida)`;
-
-        if (!categoriaVisualizacaoAtual) categoriaVisualizacaoAtual = selectedCategoriaNome;
-        atualizarEstiloBotoesAlternar();
-      } else {
-        boxTrocaCatEmbutida.style.display = "none";
-        categoriaVisualizacaoAtual = selectedCategoriaNome;
+        categoriasParaBuscar.push(comp.vinculoEmbutido.catEspelho);
       }
 
       let q;
@@ -741,33 +666,6 @@
       });
     }
 
-    // LÓGICA DE ALTERNÂNCIA (SOMA 3 <-> FEMININA)
-    btnCatPaiVis.addEventListener("click", () => {
-      categoriaVisualizacaoAtual = selectedCategoriaNome;
-      atualizarEstiloBotoesAlternar();
-      atualizarTabelaAdmin();
-    });
-
-    btnCatEspelhoVis.addEventListener("click", () => {
-      const comp = competicoesCache[selectedCompId];
-      if (comp && comp.vinculoEmbutido) {
-        categoriaVisualizacaoAtual = comp.vinculoEmbutido.catEspelho;
-        atualizarEstiloBotoesAlternar();
-        atualizarTabelaAdmin();
-      }
-    });
-
-    function atualizarEstiloBotoesAlternar() {
-      if (categoriaVisualizacaoAtual === selectedCategoriaNome) {
-        btnCatPaiVis.classList.add("ativo");
-        btnCatEspelhoVis.classList.remove("ativo");
-      } else {
-        btnCatPaiVis.classList.remove("ativo");
-        btnCatEspelhoVis.classList.add("ativo");
-      }
-      tituloFilaCorredores.innerText = `Próximos Corredores / Fila (${categoriaVisualizacaoAtual})`;
-    }
-
     document.getElementById("formRegulamento").addEventListener("submit", async (e) => {
       e.preventDefault();
       const comp = competicoesCache[selectedCompId];
@@ -775,11 +673,11 @@
 
       const qtdBaterias = parseInt(document.getElementById("inputQtdBaterias").value);
       const limiteGado = parseInt(document.getElementById("inputLimiteGado").value);
-      const classificadosPorBateria = parseInt(document.getElementById("inputClassificadosLote").value);
+      const classificadosLote = parseInt(document.getElementById("inputClassificadosLote").value);
 
       const categoriasAtualizadas = (comp.categorias || []).map(cat => {
         if (cat.nome === selectedCategoriaNome) {
-          return { ...cat, qtdBaterias, limiteGado, classificadosPorBateria, classificadosLote: classificadosPorBateria };
+          return { ...cat, qtdBaterias, limiteGado, classificadosLote };
         }
         return cat;
       });
@@ -789,7 +687,7 @@
           categorias: categoriasAtualizadas
         });
         competicoesCache[selectedCompId].categorias = categoriasAtualizadas;
-        alert("Regulamento da categoria atualizado no banco com sucesso!");
+        alert("Regulamento da categoria atualizado com sucesso!");
         atualizarTabelaAdmin();
       } catch (err) {
         alert("Erro ao atualizar regulamento: " + err.message);
@@ -819,7 +717,7 @@
         });
 
         btnEncerrarSorteioLive.style.display = "block";
-        alert("Sorteio realizado! O Painel exibe a ordem oficial de pista.");
+        alert("Sorteio realizado! O Painel em qualquer PC agora exibe o Sorteio ao Vivo.");
 
       } catch (err) {
         alert("Erro ao realizar sorteio: " + err.message);
@@ -832,17 +730,15 @@
           sorteioStatus: "FINALIZADO"
         });
         btnEncerrarSorteioLive.style.display = "none";
-        alert("Sorteio encerrado! O Painel voltou para as corridas.");
+        alert("Sorteio encerrado! O Painel voltou para o monitoramento normal das corridas.");
       } catch (err) {
         alert("Erro ao encerrar exibição: " + err.message);
       }
     });
 
     btnCompartilharLista.addEventListener("click", () => {
-      const triosFiltradosPDF = triosAtuais.filter(t => t.categoria === categoriaVisualizacaoAtual);
-
-      if (triosFiltradosPDF.length === 0) {
-        alert(`Não há trios inscritos na categoria ${categoriaVisualizacaoAtual} para gerar o PDF.`);
+      if (triosAtuais.length === 0) {
+        alert("Não há trios para gerar o relatório.");
         return;
       }
 
@@ -856,9 +752,9 @@
       docPdf.setFontSize(16);
       docPdf.text(`Ordem de Corridas - ${compNome}`, 14, 15);
       docPdf.setFontSize(11);
-      docPdf.text(`Categoria: ${categoriaVisualizacaoAtual} | Fase: ${selectedFase} | Data: ${selectedCategoriaData}`, 14, 23);
+      docPdf.text(`Categoria: ${selectedCategoriaNome} | Fase: ${selectedFase} | Data: ${selectedCategoriaData}`, 14, 23);
 
-      const tableData = triosFiltradosPDF.map((trio) => {
+      const tableData = triosAtuais.map((trio) => {
         const ordem = trio.ordemPista || trio.senha;
         const bat = calcularBateria(ordem, limiteGado, numBaterias);
         const integrantes = trio.integrantes ? trio.integrantes.join(", ") : "";
@@ -883,19 +779,17 @@
         headStyles: { fillColor: [42, 157, 143] }
       });
 
-      docPdf.save(`Ordem_Corridas_${categoriaVisualizacaoAtual.replace(/\s+/g, '_')}_${selectedFase}.pdf`);
+      docPdf.save(`Ordem_Corridas_${selectedCategoriaNome.replace(/\s+/g, '_')}_${selectedFase}.pdf`);
     });
 
     function atualizarTabelaAdmin() {
       const tbBody = document.getElementById("tbTriosAdmin");
       tbBody.innerHTML = "";
 
-      // Filtra os trios de acordo com a aba selecionada (Soma 3 ou Feminina)
-      const triosDaCategoriaAtiva = triosAtuais.filter(t => t.categoria === categoriaVisualizacaoAtual);
-      const triosPendentes = triosDaCategoriaAtiva.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
+      const triosPendentes = triosAtuais.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {
-        tbBody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#888;">Todos os trios da categoria ${categoriaVisualizacaoAtual} já correram!</td></tr>`;
+        tbBody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Todos os trios desta etapa já correram!</td></tr>';
         return;
       }
 
@@ -914,6 +808,7 @@
         const classeTroca = ehTrocaBateria ? "troca-bateria" : "";
         const tagTroca = ehTrocaBateria ? `<span class="badge-troca">⚠️ TROCA DE LOTE</span>` : "";
 
+        // Tag indicando se é trio da Categoria Espelho (ex: Feminina)
         const tagEspelho = (comp && comp.vinculoEmbutido && trio.categoria === comp.vinculoEmbutido.catEspelho)
           ? `<span class="badge-espelho">🎀 ${comp.vinculoEmbutido.catEspelho}</span>`
           : "";
@@ -993,9 +888,7 @@
     });
 
     function atualizarMesaJuiz() {
-      // Pista corre com base nos trios da Categoria Principal (Soma 3)
-      const triosFilaPista = triosAtuais.filter(t => t.categoria === selectedCategoriaNome);
-      trioAtualPista = triosFilaPista.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
+      trioAtualPista = triosAtuais.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (trioAtualPista) {
         const limiteGado = parseInt(document.getElementById("inputLimiteGado").value) || 25;
@@ -1004,11 +897,11 @@
         const batNum = calcularBateria(ordemNum, limiteGado, numBaterias);
         const comp = competicoesCache[selectedCompId];
 
-        const tagCatEmbutida = (comp && comp.vinculoEmbutido)
-          ? ` [c/ ${comp.vinculoEmbutido.catEspelho} Embutida]`
+        const tagCat = (comp && comp.vinculoEmbutido && trioAtualPista.categoria === comp.vinculoEmbutido.catEspelho)
+          ? ` [🎀 ${comp.vinculoEmbutido.catEspelho}]`
           : "";
 
-        document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ") + tagCatEmbutida;
+        document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ") + tagCat;
         document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha: #${trioAtualPista.senha} | Bateria: ${batNum} | Fase: ${selectedFase}`;
       } else {
         document.getElementById("juizTrioAtual").innerText = "Todos os trios desta etapa já correram.";
@@ -1018,22 +911,6 @@
 
     btnAbrirModalTrio.addEventListener("click", () => {
       document.getElementById("modalSenha").value = triosAtuais.length + 1;
-      
-      const comp = competicoesCache[selectedCompId];
-      const selectModalCat = document.getElementById("modalCategoria");
-      const groupModalCat = document.getElementById("groupModalCategoria");
-
-      // Permite escolher se a inscrição de última hora é Soma 3 ou Feminina
-      if (comp && comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
-        groupModalCat.style.display = "block";
-        selectModalCat.innerHTML = `
-          <option value="${selectedCategoriaNome}">${selectedCategoriaNome} (Principal)</option>
-          <option value="${comp.vinculoEmbutido.catEspelho}">${comp.vinculoEmbutido.catEspelho} (Embutida)</option>
-        `;
-      } else {
-        groupModalCat.style.display = "none";
-      }
-
       modalTrio.style.display = "flex";
     });
 
@@ -1048,18 +925,10 @@
       const c3 = document.getElementById("modalC3").value.trim();
       const animais = document.getElementById("modalAnimais").value.trim();
 
-      const comp = competicoesCache[selectedCompId];
-      const selectModalCat = document.getElementById("modalCategoria");
-      
-      let catInscricao = selectedCategoriaNome;
-      if (comp && comp.vinculoEmbutido && selectModalCat.value) {
-        catInscricao = selectModalCat.value;
-      }
-
       try {
         await addDoc(collection(db, "trios"), {
           competicaoId: selectedCompId,
-          categoria: catInscricao,
+          categoria: selectedCategoriaNome,
           categoriaData: selectedCategoriaData,
           fase: selectedFase,
           senha: senha,
@@ -1069,7 +938,7 @@
           status: "INSCRITO"
         });
 
-        alert(`Trio cadastrado com sucesso na categoria ${catInscricao}!`);
+        alert("Trio adicionado com sucesso!");
         modalTrio.style.display = "none";
         document.getElementById("formModalTrio").reset();
       } catch (err) {
@@ -1105,9 +974,11 @@
           finalizadoEm: new Date()
         };
 
+        // 1. Atualiza na categoria principal
         const trioRef = doc(db, "trios", trioAtualPista.id);
         await updateDoc(trioRef, dadosResultado);
 
+        // 2. Se o trio possuir vínculo com categoria espelho (ex: Feminina), sincroniza o tempo nela
         if (trioAtualPista.trioEspelhoId) {
           const trioEspelhoRef = doc(db, "trios", trioAtualPista.trioEspelhoId);
           await updateDoc(trioEspelhoRef, dadosResultado);
@@ -1135,12 +1006,14 @@
       const numBaterias = parseInt(document.getElementById("inputQtdBaterias").value) || 2;
       const vagasClassificacao = parseInt(document.getElementById("inputClassificadosLote").value) || 3;
 
+      // 1. Identifica as categorias presentes na rodada (Ex: Soma 3 e Feminina)
       let categoriasPresentes = [selectedCategoriaNome];
       if (comp && comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
         categoriasPresentes.push(comp.vinculoEmbutido.catEspelho);
       }
 
       try {
+        // 2. Loop para processar e salvar OS CLASSIFICADOS SEPARADAMENTE para cada categoria
         for (const catNome of categoriasPresentes) {
           const triosDaCat = triosAtuais.filter(t => t.categoria === catNome);
 
