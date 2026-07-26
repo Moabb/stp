@@ -45,8 +45,8 @@
     .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
     .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: var(--accent-red); cursor: pointer; font-weight: bold; font-size: 1.1rem; }
     
-    .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 600px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
+    .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr; gap: 8px; }
+    @media (max-width: 768px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
 
     .btn-add-cat { background: transparent; border: 1px dashed var(--accent-gold); color: var(--accent-gold); width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
     .btn-add-cat:hover { background: rgba(255, 183, 3, 0.1); }
@@ -61,7 +61,6 @@
     .card-prova-item .info p { font-size: 0.85rem; color: #aaa; }
     .card-prova-item .acoes { display: flex; gap: 6px; flex-wrap: wrap; }
     
-    /* BLOCO EMBUTIDO INTEGRADO */
     .box-categoria-embutida { background: #141414; padding: 12px; border-radius: 6px; border: 1px solid #333; }
     .box-categoria-embutida h4 { color: var(--accent-gold); font-size: 0.9rem; margin-bottom: 8px; }
     .form-embutida-inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -69,11 +68,9 @@
     .btn-vincular-emb { background: var(--accent-green); color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
     .btn-vincular-emb:hover { opacity: 0.9; }
 
-    /* BOTÃO DE EXCLUIR NO RODAPÉ */
     .btn-excluir-no-rodape { width: 100%; padding: 10px; background: rgba(231, 111, 81, 0.15); border: 1px solid var(--accent-red); color: var(--accent-red); font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
     .btn-excluir-no-rodape:hover { background: var(--accent-red); color: #fff; }
 
-    /* MODAL DE EXCLUSÃO */
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
     .modal-overlay.active { display: flex; }
     .modal-card { background: var(--card-bg); border-radius: 8px; border: 1px solid var(--accent-red); width: 100%; max-width: 550px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.7); }
@@ -115,7 +112,7 @@
           <input type="date" id="dataComp" required>
         </div>
 
-        <h3 style="font-size: 1rem; color: #ccc; margin: 15px 0 10px 0;">Categorias da Prova:</h3>
+        <h3 style="font-size: 1rem; color: #ccc; margin: 15px 0 10px 0;">Regulamento por Categoria:</h3>
         
         <div id="containerCategorias"></div>
 
@@ -140,7 +137,6 @@
         <p style="color: #888;">Carregando competições...</p>
       </div>
 
-      <!-- BOTÃO INCLUÍDO NO RODAPÉ -->
       <button type="button" class="btn-excluir-no-rodape" id="btnAbrirModalExcluir">
         🗑️ EXCLUIR COMPETIÇÃO / APAGAR DADOS DO BANCO
       </button>
@@ -148,7 +144,6 @@
 
   </main>
 
-  <!-- MODAL DE EXCLUSÃO -->
   <div class="modal-overlay" id="modalExcluir">
     <div class="modal-card">
       <div class="modal-header">
@@ -167,9 +162,7 @@
           </label>
         </div>
 
-        <div id="listaExcluirCheckboxes">
-          <!-- Gerado via JavaScript -->
-        </div>
+        <div id="listaExcluirCheckboxes"></div>
       </div>
 
       <div class="modal-footer">
@@ -205,7 +198,6 @@
     const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
     const tituloForm = document.getElementById("tituloForm");
 
-    // Elementos da Modal
     const modalExcluir = document.getElementById("modalExcluir");
     const btnAbrirModalExcluir = document.getElementById("btnAbrirModalExcluir");
     const btnFecharModal = document.getElementById("btnFecharModal");
@@ -214,7 +206,7 @@
     const listaExcluirCheckboxes = document.getElementById("listaExcluirCheckboxes");
     const checkMarcarTodos = document.getElementById("checkMarcarTodos");
 
-    function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, classificados = 10) {
+    function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, limiteGado = 25, classificados = 3) {
       const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
 
       const div = document.createElement("div");
@@ -234,6 +226,10 @@
           <div class="form-group" style="margin:0;">
             <label>Nº Baterias</label>
             <input type="number" class="cat-baterias" min="1" value="${baterias}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Corridas/Lote</label>
+            <input type="number" class="cat-limitegado" min="1" value="${limiteGado}" required>
           </div>
           <div class="form-group" style="margin:0;">
             <label>Classif./Bat.</label>
@@ -277,8 +273,9 @@
         categorias.push({
           nome: bloco.querySelector(".cat-nome").value.trim(),
           data: bloco.querySelector(".cat-data").value,
-          qtdBaterias: parseInt(bloco.querySelector(".cat-baterias").value) || 1,
-          classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value) || 1
+          qtdBaterias: parseInt(bloco.querySelector(".cat-baterias").value) || 2,
+          limiteGado: parseInt(bloco.querySelector(".cat-limitegado").value) || 25,
+          classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value) || 3
         });
       });
 
@@ -294,7 +291,7 @@
             categorias: categorias,
             atualizadoEm: new Date()
           });
-          alert("Competição e categorias atualizadas com sucesso!");
+          alert("Competição e regulamentos atualizados com sucesso!");
         } else {
           await addDoc(collection(db, "competicoes"), {
             organizadorId: currentUser.uid,
@@ -359,10 +356,9 @@
           card.className = "card-prova-item";
           
           const detalhesCat = comp.categorias && comp.categorias.length > 0
-            ? comp.categorias.map(c => `${c.nome} (${c.data || comp.dataInicio})`).join(" | ")
+            ? comp.categorias.map(c => `${c.nome} (${c.qtdBaterias || 2} Bat / ${c.limiteGado || 25} Lote / ${c.classificadosPorBateria || 3} Class)`).join(" | ")
             : "Nenhuma categoria";
 
-          // Monta options de categoria dinamicamente
           let optionsCategorias = `<option value="">Selecione...</option>`;
           if (comp.categorias && comp.categorias.length > 0) {
             comp.categorias.forEach((cat) => {
@@ -370,7 +366,6 @@
             });
           }
 
-          // Exibe se já existir vinculo de categoria embutida salvo no documento da competição
           const infoVinculo = comp.vinculoEmbutido 
             ? `<p style="font-size:0.8rem; color:#2a9d8f; margin-top:5px;"><strong>Vínculo Ativo:</strong> ${comp.vinculoEmbutido.catPai} ➔ ${comp.vinculoEmbutido.catEspelho}</p>`
             : '';
@@ -382,14 +377,13 @@
                 <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
               </div>
               <div class="acoes">
-                <button class="btn-action btnEditar" data-id="${compId}">✏️ Editar / Add Categoria</button>
+                <button class="btn-action btnEditar" data-id="${compId}">✏️ Editar / Regulamento</button>
                 <button class="btn-action btnInscritos" data-id="${compId}">📝 Iniciar Cadastrar Trios</button>
               </div>
             </div>
 
             <hr style="border-color: #333; margin: 0;">
 
-            <!-- BLOCO DE CATEGORIA EMBUTIDA (DINÂMICO) -->
             <div class="box-categoria-embutida">
               <h4>🔗 Vincular Categoria Embutida (Espelho)</h4>
               <div class="form-embutida-inline">
@@ -417,7 +411,6 @@
           card.querySelector(".btnInscritos").addEventListener("click", () => irParaCadastro(compId));
           card.querySelector(".btnVincular").addEventListener("click", () => vincularCategoriaEmbutida(compId));
 
-          // Preenche os selects caso já existam valores salvos
           if (comp.vinculoEmbutido) {
             setTimeout(() => {
               const selPai = document.getElementById(`selectCatPai_${compId}`);
@@ -470,7 +463,6 @@
       }
     }
 
-    /* LÓGICA DA MODAL DE EXCLUSÃO */
     btnAbrirModalExcluir.addEventListener("click", () => {
       const ids = Object.keys(competicoesCache);
       if (ids.length === 0) {
@@ -547,7 +539,7 @@
       if (!comp) return;
 
       modoEdicaoId = compId;
-      tituloForm.innerText = "EDITAR COMPETIÇÃO / ADICIONAR CATEGORIA";
+      tituloForm.innerText = "EDITAR COMPETIÇÃO / REGULAMENTO";
       btnSalvarComp.innerText = "Atualizar Competição";
       btnCancelarEdicao.style.display = "inline-block";
 
@@ -562,7 +554,8 @@
             cat.nome,
             cat.data || comp.dataInicio,
             cat.qtdBaterias || 2,
-            cat.classificadosPorBateria || 10
+            cat.limiteGado || 25,
+            cat.classificadosPorBateria || cat.classificadosLote || 3
           );
         });
       } else {
