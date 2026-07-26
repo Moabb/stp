@@ -541,15 +541,8 @@
     function renderizarLinha2FilaDinamica(trios, tamanhoLote, numBaterias) {
       tbTriosPainel.innerHTML = "";
 
-      const comp = competicaoAtiva;
-      const catPai = (comp && comp.vinculoEmbutido) ? comp.vinculoEmbutido.catPai : null;
-      
-      let triosParaFila = trios;
-      if (catPai) {
-        triosParaFila = trios.filter(t => t.categoria === catPai);
-      }
-
-      const triosPendentes = triosParaFila.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
+      // Exibe na fila de pista todos os trios recebidos da etapa (incluindo Feminina/Espelho)
+      const triosPendentes = trios.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {
         tbTriosPainel.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888; padding: 20px;">🏁 Todos os trios desta categoria já correram!</td></tr>';
