@@ -70,112 +70,111 @@
   </main>
 
   <script type="module">
-    import { 
-      auth, 
-      db, 
-      collection, 
-      getDocs, 
-      doc, 
-      updateDoc, 
-      query, 
-      where, 
-      onAuthStateChanged 
-    } from "./firebase-config.js";
+  import { 
+    auth, 
+    db, 
+    collection, 
+    getDocs, 
+    doc, 
+    updateDoc, 
+    onAuthStateChanged 
+  } from "./firebase-config.js";
 
-    // ⚠️ SUBSTITUA PELO SEU E-MAIL CADASTRADO NO FIREBASE
-    const EMAIL_SUPER_ADMIN = "seu-email-aqui@gmail.com";
+  // ⚠️ Cole aqui o seu UID de Administrador do Firebase (Obtido no Firebase Console > Authentication)
+  const ADMIN_UID = "COLE_SEU_UID_AQUI";
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = "./index.html";
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = "./index.html";
+      return;
+    }
+
+    // Trava de navegação no Front-end
+    if (user.uid !== ADMIN_UID) {
+      alert("Acesso negado! Área exclusiva do administrador geral.");
+      window.location.href = "./cadastro.html";
+      return;
+    }
+
+    await carregarPainelAssinaturas();
+  });
+
+  async function carregarPainelAssinaturas() {
+    const tabela = document.getElementById("tabelaAssinaturas");
+    tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Carregando...</td></tr>';
+
+    try {
+      const compSnap = await getDocs(collection(db, "competicoes"));
+      if (compSnap.empty) {
+        tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Nenhuma competição encontrada.</td></tr>';
         return;
       }
 
-      if (user.email !== EMAIL_SUPER_ADMIN) {
-        alert("Acesso negado! Esta área é exclusiva do administrador geral do sistema.");
-        window.location.href = "./cadastro.html";
-        return;
-      }
+      const triosSnap = await getDocs(collection(db, "trios"));
+      const contagemSenhas = {};
 
-      await carregarPainelAssinaturas();
-    });
-
-    async function carregarPainelAssinaturas() {
-      const tabela = document.getElementById("tabelaAssinaturas");
-      tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Carregando...</td></tr>';
-
-      try {
-        const compSnap = await getDocs(collection(db, "competicoes"));
-        if (compSnap.empty) {
-          tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Nenhuma competição encontrada.</td></tr>';
-          return;
+      triosSnap.forEach(tDoc => {
+        const cId = tDoc.data().competicaoId;
+        if (cId) {
+          contagemSenhas[cId] = (contagemSenhas[cId] || 0) + 1;
         }
+      });
 
-        const triosSnap = await getDocs(collection(db, "trios"));
-        const contagemSenhas = {};
+      tabela.innerHTML = "";
 
-        triosSnap.forEach(tDoc => {
-          const cId = tDoc.data().competicaoId;
-          if (cId) {
-            contagemSenhas[cId] = (contagemSenhas[cId] || 0) + 1;
-          }
+      compSnap.forEach(docSnap => {
+        const comp = docSnap.data();
+        const compId = docSnap.id;
+        const totalSenhas = contagemSenhas[compId] || 0;
+        const liberado = comp.assinaturaLiberada === true;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${comp.nome || "Sem Nome"}</strong></td>
+          <td>${comp.dataInicio || comp.data || "-"}</td>
+          <td><small style="color: #aaa;">${comp.organizadorId || "-"}</small></td>
+          <td><strong>${totalSenhas}</strong> senhas</td>
+          <td>
+            <span class="badge-status ${liberado ? 'badge-pago' : 'badge-gratis'}">
+              ${liberado ? 'PAGO / LIBERADO' : 'GRÁTIS (' + totalSenhas + '/100)'}
+            </span>
+          </td>
+          <td>
+            <button class="btn-toggle ${liberado ? 'btn-bloquear' : 'btn-liberar'}" data-id="${compId}" data-status="${liberado}">
+              ${liberado ? 'Bloquear Limitador' : 'Liberar Prova (Paga)'}
+            </button>
+          </td>
+        `;
+        tabela.appendChild(tr);
+      });
+
+      document.querySelectorAll(".btn-toggle").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const cId = e.target.getAttribute("data-id");
+          const statusAtual = e.target.getAttribute("data-status") === "true";
+          await alternarLiberacao(cId, !statusAtual);
         });
+      });
 
-        tabela.innerHTML = "";
-
-        compSnap.forEach(docSnap => {
-          const comp = docSnap.data();
-          const compId = docSnap.id;
-          const totalSenhas = contagemSenhas[compId] || 0;
-          const liberado = comp.assinaturaLiberada === true;
-
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td><strong>${comp.nome || "Sem Nome"}</strong></td>
-            <td>${comp.dataInicio || comp.data || "-"}</td>
-            <td><small style="color: #aaa;">${comp.organizadorId || "-"}</small></td>
-            <td><strong>${totalSenhas}</strong> senhas</td>
-            <td>
-              <span class="badge-status ${liberado ? 'badge-pago' : 'badge-gratis'}">
-                ${liberado ? 'PAGO / LIBERADO' : 'GRÁTIS (' + totalSenhas + '/100)'}
-              </span>
-            </td>
-            <td>
-              <button class="btn-toggle ${liberado ? 'btn-bloquear' : 'btn-liberar'}" data-id="${compId}" data-status="${liberado}">
-                ${liberado ? 'Bloquear Limitador' : 'Liberar Prova (Paga)'}
-              </button>
-            </td>
-          `;
-          tabela.appendChild(tr);
-        });
-
-        document.querySelectorAll(".btn-toggle").forEach(btn => {
-          btn.addEventListener("click", async (e) => {
-            const cId = e.target.getAttribute("data-id");
-            const statusAtual = e.target.getAttribute("data-status") === "true";
-            await alternarLiberacao(cId, !statusAtual);
-          });
-        });
-
-      } catch (error) {
-        console.error("Erro ao carregar assinaturas:", error);
-        tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #e76f51;">Erro ao carregar dados.</td></tr>';
-      }
+    } catch (error) {
+      console.error("Erro ao carregar assinaturas:", error);
+      tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #e76f51;">Erro ao carregar dados.</td></tr>';
     }
+  }
 
-    async function alternarLiberacao(compId, novoStatus) {
-      try {
-        const compRef = doc(db, "competicoes", compId);
-        await updateDoc(compRef, {
-          assinaturaLiberada: novoStatus
-        });
-        alert(novoStatus ? "Competição LIBERADA com sucesso!" : "Competição retornada ao modo LIMITADO.");
-        await carregarPainelAssinaturas();
-      } catch (error) {
-        console.error("Erro ao alterar assinatura:", error);
-        alert("Erro ao atualizar status: " + error.message);
-      }
+  async function alternarLiberacao(compId, novoStatus) {
+    try {
+      const compRef = doc(db, "competicoes", compId);
+      await updateDoc(compRef, {
+        assinaturaLiberada: novoStatus
+      });
+      alert(novoStatus ? "Competição LIBERADA com sucesso!" : "Competição retornada ao modo LIMITADO.");
+      await carregarPainelAssinaturas();
+    } catch (error) {
+      console.error("Erro ao alterar assinatura:", error);
+      alert("Erro de permissão no Firebase: " + error.message);
     }
-  </script>
+  }
+</script>
 </body>
 </html>
