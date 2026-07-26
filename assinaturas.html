@@ -39,9 +39,99 @@
     .btn-toggle { border: none; padding: 8px 14px; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; }
     .btn-liberar { background: var(--accent-green); color: #fff; }
     .btn-bloquear { background: var(--accent-red); color: #fff; }
+
+    /* ESTILOS DO MODAL DE LOGIN ADMIN */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(5px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .modal-box {
+      background: var(--card-bg);
+      padding: 30px;
+      border-radius: 10px;
+      border: 1px solid var(--accent-gold);
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    .modal-box h2 {
+      color: var(--accent-gold);
+      margin-bottom: 20px;
+      font-size: 1.3rem;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+      color: #ccc;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      background: #121212;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .form-group input:focus {
+      border-color: var(--accent-gold);
+      outline: none;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent-gold);
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      color: #000;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 10px;
+    }
+
+    .btn-login:hover {
+      opacity: 0.9;
+    }
   </style>
 </head>
 <body>
+
+  <!-- MODAL DE AUTENTICAÇÃO -->
+  <div id="modalLoginAdmin" class="modal-overlay">
+    <div class="modal-box">
+      <h2>🔒 AUTENTICAÇÃO MASTER</h2>
+      <form id="formLoginAdmin">
+        <div class="form-group">
+          <label for="adminEmail">E-mail</label>
+          <input type="email" id="adminEmail" required placeholder="seu-email@admin.com">
+        </div>
+        <div class="form-group">
+          <label for="adminSenha">Senha</label>
+          <input type="password" id="adminSenha" required placeholder="••••••••">
+        </div>
+        <button type="submit" id="btnSubmitLogin" class="btn-login">Entrar no Painel</button>
+      </form>
+    </div>
+  </div>
 
   <header>
     <h1>👑 GESTÃO DE ASSINATURAS E PROVAS (SUPER ADMIN)</h1>
@@ -63,7 +153,7 @@
       </thead>
       <tbody id="tabelaAssinaturas">
         <tr>
-          <td colspan="6" style="text-align: center; color: #888;">Carregando competições...</td>
+          <td colspan="6" style="text-align: center; color: #888;">Aguardando autenticação...</td>
         </tr>
       </tbody>
     </table>
@@ -77,31 +167,60 @@
     getDocs, 
     doc, 
     updateDoc, 
-    onAuthStateChanged 
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    signOut
   } from "./firebase-config.js";
 
-  // ⚠️ Cole aqui o seu UID de Administrador do Firebase (Obtido no Firebase Console > Authentication)
+  // Seu UID do Admin Master
   const ADMIN_UID = "Cd4J21mv9RboRNLw7tcYVlcG1Pj2";
 
+  const modal = document.getElementById("modalLoginAdmin");
+  const formLogin = document.getElementById("formLoginAdmin");
+
+  // Escuta alteração do estado de login
   onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = "./index.html";
-      return;
+    if (user && user.uid === ADMIN_UID) {
+      modal.style.display = "none";
+      await carregarPainelAssinaturas();
+    } else {
+      if (user && user.uid !== ADMIN_UID) {
+        alert("Acesso negado! Esta conta não é o Super Admin.");
+        await signOut(auth);
+      }
+      modal.style.display = "flex";
     }
+  });
 
-    // Trava de navegação no Front-end
-    if (user.uid !== ADMIN_UID) {
-      alert("Acesso negado! Área exclusiva do administrador geral.");
-      window.location.href = "./cadastro.html";
-      return;
+  // Evento de Login no Modal
+  formLogin.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("adminEmail").value.trim();
+    const senha = document.getElementById("adminSenha").value;
+    const btn = document.getElementById("btnSubmitLogin");
+
+    try {
+      btn.disabled = true;
+      btn.innerText = "Autenticando...";
+      
+      const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+      
+      if (userCredential.user.uid !== ADMIN_UID) {
+        alert("Conta não autorizada para acessar o Painel Master.");
+        await signOut(auth);
+      }
+    } catch (error) {
+      console.error("Erro no login:", error);
+      alert("Falha ao entrar: " + error.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "Entrar no Painel";
     }
-
-    await carregarPainelAssinaturas();
   });
 
   async function carregarPainelAssinaturas() {
     const tabela = document.getElementById("tabelaAssinaturas");
-    tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Carregando...</td></tr>';
+    tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Carregando dados...</td></tr>';
 
     try {
       const compSnap = await getDocs(collection(db, "competicoes"));
