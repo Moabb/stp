@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Assinaturas - Super Admin</title>
+  <script type="module" src="./firebase-config.js"></script>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --accent-gold: #ffb703;
+      --accent-green: #2a9d8f;
+      --accent-red: #e76f51;
+      --text-light: #f8f9fa;
+      --border-color: #333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+    header h1 { color: var(--accent-gold); font-size: 1.6rem; text-transform: uppercase; }
+
+    .btn-action { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; }
+    .btn-action:hover { opacity: 0.9; }
+
+    .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
+    
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; }
+    th, td { padding: 12px; border-bottom: 1px solid var(--border-color); font-size: 0.95rem; }
+    th { color: var(--accent-gold); background: #262626; }
+    tr:hover { background: #262626; }
+
+    .badge-status { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; text-transform: uppercase; }
+    .badge-gratis { background: #555; color: #fff; }
+    .badge-pago { background: var(--accent-green); color: #fff; }
+
+    .btn-toggle { border: none; padding: 8px 14px; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn-liberar { background: var(--accent-green); color: #fff; }
+    .btn-bloquear { background: var(--accent-red); color: #fff; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>👑 GESTÃO DE ASSINATURAS E PROVAS (SUPER ADMIN)</h1>
+    <button class="btn-action" onclick="window.location.href='./cadastro.html'">🔙 VOLTAR</button>
+  </header>
+
+  <main class="secao-card">
+    <h2>COMPETIÇÕES CADASTRADAS NO SISTEMA</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Competição</th>
+          <th>Data</th>
+          <th>ID do Organizador</th>
+          <th>Total de Senhas</th>
+          <th>Status Assinatura</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaAssinaturas">
+        <tr>
+          <td colspan="6" style="text-align: center; color: #888;">Carregando competições...</td>
+        </tr>
+      </tbody>
+    </table>
+  </main>
+
+  <script type="module">
+    import { 
+      auth, 
+      db, 
+      collection, 
+      getDocs, 
+      doc, 
+      updateDoc, 
+      query, 
+      where, 
+      onAuthStateChanged 
+    } from "./firebase-config.js";
+
+    // ⚠️ SUBSTITUA PELO SEU E-MAIL CADASTRADO NO FIREBASE
+    const EMAIL_SUPER_ADMIN = "seu-email-aqui@gmail.com";
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "./index.html";
+        return;
+      }
+
+      if (user.email !== EMAIL_SUPER_ADMIN) {
+        alert("Acesso negado! Esta área é exclusiva do administrador geral do sistema.");
+        window.location.href = "./cadastro.html";
+        return;
+      }
+
+      await carregarPainelAssinaturas();
+    });
+
+    async function carregarPainelAssinaturas() {
+      const tabela = document.getElementById("tabelaAssinaturas");
+      tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Carregando...</td></tr>';
+
+      try {
+        const compSnap = await getDocs(collection(db, "competicoes"));
+        if (compSnap.empty) {
+          tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Nenhuma competição encontrada.</td></tr>';
+          return;
+        }
+
+        const triosSnap = await getDocs(collection(db, "trios"));
+        const contagemSenhas = {};
+
+        triosSnap.forEach(tDoc => {
+          const cId = tDoc.data().competicaoId;
+          if (cId) {
+            contagemSenhas[cId] = (contagemSenhas[cId] || 0) + 1;
+          }
+        });
+
+        tabela.innerHTML = "";
+
+        compSnap.forEach(docSnap => {
+          const comp = docSnap.data();
+          const compId = docSnap.id;
+          const totalSenhas = contagemSenhas[compId] || 0;
+          const liberado = comp.assinaturaLiberada === true;
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><strong>${comp.nome || "Sem Nome"}</strong></td>
+            <td>${comp.dataInicio || comp.data || "-"}</td>
+            <td><small style="color: #aaa;">${comp.organizadorId || "-"}</small></td>
+            <td><strong>${totalSenhas}</strong> senhas</td>
+            <td>
+              <span class="badge-status ${liberado ? 'badge-pago' : 'badge-gratis'}">
+                ${liberado ? 'PAGO / LIBERADO' : 'GRÁTIS (' + totalSenhas + '/100)'}
+              </span>
+            </td>
+            <td>
+              <button class="btn-toggle ${liberado ? 'btn-bloquear' : 'btn-liberar'}" data-id="${compId}" data-status="${liberado}">
+                ${liberado ? 'Bloquear Limitador' : 'Liberar Prova (Paga)'}
+              </button>
+            </td>
+          `;
+          tabela.appendChild(tr);
+        });
+
+        document.querySelectorAll(".btn-toggle").forEach(btn => {
+          btn.addEventListener("click", async (e) => {
+            const cId = e.target.getAttribute("data-id");
+            const statusAtual = e.target.getAttribute("data-status") === "true";
+            await alternarLiberacao(cId, !statusAtual);
+          });
+        });
+
+      } catch (error) {
+        console.error("Erro ao carregar assinaturas:", error);
+        tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #e76f51;">Erro ao carregar dados.</td></tr>';
+      }
+    }
+
+    async function alternarLiberacao(compId, novoStatus) {
+      try {
+        const compRef = doc(db, "competicoes", compId);
+        await updateDoc(compRef, {
+          assinaturaLiberada: novoStatus
+        });
+        alert(novoStatus ? "Competição LIBERADA com sucesso!" : "Competição retornada ao modo LIMITADO.");
+        await carregarPainelAssinaturas();
+      } catch (error) {
+        console.error("Erro ao alterar assinatura:", error);
+        alert("Erro ao atualizar status: " + error.message);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -292,6 +292,8 @@
         .join("|");
     }
 
+    
+
     document.getElementById("formTrio").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -312,6 +314,26 @@
         btnSalvarTrio.disabled = true;
         btnSalvarTrio.innerText = "Verificando e Cadastrando...";
 
+        // 1. VERIFICAÇÃO DO LIMITE DE 100 SENHAS (MONETIZAÇÃO)
+        const qTodasSenhasComp = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId)
+        );
+        const snapTodasSenhas = await getDocs(qTodasSenhasComp);
+        const totalSenhasAtuais = snapTodasSenhas.size;
+
+        const compDados = competicoesCache[selectedCompId];
+        const estaLiberado = compDados && compDados.assinaturaLiberada === true;
+
+        // Se atingiu ou passou de 100 e NÃO foi pago/liberado pelo Super Admin
+        if (totalSenhasAtuais >= 100 && !estaLiberado) {
+          alert("⚠️ LIMITE ATINGIDO! Esta competição atingiu o limite gratuito de 100 senhas. Para cadastrar mais senhas, é necessário realizar a assinatura/liberação do evento.");
+          btnSalvarTrio.disabled = false;
+          btnSalvarTrio.innerText = "Cadastrar Trio";
+          return;
+        }
+
+        // 2. VERIFICAÇÃO DE TRIO DUPLICADO
         const q = query(
           collection(db, "trios"),
           where("competicaoId", "==", selectedCompId),
@@ -337,6 +359,7 @@
           return;
         }
 
+        // 3. SALVAR TRIO
         await addDoc(collection(db, "trios"), {
           competicaoId: selectedCompId,
           categoria: selectedCategoriaNome,
@@ -367,6 +390,8 @@
         btnSalvarTrio.innerText = "Cadastrar Trio";
       }
     });
+
+
 
     async function carregarTriosCadastrados() {
       tabelaTrios.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #888;">Carregando trios...</td></tr>';
