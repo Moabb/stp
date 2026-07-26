@@ -25,8 +25,21 @@
     .btn-action { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; }
     .btn-action:hover { opacity: 0.9; }
 
-    .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
+    .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); margin-bottom: 20px; }
     
+    /* CARTÃO DO MONETIZADOR GLOBAL */
+    .card-global { display: flex; justify-content: space-between; align-items: center; background: #262626; padding: 20px; border-radius: 8px; border-left: 5px solid var(--accent-gold); }
+    .card-global h3 { margin-bottom: 5px; color: var(--accent-gold); }
+    .card-global p { color: #ccc; font-size: 0.9rem; }
+
+    /* TOGGLE SWITCH */
+    .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--accent-green); }
+    input:checked + .slider:before { transform: translateX(26px); }
+
     table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; }
     th, td { padding: 12px; border-bottom: 1px solid var(--border-color); font-size: 0.95rem; }
     th { color: var(--accent-gold); background: #262626; }
@@ -40,77 +53,14 @@
     .btn-liberar { background: var(--accent-green); color: #fff; }
     .btn-bloquear { background: var(--accent-red); color: #fff; }
 
-    /* ESTILOS DO MODAL DE LOGIN ADMIN */
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(5px);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-    }
-
-    .modal-box {
-      background: var(--card-bg);
-      padding: 30px;
-      border-radius: 10px;
-      border: 1px solid var(--accent-gold);
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    }
-
-    .modal-box h2 {
-      color: var(--accent-gold);
-      margin-bottom: 20px;
-      font-size: 1.3rem;
-      text-align: center;
-    }
-
-    .form-group {
-      margin-bottom: 15px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-size: 0.9rem;
-      color: #ccc;
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 10px;
-      background: #121212;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      color: #fff;
-      font-size: 1rem;
-    }
-
-    .form-group input:focus {
-      border-color: var(--accent-gold);
-      outline: none;
-    }
-
-    .btn-login {
-      width: 100%;
-      padding: 12px;
-      background: var(--accent-gold);
-      border: none;
-      border-radius: 6px;
-      font-weight: bold;
-      color: #000;
-      cursor: pointer;
-      font-size: 1rem;
-      margin-top: 10px;
-    }
-
-    .btn-login:hover {
-      opacity: 0.9;
-    }
+    /* MODAL DE LOGIN ADMIN */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+    .modal-box { background: var(--card-bg); padding: 30px; border-radius: 10px; border: 1px solid var(--accent-gold); width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .modal-box h2 { color: var(--accent-gold); margin-bottom: 20px; font-size: 1.3rem; text-align: center; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: #ccc; }
+    .form-group input { width: 100%; padding: 10px; background: #121212; border: 1px solid var(--border-color); border-radius: 6px; color: #fff; font-size: 1rem; }
+    .btn-login { width: 100%; padding: 12px; background: var(--accent-gold); border: none; border-radius: 6px; font-weight: bold; color: #000; cursor: pointer; font-size: 1rem; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -138,25 +88,40 @@
     <button class="btn-action" onclick="window.location.href='./cadastro.html'">🔙 VOLTAR</button>
   </header>
 
-  <main class="secao-card">
-    <h2>COMPETIÇÕES CADASTRADAS NO SISTEMA</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Competição</th>
-          <th>Data</th>
-          <th>ID do Organizador</th>
-          <th>Total de Senhas</th>
-          <th>Status Assinatura</th>
-          <th>Ação</th>
-        </tr>
-      </thead>
-      <tbody id="tabelaAssinaturas">
-        <tr>
-          <td colspan="6" style="text-align: center; color: #888;">Aguardando autenticação...</td>
-        </tr>
-      </tbody>
-    </table>
+  <main>
+    <!-- PAINEL DE CONTROLE GLOBAL DA COBRANÇA -->
+    <section class="secao-card card-global">
+      <div>
+        <h3>⚡ MODO DE COBRANÇA GLOBAL DO SISTEMA</h3>
+        <p id="txtStatusGlobal">Carregando status global do sistema...</p>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="toggleCobrancaGlobal">
+        <span class="slider"></span>
+      </label>
+    </section>
+
+    <!-- TABELA DE COMPETIÇÕES E LIBERAÇÕES INDIVIDUAIS -->
+    <section class="secao-card">
+      <h2>COMPETIÇÕES CADASTRADAS NO SISTEMA</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Competição</th>
+            <th>Data</th>
+            <th>ID do Organizador</th>
+            <th>Total de Senhas</th>
+            <th>Status Assinatura</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaAssinaturas">
+          <tr>
+            <td colspan="6" style="text-align: center; color: #888;">Aguardando autenticação...</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </main>
 
   <script type="module">
@@ -165,6 +130,8 @@
     db, 
     collection, 
     getDocs, 
+    getDoc,
+    setDoc,
     doc, 
     updateDoc, 
     onAuthStateChanged,
@@ -172,16 +139,17 @@
     signOut
   } from "./firebase-config.js";
 
-  // Seu UID do Admin Master
   const ADMIN_UID = "Cd4J21mv9RboRNLw7tcYVlcG1Pj2";
 
   const modal = document.getElementById("modalLoginAdmin");
   const formLogin = document.getElementById("formLoginAdmin");
+  const toggleGlobal = document.getElementById("toggleCobrancaGlobal");
+  const txtStatusGlobal = document.getElementById("txtStatusGlobal");
 
-  // Escuta alteração do estado de login
   onAuthStateChanged(auth, async (user) => {
     if (user && user.uid === ADMIN_UID) {
       modal.style.display = "none";
+      await carregarStatusGlobal();
       await carregarPainelAssinaturas();
     } else {
       if (user && user.uid !== ADMIN_UID) {
@@ -192,7 +160,6 @@
     }
   });
 
-  // Evento de Login no Modal
   formLogin.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = document.getElementById("adminEmail").value.trim();
@@ -202,9 +169,7 @@
     try {
       btn.disabled = true;
       btn.innerText = "Autenticando...";
-      
       const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-      
       if (userCredential.user.uid !== ADMIN_UID) {
         alert("Conta não autorizada para acessar o Painel Master.");
         await signOut(auth);
@@ -215,6 +180,45 @@
     } finally {
       btn.disabled = false;
       btn.innerText = "Entrar no Painel";
+    }
+  });
+
+  // Carrega estado da chave global
+  async function carregarStatusGlobal() {
+    try {
+      const configDoc = await getDoc(doc(db, "configuracoesGlobal", "sistema"));
+      const cobrancaAtiva = configDoc.exists() ? (configDoc.data().cobrancaAtiva === true) : false;
+      
+      toggleGlobal.checked = cobrancaAtiva;
+      atualizarTextoStatusGlobal(cobrancaAtiva);
+    } catch (error) {
+      console.error("Erro ao carregar configuracao global:", error);
+    }
+  }
+
+  function atualizarTextoStatusGlobal(ativa) {
+    if (ativa) {
+      txtStatusGlobal.innerHTML = "<b style='color: var(--accent-green);'>SISTEMA EM MODO PAGO:</b> O limitador de 100 senhas está ATIVO para provas não liberadas.";
+    } else {
+      txtStatusGlobal.innerHTML = "<b style='color: var(--accent-gold);'>SISTEMA 100% GRÁTIS:</b> Todas as competições possuem senhas ilimitadas sem bloqueio.";
+    }
+  }
+
+  // Alteração do Switch Global
+  toggleGlobal.addEventListener("change", async (e) => {
+    const novoStatus = e.target.checked;
+    try {
+      await setDoc(doc(db, "configuracoesGlobal", "sistema"), {
+        cobrancaAtiva: novoStatus,
+        atualizadoEm: new Date()
+      }, { merge: true });
+
+      atualizarTextoStatusGlobal(novoStatus);
+      alert(novoStatus ? "Cobrança ATIVADA! A trava de 100 senhas agora está valendo." : "Sistema colocado em modo 100% GRATUITO.");
+    } catch (error) {
+      console.error("Erro ao alterar configuracao global:", error);
+      alert("Erro ao salvar no Firestore: " + error.message);
+      e.target.checked = !novoStatus;
     }
   });
 

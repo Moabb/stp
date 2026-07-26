@@ -306,7 +306,7 @@
       const c1 = document.getElementById("cavaleiro1").value.trim();
       const c2 = document.getElementById("cavaleiro2").value.trim();
       const c3 = document.getElementById("cavaleiro3").value.trim();
-      const animais = document.getElementById("animaisInfo").value.trim();
+      const animasi = document.getElementById("animaisInfo").value.trim();
 
       const novoTrioChave = gerarChaveTrio([c1, c2, c3]);
 
@@ -314,23 +314,28 @@
         btnSalvarTrio.disabled = true;
         btnSalvarTrio.innerText = "Verificando e Cadastrando...";
 
-        // 1. VERIFICAÇÃO DO LIMITE DE 100 SENHAS (MONETIZAÇÃO)
-        const qTodasSenhasComp = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", selectedCompId)
-        );
-        const snapTodasSenhas = await getDocs(qTodasSenhasComp);
-        const totalSenhasAtuais = snapTodasSenhas.size;
+        // 1. VERIFICAÇÃO DE COBRANÇA GLOBAL E LIMITE DE 100 SENHAS
+        const configGlobalDoc = await getDoc(doc(db, "configuracoesGlobal", "sistema"));
+        const cobrancaAtiva = configGlobalDoc.exists() ? (configGlobalDoc.data().cobrancaAtiva === true) : false;
 
-        const compDados = competicoesCache[selectedCompId];
-        const estaLiberado = compDados && compDados.assinaturaLiberada === true;
+        // Se a cobrança geral estiver LIGADA, aplica a regra dos 100
+        if (cobrancaAtiva) {
+          const qTodasSenhasComp = query(
+            collection(db, "trios"),
+            where("competicaoId", "==", selectedCompId)
+          );
+          const snapTodasSenhas = await getDocs(qTodasSenhasComp);
+          const totalSenhasAtuais = snapTodasSenhas.size;
 
-        // Se atingiu ou passou de 100 e NÃO foi pago/liberado pelo Super Admin
-        if (totalSenhasAtuais >= 100 && !estaLiberado) {
-          alert("⚠️ LIMITE ATINGIDO! Esta competição atingiu o limite gratuito de 100 senhas. Para cadastrar mais senhas, é necessário realizar a assinatura/liberação do evento.");
-          btnSalvarTrio.disabled = false;
-          btnSalvarTrio.innerText = "Cadastrar Trio";
-          return;
+          const compDados = competicoesCache[selectedCompId];
+          const estaLiberado = compDados && compDados.assinaturaLiberada === true;
+
+          if (totalSenhasAtuais >= 100 && !estaLiberado) {
+            alert("⚠️ LIMITE ATINGIDO! Esta competição atingiu o limite gratuito de 100 senhas. Para cadastrar mais senhas, é necessário realizar a assinatura/liberação do evento.");
+            btnSalvarTrio.disabled = false;
+            btnSalvarTrio.innerText = "Cadastrar Trio";
+            return;
+          }
         }
 
         // 2. VERIFICAÇÃO DE TRIO DUPLICADO
