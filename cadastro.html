@@ -314,11 +314,14 @@
         btnSalvarTrio.disabled = true;
         btnSalvarTrio.innerText = "Verificando e Cadastrando...";
 
-        // 1. VERIFICAÇÃO DE COBRANÇA GLOBAL E LIMITE DE 100 SENHAS
+        // 1. VERIFICAÇÃO DE COBRANÇA GLOBAL E LIMITE DE SENHAS DINÂMICO
         const configGlobalDoc = await getDoc(doc(db, "configuracoesGlobal", "sistema"));
-        const cobrancaAtiva = configGlobalDoc.exists() ? (configGlobalDoc.data().cobrancaAtiva === true) : false;
+        const configData = configGlobalDoc.exists() ? configGlobalDoc.data() : {};
+        
+        const cobrancaAtiva = configData.cobrancaAtiva === true;
+        const limiteSenhasGlobal = configData.limiteSenhas || 100; // Pega o valor configurado (padrão 100)
 
-        // Se a cobrança geral estiver LIGADA, aplica a regra dos 100
+        // Se a cobrança geral estiver LIGADA, aplica a regra do limite configurado
         if (cobrancaAtiva) {
           const qTodasSenhasComp = query(
             collection(db, "trios"),
@@ -330,8 +333,8 @@
           const compDados = competicoesCache[selectedCompId];
           const estaLiberado = compDados && compDados.assinaturaLiberada === true;
 
-          if (totalSenhasAtuais >= 100 && !estaLiberado) {
-            alert("⚠️ LIMITE ATINGIDO! Esta competição atingiu o limite gratuito de 100 senhas. Para cadastrar mais senhas, é necessário realizar a assinatura/liberação do evento.");
+          if (totalSenhasAtuais >= limiteSenhasGlobal && !estaLiberado) {
+            alert(`⚠️ LIMITE ATINGIDO! Esta competição atingiu o limite gratuito de ${limiteSenhasGlobal} senhas. Para cadastrar mais senhas, é necessário realizar a assinatura/liberação do evento.`);
             btnSalvarTrio.disabled = false;
             btnSalvarTrio.innerText = "Cadastrar Trio";
             return;

@@ -94,7 +94,15 @@
       <div>
         <h3>⚡ MODO DE COBRANÇA GLOBAL DO SISTEMA</h3>
         <p id="txtStatusGlobal">Carregando status global do sistema...</p>
+        
+        <!-- NOVO CAMPO PARA DEFINIR O LIMITE DE SENHAS -->
+        <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+          <label for="inputLimiteSenhas" style="font-size: 0.9rem; color: #ccc;">Limite Gratuito de Senhas:</label>
+          <input type="number" id="inputLimiteSenhas" value="100" min="1" style="width: 90px; padding: 6px 10px; background: #121212; border: 1px solid var(--border-color); color: #fff; border-radius: 4px; font-weight: bold;">
+          <button id="btnSalvarLimite" class="btn-action" style="padding: 6px 12px; font-size: 0.85rem;">Salvar Limite</button>
+        </div>
       </div>
+
       <label class="switch">
         <input type="checkbox" id="toggleCobrancaGlobal">
         <span class="slider"></span>
@@ -184,17 +192,69 @@
   });
 
   // Carrega estado da chave global
+  const inputLimiteSenhas = document.getElementById("inputLimiteSenhas");
+  const btnSalvarLimite = document.getElementById("btnSalvarLimite");
+
+  // Carrega estado da chave global e o limite configurado
   async function carregarStatusGlobal() {
     try {
       const configDoc = await getDoc(doc(db, "configuracoesGlobal", "sistema"));
-      const cobrancaAtiva = configDoc.exists() ? (configDoc.data().cobrancaAtiva === true) : false;
+      const data = configDoc.exists() ? configDoc.data() : {};
+      const cobrancaAtiva = data.cobrancaAtiva === true;
+      const limiteSenhas = data.limiteSenhas || 100;
       
       toggleGlobal.checked = cobrancaAtiva;
-      atualizarTextoStatusGlobal(cobrancaAtiva);
+      inputLimiteSenhas.value = limiteSenhas;
+      atualizarTextoStatusGlobal(cobrancaAtiva, limiteSenhas);
     } catch (error) {
       console.error("Erro ao carregar configuracao global:", error);
     }
   }
+
+  function atualizarTextoStatusGlobal(ativa, limite) {
+    if (ativa) {
+      txtStatusGlobal.innerHTML = `<b style='color: var(--accent-green);'>SISTEMA EM MODO PAGO:</b> O limitador de <b>${limite} senhas</b> está ATIVO para provas não liberadas.`;
+    } else {
+      txtStatusGlobal.innerHTML = "<b style='color: var(--accent-gold);'>SISTEMA 100% GRÁTIS:</b> Todas as competições possuem senhas ilimitadas sem bloqueio.";
+    }
+  }
+
+  // Salvar novo limite de senhas
+  btnSalvarLimite.addEventListener("click", async () => {
+    const novoLimite = parseInt(inputLimiteSenhas.value) || 100;
+    try {
+      await setDoc(doc(db, "configuracoesGlobal", "sistema"), {
+        limiteSenhas: novoLimite,
+        atualizadoEm: new Date()
+      }, { merge: true });
+
+      alert(`Limite configurado para ${novoLimite} senhas com sucesso!`);
+      await carregarStatusGlobal();
+      await carregarPainelAssinaturas();
+    } catch (error) {
+      console.error("Erro ao salvar limite:", error);
+      alert("Erro ao salvar limite: " + error.message);
+    }
+  });
+
+  // Alteração do Switch Global
+  toggleGlobal.addEventListener("change", async (e) => {
+    const novoStatus = e.target.checked;
+    const limiteAtual = parseInt(inputLimiteSenhas.value) || 100;
+    try {
+      await setDoc(doc(db, "configuracoesGlobal", "sistema"), {
+        cobrancaAtiva: novoStatus,
+        atualizadoEm: new Date()
+      }, { merge: true });
+
+      atualizarTextoStatusGlobal(novoStatus, limiteAtual);
+      alert(novoStatus ? `Cobrança ATIVADA! A trava de ${limiteAtual} senhas agora está valendo.` : "Sistema colocado em modo 100% GRATUITO.");
+    } catch (error) {
+      console.error("Erro ao alterar configuracao global:", error);
+      alert("Erro ao salvar no Firestore: " + error.message);
+      e.target.checked = !novoStatus;
+    }
+  });
 
   function atualizarTextoStatusGlobal(ativa) {
     if (ativa) {
@@ -203,24 +263,6 @@
       txtStatusGlobal.innerHTML = "<b style='color: var(--accent-gold);'>SISTEMA 100% GRÁTIS:</b> Todas as competições possuem senhas ilimitadas sem bloqueio.";
     }
   }
-
-  // Alteração do Switch Global
-  toggleGlobal.addEventListener("change", async (e) => {
-    const novoStatus = e.target.checked;
-    try {
-      await setDoc(doc(db, "configuracoesGlobal", "sistema"), {
-        cobrancaAtiva: novoStatus,
-        atualizadoEm: new Date()
-      }, { merge: true });
-
-      atualizarTextoStatusGlobal(novoStatus);
-      alert(novoStatus ? "Cobrança ATIVADA! A trava de 100 senhas agora está valendo." : "Sistema colocado em modo 100% GRATUITO.");
-    } catch (error) {
-      console.error("Erro ao alterar configuracao global:", error);
-      alert("Erro ao salvar no Firestore: " + error.message);
-      e.target.checked = !novoStatus;
-    }
-  });
 
   async function carregarPainelAssinaturas() {
     const tabela = document.getElementById("tabelaAssinaturas");
