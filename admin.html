@@ -939,7 +939,7 @@
         const trioRef = doc(db, "trios", trioAtualPista.id);
         await updateDoc(trioRef, dadosResultado);
 
-        if (trioAtualPista.trioEspelhoId) {
+        if (trioAtualPista?.trioEspelhoId) {
           const trioEspelhoRef = doc(db, "trios", trioAtualPista.trioEspelhoId);
           await updateDoc(trioEspelhoRef, dadosResultado);
         }
@@ -1019,6 +1019,7 @@
             vagasPorBateria: currentClassificados,
             totalBaterias: currentNumBaterias,
             resultadosPorBateria: resultadoFinalPorBateria,
+            status: "PENDENTE",
             criadoEm: new Date()
           }, { merge: true });
         }
