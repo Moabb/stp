@@ -95,7 +95,7 @@
         <h3>⚡ MODO DE COBRANÇA GLOBAL DO SISTEMA</h3>
         <p id="txtStatusGlobal">Carregando status global do sistema...</p>
         
-        <!-- NOVO CAMPO PARA DEFINIR O LIMITE DE SENHAS -->
+        <!-- CAMPO PARA DEFINIR O LIMITE DE SENHAS -->
         <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
           <label for="inputLimiteSenhas" style="font-size: 0.9rem; color: #ccc;">Limite Gratuito de Senhas:</label>
           <input type="number" id="inputLimiteSenhas" value="100" min="1" style="width: 90px; padding: 6px 10px; background: #121212; border: 1px solid var(--border-color); color: #fff; border-radius: 4px; font-weight: bold;">
@@ -153,6 +153,8 @@
   const formLogin = document.getElementById("formLoginAdmin");
   const toggleGlobal = document.getElementById("toggleCobrancaGlobal");
   const txtStatusGlobal = document.getElementById("txtStatusGlobal");
+  const inputLimiteSenhas = document.getElementById("inputLimiteSenhas");
+  const btnSalvarLimite = document.getElementById("btnSalvarLimite");
 
   onAuthStateChanged(auth, async (user) => {
     if (user && user.uid === ADMIN_UID) {
@@ -190,10 +192,6 @@
       btn.innerText = "Entrar no Painel";
     }
   });
-
-  // Carrega estado da chave global
-  const inputLimiteSenhas = document.getElementById("inputLimiteSenhas");
-  const btnSalvarLimite = document.getElementById("btnSalvarLimite");
 
   // Carrega estado da chave global e o limite configurado
   async function carregarStatusGlobal() {
@@ -256,14 +254,6 @@
     }
   });
 
-  function atualizarTextoStatusGlobal(ativa) {
-    if (ativa) {
-      txtStatusGlobal.innerHTML = "<b style='color: var(--accent-green);'>SISTEMA EM MODO PAGO:</b> O limitador de 100 senhas está ATIVO para provas não liberadas.";
-    } else {
-      txtStatusGlobal.innerHTML = "<b style='color: var(--accent-gold);'>SISTEMA 100% GRÁTIS:</b> Todas as competições possuem senhas ilimitadas sem bloqueio.";
-    }
-  }
-
   async function carregarPainelAssinaturas() {
     const tabela = document.getElementById("tabelaAssinaturas");
     tabela.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">Carregando dados...</td></tr>';
@@ -287,6 +277,9 @@
 
       tabela.innerHTML = "";
 
+      // Busca limite configurado
+      const limiteAtual = parseInt(inputLimiteSenhas.value) || 100;
+
       compSnap.forEach(docSnap => {
         const comp = docSnap.data();
         const compId = docSnap.id;
@@ -301,7 +294,7 @@
           <td><strong>${totalSenhas}</strong> senhas</td>
           <td>
             <span class="badge-status ${liberado ? 'badge-pago' : 'badge-gratis'}">
-              ${liberado ? 'PAGO / LIBERADO' : 'GRÁTIS (' + totalSenhas + '/100)'}
+              ${liberado ? 'PAGO / LIBERADO' : 'GRÁTIS (' + totalSenhas + '/' + limiteAtual + ')'}
             </span>
           </td>
           <td>
