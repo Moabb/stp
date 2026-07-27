@@ -152,6 +152,8 @@
       collection, 
       addDoc, 
       getDocs, 
+      getDoc,
+      doc,
       query, 
       where, 
       onAuthStateChanged,
@@ -292,8 +294,6 @@
         .join("|");
     }
 
-    
-
     document.getElementById("formTrio").addEventListener("submit", async (e) => {
       e.preventDefault();
 
@@ -306,7 +306,7 @@
       const c1 = document.getElementById("cavaleiro1").value.trim();
       const c2 = document.getElementById("cavaleiro2").value.trim();
       const c3 = document.getElementById("cavaleiro3").value.trim();
-      const animasi = document.getElementById("animaisInfo").value.trim();
+      const animais = document.getElementById("animaisInfo").value.trim();
 
       const novoTrioChave = gerarChaveTrio([c1, c2, c3]);
 
@@ -398,8 +398,6 @@
         btnSalvarTrio.innerText = "Cadastrar Trio";
       }
     });
-
-
 
     async function carregarTriosCadastrados() {
       tabelaTrios.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #888;">Carregando trios...</td></tr>';
