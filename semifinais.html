@@ -388,9 +388,15 @@
           });
         }
 
-        // 2. MARCA OS DOCUMENTOS DE CLASSIFICADOS COMO PROCESSADOS PARA SUMIREM DA TELA
-        for (const item of classificadosUnicos) {
-          const docRef = doc(db, "classificados", item.id);
+        // 2. MARCA APENAS OS DOCUMENTOS DAS BATERIAS QUE FORAM REALMENTE SELECIONADAS
+        const docIdsProcessados = new Set();
+        document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
+          const docId = chk.getAttribute("data-doc-id");
+          if (docId) docIdsProcessados.add(docId);
+        });
+
+        for (const docId of docIdsProcessados) {
+          const docRef = doc(db, "classificados", docId);
           await updateDoc(docRef, { status: "PROCESSADO" });
         }
 
