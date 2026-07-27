@@ -102,6 +102,21 @@
           </div>
 
           <div class="form-group">
+            <label for="inputNumBaterias">Número de Baterias / Lotes:</label>
+            <input type="number" id="inputNumBaterias" min="1" value="1" required>
+          </div>
+
+          <div class="form-group">
+            <label for="inputCorridasPorBateria">Corridas por Lote/Bateria:</label>
+            <input type="number" id="inputCorridasPorBateria" min="1" value="1" required>
+          </div>
+
+          <div class="form-group">
+            <label for="inputClassificadosPorBateria">Classificados por Bateria p/ Final:</label>
+            <input type="number" id="inputClassificadosPorBateria" min="1" value="5" required>
+          </div>
+
+          <div class="form-group">
             <label for="inputDataSemi">Data da Prova:</label>
             <input type="date" id="inputDataSemi" required>
           </div>
@@ -127,8 +142,9 @@
       getDocs, 
       query, 
       where, 
-      doc,        // <--- ADICIONADO
-      updateDoc,  // <--- ADICIONADO
+      doc,
+      setDoc,     // <--- ADICIONADO AQUI
+      updateDoc,
       onAuthStateChanged,
       signOut 
     } from "./firebase-config.js";
@@ -154,19 +170,15 @@
     });
 
     document.addEventListener('DOMContentLoaded', () => {
-    const statusProva = localStorage.getItem('statusProva');
+      const statusProva = localStorage.getItem('statusProva');
 
-    // Se a prova já foi concluída, limpa a exibição da tela
-        if (statusProva === 'finalizada') {
-            const containerLista = document.getElementById('seu-container-da-lista');
-            if (containerLista) {
-                containerLista.innerHTML = '<p>As provas já foram encerradas!</p>';
-            }
-            return; // Interrompe o carregamento da lista antiga
+      if (statusProva === 'finalizada') {
+        const containerLista = document.getElementById('seu-container-da-lista');
+        if (containerLista) {
+          containerLista.innerHTML = '<p>As provas já foram encerradas!</p>';
         }
-
-        // Se não estiver finalizada, carrega a lista normalmente...
-        carregarListaClassificados();
+        return;
+      }
     });
 
     async function carregarCompeticoes() {
@@ -219,12 +231,11 @@
       containerClassificadas.innerHTML = '<p style="color: #888;">Buscando classificados...</p>';
       
       try {
-        // Filtra apenas as que ainda NÃO foram enviadas para semifinal (status != 'PROCESSADO')
         const q = query(
           collection(db, "classificados"),
           where("competicaoId", "==", compId),
           where("faseOrigem", "==", "CLASSIFICACAO"),
-          where("status", "==", "PENDENTE") // <--- ADICIONADO FILTRO DE STATUS
+          where("status", "==", "PENDENTE")
         );
         const snapshot = await getDocs(q);
 
@@ -366,13 +377,30 @@
       const nomeSemi = document.getElementById("inputNomeSemi").value.trim();
       const dataSemi = document.getElementById("inputDataSemi").value;
 
+      const numBaterias = parseInt(document.getElementById("inputNumBaterias").value) || 1;
+      const corridasPorBateria = parseInt(document.getElementById("inputCorridasPorBateria").value) || 1;
+      const classificadosPorBateria = parseInt(document.getElementById("inputClassificadosPorBateria").value) || 5;
+
       if (!confirm(`Confirmar a criação da "${nomeSemi}" com ${triosUnificadosSelecionados.length} trios semifinalistas?`)) return;
 
       try {
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Semifinal...";
 
-        // 1. Grava os novos trios para o admin
+        // 0. Grava as regras da semifinal na coleção configuracoes
+        const configId = `${compId}_${nomeSemi.toLowerCase().replace(/\s+/g, '_')}_${dataSemi}`;
+        await setDoc(doc(db, "configuracoes", configId), {
+          competicaoId: compId,
+          categoria: nomeSemi,
+          data: dataSemi,
+          numBaterias: numBaterias,
+          corridasPorBateria: corridasPorBateria,
+          classificadosPorBateria: classificadosPorBateria,
+          fase: "SEMIFINAL",
+          atualizadoEm: new Date()
+        }, { merge: true });
+
+        // 1. Grava os trios semifinalistas
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
@@ -388,7 +416,7 @@
           });
         }
 
-        // 2. MARCA APENAS OS DOCUMENTOS DAS BATERIAS QUE FORAM REALMENTE SELECIONADAS
+        // 2. Marca os documentos selecionados como PROCESSADO
         const docIdsProcessados = new Set();
         document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
           const docId = chk.getAttribute("data-doc-id");
@@ -409,7 +437,7 @@
         btnGerar.disabled = false;
         btnGerar.innerText = "🔥 Gerar Semifinal e Enviar para Admin";
       }
-    });
+    }); // <--- FECHAMENTO CORRETO DO SUBMIT
 
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");
