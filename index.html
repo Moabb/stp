@@ -18,12 +18,13 @@
       --accent-red: #e76f51;
       --text-light: #f8f9fa;
       --input-bg: #2b2b2b;
+      --border-color: #333;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
 
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 15px; margin-bottom: 30px; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 30px; }
     header h1 { color: var(--accent-gold); font-size: 1.8rem; text-transform: uppercase; }
 
     .btn-top { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
@@ -32,15 +33,26 @@
     .portal-container { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; }
     @media (max-width: 850px) { .portal-container { grid-template-columns: 1fr; } }
 
-    .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid #333; }
-    .secao-card h2 { color: var(--accent-gold); font-size: 1.3rem; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
+    
+    /* NAVEGAÇÃO POR ABAS */
+    .abas-container { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .btn-aba { background: #262626; color: #aaa; border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+    .btn-aba.ativa { background: var(--accent-gold); color: #000; border-color: var(--accent-gold); }
+    .btn-aba:hover:not(.ativa) { background: #333; color: #fff; }
 
-    .grid-provas { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
-    .card-prova { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-green); transition: 0.2s; cursor: pointer; }
+    .grid-provas { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+    
+    .card-prova { background: #262626; border-radius: 6px; padding: 16px; border-left: 4px solid var(--accent-green); transition: 0.2s; cursor: pointer; }
     .card-prova:hover { transform: translateY(-3px); background: #2f2f2f; }
-    .card-prova h3 { font-size: 1.1rem; color: #fff; margin-bottom: 5px; }
-    .card-prova p { font-size: 0.85rem; color: #aaa; }
-    .badge-status { display: inline-block; background: var(--accent-green); color: #fff; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; margin-top: 8px; }
+    .card-prova.encerrada { border-left-color: #777; opacity: 0.85; }
+    .card-prova.encerrada:hover { opacity: 1; }
+
+    .card-prova h3 { font-size: 1.1rem; color: #fff; margin-bottom: 6px; text-transform: uppercase; }
+    .card-prova p { font-size: 0.85rem; color: #ccc; margin-bottom: 4px; }
+    
+    .badge-status { display: inline-block; background: var(--accent-green); color: #fff; font-size: 0.7rem; font-weight: bold; padding: 3px 8px; border-radius: 10px; margin-top: 8px; }
+    .badge-status.encerrado { background: #555; }
 
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
@@ -55,11 +67,9 @@
     .toggle-auth { text-align: center; margin-top: 15px; font-size: 0.85rem; color: #aaa; }
     .toggle-auth a { color: var(--accent-gold); text-decoration: underline; cursor: pointer; }
     
-    .msg-erro { color: #e76f51; font-size: 0.85rem; margin-top: 10px; text-align: center; display: none; }
-    
+    .msg-erro { color: var(--accent-red); font-size: 0.85rem; margin-top: 10px; text-align: center; display: none; }
     .recaptcha-wrapper { margin: 15px 0; display: flex; justify-content: center; }
 
-    /* Estilo do Card do Usuário Logado */
     .user-logged-info { text-align: center; padding: 10px 0; }
     .user-logged-info p { margin-bottom: 15px; font-size: 0.95rem; color: #ddd; }
     .user-logged-info strong { color: var(--accent-gold); display: block; margin-top: 5px; font-size: 1.05rem; word-break: break-all; }
@@ -74,23 +84,23 @@
 
   <main class="portal-container">
     
+    <!-- SEÇÃO DE COMPETIÇÕES PUBLICAS -->
     <section class="secao-card">
-      <h2>PROVAS EM ANDAMENTO / RESULTADOS</h2>
+      <div class="abas-container">
+        <button class="btn-aba ativa" id="abaEmAndamento">🔴 PROVAS EM ANDAMENTO</button>
+        <button class="btn-aba" id="abaFinalizadas">🏁 PROVAS FINALIZADAS</button>
+      </div>
+
       <div class="grid-provas" id="containerProvas">
-        <div class="card-prova" onclick="window.location.href='./config.html'">
-          <h3>1º OPEN TEAM PENNING</h3>
-          <p>Data: 17/07/2026</p>
-          <p>Categoria: Soma 3 (Em Pista)</p>
-          <span class="badge-status">AO VIVO</span>
-        </div>
+        <p style="color: #888; grid-column: 1/-1;">Carregando competições...</p>
       </div>
     </section>
 
-    <!-- Área de Autenticação / Perfil -->
+    <!-- ÁREA DE AUTENTICAÇÃO / PERFIL -->
     <section class="secao-card" id="boxAuth">
       <h2 id="tituloAuth">ENTRAR NA CONTA</h2>
       
-      <!-- Bloco 1: Formulário para Visitantes (Não Logados) -->
+      <!-- Bloco Deslogado -->
       <div id="wrapperDeslogado">
         <form id="formAuth">
           
@@ -123,7 +133,7 @@
         </div>
       </div>
 
-      <!-- Bloco 2: Informações do Usuário Autenticado (Logado) -->
+      <!-- Bloco Logado -->
       <div id="wrapperLogado" style="display: none;">
         <div class="user-logged-info">
           <p>Você está conectado como: <strong id="lblEmailUsuario">carregando...</strong></p>
@@ -142,6 +152,8 @@
       db,
       doc,
       setDoc,
+      collection,
+      getDocs,
       signInWithEmailAndPassword, 
       createUserWithEmailAndPassword, 
       onAuthStateChanged,
@@ -149,6 +161,8 @@
     } from "./firebase-config.js";
 
     let modoCadastro = false;
+    let abaAtual = "ANDAMENTO"; // "ANDAMENTO" ou "FINALIZADAS"
+    let listaCompeticoes = [];
 
     const linkToggle = document.getElementById("linkToggle");
     const tituloAuth = document.getElementById("tituloAuth");
@@ -162,6 +176,88 @@
     const lblEmailUsuario = document.getElementById("lblEmailUsuario");
     const btnSairConta = document.getElementById("btnSairConta");
 
+    const containerProvas = document.getElementById("containerProvas");
+    const abaEmAndamento = document.getElementById("abaEmAndamento");
+    const abaFinalizadas = document.getElementById("abaFinalizadas");
+
+    // CARREGAR PROVAS DO FIRESTORE EM TEMPO REAL
+    async function carregarProvasGerais() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "competicoes"));
+        listaCompeticoes = [];
+
+        querySnapshot.forEach((docSnap) => {
+          listaCompeticoes.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        renderizarProvas();
+      } catch (error) {
+        console.error("Erro ao carregar provas:", error);
+        containerProvas.innerHTML = '<p style="color: #e76f51; grid-column: 1/-1;">Erro ao carregar competições.</p>';
+      }
+    }
+
+    function renderizarProvas() {
+      containerProvas.innerHTML = "";
+
+      const filtradas = listaCompeticoes.filter(c => {
+        const estaEncerrada = c.status === "ENCERRADA" || c.status === "FINALIZADA";
+        return abaAtual === "ANDAMENTO" ? !estaEncerrada : estaEncerrada;
+      });
+
+      if (filtradas.length === 0) {
+        const msg = abaAtual === "ANDAMENTO" 
+          ? "Nenhuma competição em andamento no momento." 
+          : "Nenhuma competição finalizada encontrada.";
+        containerProvas.innerHTML = `<p style="color: #888; grid-column: 1/-1;">${msg}</p>`;
+        return;
+      }
+
+      filtradas.forEach(comp => {
+        const card = document.createElement("div");
+        const estaEncerrada = comp.status === "ENCERRADA" || comp.status === "FINALIZADA";
+        
+        card.className = `card-prova ${estaEncerrada ? 'encerrada' : ''}`;
+        
+        // Formatação de categorias
+        const qtdCats = comp.categorias ? comp.categorias.length : 0;
+        const textoData = comp.dataInicio || comp.data || "Data não inf.";
+
+        card.innerHTML = `
+          <h3>${comp.nome || "Competição"}</h3>
+          <p>📅 Data: ${textoData}</p>
+          <p>🏷️ Categorias: ${qtdCats}</p>
+          <span class="badge-status ${estaEncerrada ? 'encerrado' : ''}">
+            ${estaEncerrada ? '🏁 FINALIZADA' : '🟢 AO VIVO'}
+          </span>
+        `;
+
+        card.addEventListener("click", () => {
+          // Redireciona para o painel de transmissão / resultados com o ID da prova
+          localStorage.setItem("selectedCompId", comp.id);
+          window.location.href = `./painel.html?compId=${comp.id}`;
+        });
+
+        containerProvas.appendChild(card);
+      });
+    }
+
+    // NAVEGAÇÃO DE ABAS
+    abaEmAndamento.addEventListener("click", () => {
+      abaAtual = "ANDAMENTO";
+      abaEmAndamento.classList.add("ativa");
+      abaFinalizadas.classList.remove("ativa");
+      renderizarProvas();
+    });
+
+    abaFinalizadas.addEventListener("click", () => {
+      abaAtual = "FINALIZADAS";
+      abaFinalizadas.classList.add("ativa");
+      abaEmAndamento.classList.remove("ativa");
+      renderizarProvas();
+    });
+
+    // SISTEMA DE AUTENTICAÇÃO
     linkToggle.addEventListener("click", () => {
       modoCadastro = !modoCadastro;
       msgErro.style.display = "none";
@@ -222,7 +318,6 @@
       }
     });
 
-    // Função de Logout
     btnSairConta.addEventListener("click", async () => {
       try {
         await signOut(auth);
@@ -259,10 +354,11 @@
       }
     }
 
-    // Monitoramento do Estado da Sessão
+    // MONITORAMENTO DE LOGINS E CARREGAMENTO INICIAL
     onAuthStateChanged(auth, (user) => {
+      carregarProvasGerais();
+
       if (user) {
-        // Usuário LOGADO
         tituloAuth.innerText = "MINHA CONTA";
         lblEmailUsuario.innerText = user.email;
         wrapperDeslogado.style.display = "none";
@@ -271,7 +367,6 @@
         document.getElementById("btnAbrirLogin").innerText = "IR PARA GERENCIADOR (CONFIG)";
         document.getElementById("btnAbrirLogin").onclick = () => window.location.href = "./config.html";
       } else {
-        // Usuário DESLOGADO
         tituloAuth.innerText = modoCadastro ? "CRIAR CONTA DE ORGANIZADOR" : "ENTRAR NA CONTA";
         wrapperDeslogado.style.display = "block";
         wrapperLogado.style.display = "none";
