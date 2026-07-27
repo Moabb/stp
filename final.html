@@ -362,7 +362,7 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Grande Final...";
 
-        // 0. GRAVA AS REGRAS DA GRANDE FINAL NA COLEÇÃO CONFIGURACOES
+        // 0. Grava as regras da Grande Final na coleção configuracoes
         const configId = `${compId}_${nomeFinal.toLowerCase().replace(/\s+/g, '_')}_${dataFinal}`;
         await setDoc(doc(db, "configuracoes", configId), {
           competicaoId: compId,
@@ -389,9 +389,15 @@
           });
         }
 
-        // 2. Marca os documentos de classificados como processados para sumirem da tela
-        for (const item of classificadosUnicos) {
-          const docRef = doc(db, "classificados", item.id);
+        // 2. MARCA COMO PROCESSADO SOMENTE OS DOCUMENTOS SELECIONADOS NO CHECKBOX
+        const docsProcessados = new Set();
+        document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
+          const docId = chk.getAttribute("data-doc-id");
+          if (docId) docsProcessados.add(docId);
+        });
+
+        for (const idProcessado of docsProcessados) {
+          const docRef = doc(db, "classificados", idProcessado);
           await updateDoc(docRef, { status: "PROCESSADO" });
         }
 
