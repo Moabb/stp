@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Administração & Cronometragem - Team Penning</title>
+  <title>1Administração & Cronometragem - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -300,6 +300,7 @@
       db, 
       collection, 
       addDoc, 
+      getDoc,
       getDocs,
       setDoc, 
       doc, 
@@ -308,7 +309,8 @@
       where, 
       onSnapshot,
       onAuthStateChanged,
-      signOut
+      signOut,
+      serverTimestamp
     } from "./firebase-config.js";
 
     let currentUser = null;
@@ -556,32 +558,46 @@
       }
     });
 
-    btnAtivarPainel.addEventListener("click", async () => {
-      if (!selectedCompId || !selectedCategoriaNome) {
-        alert("Selecione uma competição e uma categoria primeiro!");
-        return;
-      }
-
+    btnAtivarPainel.addEventListener('click', async () => {
       try {
-        await updateDoc(doc(db, "competicoes", selectedCompId), {
-          painelAtivo: true,
-          categoriaAtivaPainel: selectedCategoriaNome,
-          faseAtivaPainel: selectedFase,
-          dataAtivaPainel: selectedCategoriaData,
-          atualizadoEm: new Date()
-        });
+        const categoriaId = selectCategoria.value;
+        if (!categoriaId) return alert("Selecione uma categoria!");
 
-        await setDoc(doc(db, "painel_global", "ativo"), {
-          competicaoId: selectedCompId,
-          categoriaAtiva: selectedCategoriaNome,
-          faseAtiva: selectedFase,
-          dataAtiva: selectedCategoriaData,
-          atualizadoEm: new Date()
+        // Buscar dados da categoria/fase selecionada
+        const catDoc = await getDoc(doc(db, "categorias", categoriaId));
+        const catData = catDoc.exists() ? catDoc.data() : {};
+
+        // Grava no Firestore os dados completos de exibição + regulamento da semifinal
+        await setDoc(doc(db, "transmissao", "ativa"), {
+          categoriaId: categoriaId,
+          nomeCategoria: catData.nome || selectedCategoriaNome || "",
+          fase: catData.fase || selectedFase || "SEMIFINAL",
+          regulamento: catData.regulamento || {
+            numBaterias: catData.numBaterias || currentNumBaterias || 1,
+            corridasPorBateria: catData.corridasPorBateria || currentLimiteGado || 25,
+            classificadosPorBateria: catData.classificadosPorBateria || currentClassificados || 5
+          },
+          atualizadoEm: serverTimestamp()
         }, { merge: true });
 
-        alert("📺 Categoria ativada no Painel em tempo real com sucesso! Todos os monitores sincronizados.");
-      } catch (err) {
-        alert("Erro ao ativar painel: " + err.message);
+        // Sincronização auxiliar legada do painel global
+        if (selectedCompId) {
+          await setDoc(doc(db, "painel_global", "ativo"), {
+            competicaoId: selectedCompId,
+            categoriaAtiva: selectedCategoriaNome,
+            faseAtiva: selectedFase,
+            dataAtiva: selectedCategoriaData,
+            numBaterias: currentNumBaterias,
+            limiteGado: currentLimiteGado,
+            classificados: currentClassificados,
+            atualizadoEm: serverTimestamp()
+          }, { merge: true });
+        }
+
+        alert("Painel atualizado com sucesso!");
+      } catch (error) {
+        console.error("Erro ao ativar painel:", error);
+        alert("Erro ao ativar painel: " + error.message);
       }
     });
 
@@ -657,30 +673,6 @@
         verificarEProcessarFinalizacaoCategoria();
       });
     }
-
-    btnAtivarPainel.addEventListener("click", async () => {
-      if (!selectedCompId || !selectedCategoriaNome) {
-        alert("Selecione uma competição e uma categoria primeiro!");
-        return;
-      }
-
-      try {
-        await setDoc(doc(db, "painel_global", "ativo"), {
-          competicaoId: selectedCompId,
-          categoriaAtiva: selectedCategoriaNome,
-          faseAtiva: selectedFase,
-          dataAtiva: selectedCategoriaData,
-          numBaterias: currentNumBaterias,
-          limiteGado: currentLimiteGado,
-          classificados: currentClassificados,
-          atualizadoEm: new Date()
-        }, { merge: true });
-
-        alert("📺 Categoria e Fase configuradas transmitidas para o Painel!");
-      } catch (err) {
-        alert("Erro ao ativar painel: " + err.message);
-      }
-    });
 
     btnRealizarSorteio.addEventListener("click", async () => {
       if (triosAtuais.length === 0) {
