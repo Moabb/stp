@@ -98,17 +98,17 @@
 
           <div class="form-group">
             <label for="inputNumBaterias">Nº de Baterias / Lotes:</label>
-            <input type="number" id="inputNumBaterias" value="1" min="1" required>
+            <input type="number" id="inputNumBaterias" value="" min="1" required>
           </div>
 
           <div class="form-group">
             <label for="inputCorridasPorBateria">Corridas por Lote/Bateria:</label>
-            <input type="number" id="inputCorridasPorBateria" value="25" min="1" required>
+            <input type="number" id="inputCorridasPorBateria" value="" min="1" required>
           </div>
 
           <div class="form-group">
             <label for="inputClassificadosPorBateria">Classificados p/ Grande Final:</label>
-            <input type="number" id="inputClassificadosPorBateria" value="2" min="1" required>
+            <input type="number" id="inputClassificadosPorBateria" value="" min="1" required>
           </div>
 
           <div class="form-group">
@@ -341,9 +341,9 @@
         const novaCategoriaSemifinal = {
           nome: nomeSemifinal,
           data: dataSemifinal,
-          numBaterias: parseInt(document.getElementById("inputNumBaterias").value) || 1,
-          corridasPorBateria: parseInt(document.getElementById("inputCorridasPorBateria").value) || 25,
-          classificadosPorBateria: parseInt(document.getElementById("inputClassificadosPorBateria").value) || 2,
+          numBaterias: parseInt(document.getElementById("inputNumBaterias").value) || "",
+          corridasPorBateria: parseInt(document.getElementById("inputCorridasPorBateria").value) || "",
+          classificadosPorBateria: parseInt(document.getElementById("inputClassificadosPorBateria").value) || "",
           fase: "SEMIFINAL"
         };
 
