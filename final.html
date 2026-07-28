@@ -12,7 +12,6 @@
       --accent-gold: #ffb703;
       --accent-green: #2a9d8f;
       --accent-blue: #0077b6;
-      --danger-red: #e76f51;
       --text-light: #f8f9fa;
       --input-bg: #2b2b2b;
       --border-color: #333;
@@ -25,7 +24,6 @@
     header h1 { color: var(--accent-gold); font-size: 1.6rem; text-transform: uppercase; }
 
     .btn-header { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-decoration: none; font-size: 0.85rem; }
-    .btn-header:hover { opacity: 0.9; }
 
     .grid-final { display: grid; grid-template-columns: 1fr 380px; gap: 25px; align-items: start; }
     @media (max-width: 950px) { .grid-final { grid-template-columns: 1fr; } }
@@ -49,7 +47,6 @@
     .checkbox-bateria { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-gold); }
 
     .btn-gerar { width: 100%; padding: 14px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; transition: 0.2s; }
-    .btn-gerar:hover { opacity: 0.9; }
     .btn-gerar:disabled { background: #555; cursor: not-allowed; }
 
     .fixar { position: sticky; top: 20px; }
@@ -69,7 +66,6 @@
 
   <div class="grid-final">
 
-    <!-- COLUNA 1: Classificados das Semifinais -->
     <main>
       <article class="card">
         <h2>1. Conferência dos Finalistas (da Semifinal)</h2>
@@ -90,7 +86,6 @@
       </article>
     </main>
 
-    <!-- COLUNA 2: Configuração da Grande Final -->
     <aside class="fixar">
       <article class="card">
         <h2>2. Configurar Grande Final</h2>
@@ -102,7 +97,7 @@
           </div>
 
           <div class="form-group">
-            <label for="inputClassificadosPorBateria">Quantidade de Campeões/Premiados (ex: 5 para Top 5, 10 para Top 10):</label>
+            <label for="inputClassificadosPorBateria">Quantidade de Campeões/Premiados:</label>
             <input type="number" id="inputClassificadosPorBateria" value="10" min="1" required>
           </div>
 
@@ -123,7 +118,7 @@
 
   </div>
 
-<script type="module">
+  <script type="module">
     import { 
       auth, 
       db, 
@@ -133,7 +128,7 @@
       query, 
       where, 
       doc, 
-      setDoc,     // <--- 1. IMPORTADO AQUI
+      setDoc, 
       updateDoc, 
       onAuthStateChanged,
       signOut 
@@ -247,7 +242,6 @@
         renderizarBlocosClassificados();
 
       } catch (err) {
-        console.error("Erro ao carregar classificados:", err);
         containerClassificadas.innerHTML = '<p style="color: #e76f51;">Erro ao carregar classificados.</p>';
       }
     }
@@ -362,9 +356,8 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Grande Final...";
 
-        // 0. Grava as regras da Grande Final na coleção configuracoes
         const configId = `${compId}_${nomeFinal.toLowerCase().replace(/\s+/g, '_')}_${dataFinal}`;
-        await setDoc(doc(db, "configuracoes", configId), {
+        await setDoc(doc(doc(db, "configuracoes", configId)), {
           competicaoId: compId,
           categoria: nomeFinal,
           data: dataFinal,
@@ -373,7 +366,6 @@
           atualizadoEm: new Date()
         }, { merge: true });
 
-        // 1. Grava os novos trios para o admin
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
@@ -389,7 +381,6 @@
           });
         }
 
-        // 2. MARCA COMO PROCESSADO SOMENTE OS DOCUMENTOS SELECIONADOS NO CHECKBOX
         const docsProcessados = new Set();
         document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
           const docId = chk.getAttribute("data-doc-id");
@@ -397,15 +388,13 @@
         });
 
         for (const idProcessado of docsProcessados) {
-          const docRef = doc(db, "classificados", idProcessado);
-          await updateDoc(docRef, { status: "PROCESSADO" });
+          await updateDoc(doc(db, "classificados", idProcessado), { status: "PROCESSADO" });
         }
 
-        alert("Grande Final criada com sucesso! Redirecionando para o painel do juiz...");
+        alert("Grande Final criada com sucesso!");
         window.location.href = "./admin.html";
 
       } catch (err) {
-        console.error("Erro ao gerar final:", err);
         alert("Erro ao criar a Grande Final: " + err.message);
         btnGerar.disabled = false;
         btnGerar.innerText = "🏆 Gerar Grande Final e Enviar para Admin";

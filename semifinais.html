@@ -12,7 +12,6 @@
       --accent-gold: #ffb703;
       --accent-green: #2a9d8f;
       --accent-blue: #0077b6;
-      --danger-red: #e76f51;
       --text-light: #f8f9fa;
       --input-bg: #2b2b2b;
       --border-color: #333;
@@ -25,7 +24,6 @@
     header h1 { color: var(--accent-gold); font-size: 1.6rem; text-transform: uppercase; }
 
     .btn-header { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-decoration: none; font-size: 0.85rem; }
-    .btn-header:hover { opacity: 0.9; }
 
     .grid-semifinal { display: grid; grid-template-columns: 1fr 380px; gap: 25px; align-items: start; }
     @media (max-width: 950px) { .grid-semifinal { grid-template-columns: 1fr; } }
@@ -49,7 +47,6 @@
     .checkbox-bateria { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-gold); }
 
     .btn-gerar { width: 100%; padding: 14px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; transition: 0.2s; }
-    .btn-gerar:hover { opacity: 0.9; }
     .btn-gerar:disabled { background: #555; cursor: not-allowed; }
 
     .fixar { position: sticky; top: 20px; }
@@ -69,7 +66,6 @@
 
   <div class="grid-semifinal">
 
-    <!-- COLUNA 1: Classificados na Etapa Classificatória -->
     <main>
       <article class="card">
         <h2>1. Selecionar Classificados das Etapas</h2>
@@ -90,7 +86,6 @@
       </article>
     </main>
 
-    <!-- COLUNA 2: Configuração da Semifinal -->
     <aside class="fixar">
       <article class="card">
         <h2>2. Configurar Semifinal</h2>
@@ -143,7 +138,7 @@
       query, 
       where, 
       doc,
-      setDoc,     // <--- ADICIONADO AQUI
+      setDoc,
       updateDoc,
       onAuthStateChanged,
       signOut 
@@ -167,18 +162,6 @@
       currentUser = user;
       document.getElementById("inputDataSemi").value = new Date().toISOString().split('T')[0];
       carregarCompeticoes();
-    });
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const statusProva = localStorage.getItem('statusProva');
-
-      if (statusProva === 'finalizada') {
-        const containerLista = document.getElementById('seu-container-da-lista');
-        if (containerLista) {
-          containerLista.innerHTML = '<p>As provas já foram encerradas!</p>';
-        }
-        return;
-      }
     });
 
     async function carregarCompeticoes() {
@@ -387,7 +370,6 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Semifinal...";
 
-        // 0. Grava as regras da semifinal na coleção configuracoes
         const configId = `${compId}_${nomeSemi.toLowerCase().replace(/\s+/g, '_')}_${dataSemi}`;
         await setDoc(doc(db, "configuracoes", configId), {
           competicaoId: compId,
@@ -400,7 +382,6 @@
           atualizadoEm: new Date()
         }, { merge: true });
 
-        // 1. Grava os trios semifinalistas
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
@@ -416,7 +397,6 @@
           });
         }
 
-        // 2. Marca os documentos selecionados como PROCESSADO
         const docIdsProcessados = new Set();
         document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
           const docId = chk.getAttribute("data-doc-id");
@@ -424,20 +404,18 @@
         });
 
         for (const docId of docIdsProcessados) {
-          const docRef = doc(db, "classificados", docId);
-          await updateDoc(docRef, { status: "PROCESSADO" });
+          await updateDoc(doc(db, "classificados", docId), { status: "PROCESSADO" });
         }
 
-        alert("Semifinal criada com sucesso! Redirecionando para o painel do juiz...");
+        alert("Semifinal criada com sucesso!");
         window.location.href = "./admin.html";
 
       } catch (err) {
-        console.error("Erro ao gerar semifinal:", err);
         alert("Erro ao criar a Semifinal: " + err.message);
         btnGerar.disabled = false;
         btnGerar.innerText = "🔥 Gerar Semifinal e Enviar para Admin";
       }
-    }); // <--- FECHAMENTO CORRETO DO SUBMIT
+    });
 
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");

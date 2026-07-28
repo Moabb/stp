@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1Administração & Cronometragem - Team Penning</title>
+  <title>Administração & Cronometragem - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -319,6 +319,7 @@
     let triosAtuais = [];
     let trioAtualPista = null;
     let jaFinalizouCategoria = false;
+    let snapshotUnsubscribe = null;
 
     let selectedCompId = localStorage.getItem("selectedCompId") || null;
     let selectedCategoriaNome = null;
@@ -565,7 +566,6 @@
       try {
         if (!selectedCategoriaNome) return alert("Selecione uma categoria!");
 
-        // Grava na coleção 'transmissao' lida pelo painel.html
         await setDoc(doc(db, "transmissao", "ativa"), {
           nomeCategoria: selectedCategoriaNome || "",
           fase: selectedFase || "CLASSIFICACAO",
@@ -579,7 +579,6 @@
           atualizadoEm: serverTimestamp()
         }, { merge: true });
 
-        // Grava também no painel_global para redundância
         if (selectedCompId) {
           await setDoc(doc(db, "painel_global", "ativo"), {
             competicaoId: selectedCompId,
@@ -638,13 +637,11 @@
           currentClassificados = parseInt(catInfo.classificadosPorBateria || catInfo.classificadosLote) || 3;
         }
       } else {
-        // Busca as configurações salvas na competição para Semifinal/Final ou pega da categoria
         const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
 
         currentNumBaterias = parseInt(comp.qtdBateriasFaseEspecial || comp.qtdBateriasSemifinal || catInfo?.qtdBaterias) || 1; 
         currentLimiteGado = parseInt(comp.limiteGadoFaseEspecial || catInfo?.limiteGado) || 25;
         
-        // Pega as vagas da semifinal salvas na config, ou da categoria se existir
         currentClassificados = parseInt(
           comp.classificadosFaseEspecial || 
           comp.vagasSemifinal || 
@@ -653,7 +650,6 @@
         );
       }
 
-      // Atualiza os rótulos na tela
       lblQtdBaterias.innerText = currentNumBaterias;
       lblLimiteGado.innerText = currentLimiteGado;
       lblClassificados.innerText = currentClassificados;
@@ -670,7 +666,11 @@
         where("fase", "==", selectedFase)
       );
 
-      onSnapshot(q, (snapshot) => {
+      if (snapshotUnsubscribe) {
+        snapshotUnsubscribe();
+      }
+
+      snapshotUnsubscribe = onSnapshot(q, (snapshot) => {
         triosAtuais = [];
         snapshot.forEach(docSnap => {
           triosAtuais.push({ id: docSnap.id, ...docSnap.data() });
@@ -967,6 +967,7 @@
 
         inputTempo.value = "";
         inputBoiSorteado.value = "";
+        inputQuantidadeBois.value = "3";
       } catch (err) {
         alert("Erro ao gravar resultado: " + err.message);
       }
