@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1Administração & Cronometragem - Team Penning</title>
+  <title>Administração & Cronometragem - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -309,14 +309,16 @@
       where, 
       onSnapshot,
       onAuthStateChanged,
-      signOut,
-      serverTimestamp
+      signOut
     } from "./firebase-config.js";
+
+    import { serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     let currentUser = null;
     let competicoesCache = {};
     let triosAtuais = [];
     let trioAtualPista = null;
+    let jaFinalizouCategoria = false;
 
     let selectedCompId = localStorage.getItem("selectedCompId") || null;
     let selectedCategoriaNome = null;
@@ -391,7 +393,7 @@
 
           const option = document.createElement("option");
           option.value = docSnap.id;
-          option.textContent = `${comp.nome} (${comp.dataInicio})`;
+          option.textContent = `${comp.nome || 'Competição'} (${comp.dataInicio || 'Sem Data'})`;
           selectCompeticao.appendChild(option);
         });
 
@@ -402,6 +404,7 @@
 
       } catch (error) {
         console.error("Erro ao carregar competições:", error);
+        selectCompeticao.innerHTML = '<option value="">Erro ao carregar lista</option>';
       }
     }
 
@@ -560,27 +563,19 @@
 
     btnAtivarPainel.addEventListener('click', async () => {
       try {
-        const categoriaId = selectCategoria.value;
-        if (!categoriaId) return alert("Selecione uma categoria!");
+        if (!selectedCategoriaNome) return alert("Selecione uma categoria!");
 
-        // Buscar dados da categoria/fase selecionada
-        const catDoc = await getDoc(doc(db, "categorias", categoriaId));
-        const catData = catDoc.exists() ? catDoc.data() : {};
-
-        // Grava no Firestore os dados completos de exibição + regulamento da semifinal
         await setDoc(doc(db, "transmissao", "ativa"), {
-          categoriaId: categoriaId,
-          nomeCategoria: catData.nome || selectedCategoriaNome || "",
-          fase: catData.fase || selectedFase || "SEMIFINAL",
-          regulamento: catData.regulamento || {
-            numBaterias: catData.numBaterias || currentNumBaterias || 1,
-            corridasPorBateria: catData.corridasPorBateria || currentLimiteGado || 25,
-            classificadosPorBateria: catData.classificadosPorBateria || currentClassificados || 5
+          nomeCategoria: selectedCategoriaNome || "",
+          fase: selectedFase || "CLASSIFICACAO",
+          regulamento: {
+            numBaterias: currentNumBaterias || 1,
+            corridasPorBateria: currentLimiteGado || 25,
+            classificadosPorBateria: currentClassificados || 3
           },
           atualizadoEm: serverTimestamp()
         }, { merge: true });
 
-        // Sincronização auxiliar legada do painel global
         if (selectedCompId) {
           await setDoc(doc(db, "painel_global", "ativo"), {
             competicaoId: selectedCompId,
@@ -594,7 +589,7 @@
           }, { merge: true });
         }
 
-        alert("Painel atualizado com sucesso!");
+        alert("Painel transmitido e atualizado com sucesso!");
       } catch (error) {
         console.error("Erro ao ativar painel:", error);
         alert("Erro ao ativar painel: " + error.message);
@@ -697,7 +692,7 @@
         });
 
         btnEncerrarSorteioLive.style.display = "block";
-        alert("Sorteio realizado! O Painel em qualquer PC agora exibe o Sorteio ao Vivo.");
+        alert("Sorteio realizado! O Painel agora exibe o Sorteio ao Vivo.");
 
       } catch (err) {
         alert("Erro ao realizar sorteio: " + err.message);
@@ -710,7 +705,7 @@
           sorteioStatus: "FINALIZADO"
         });
         btnEncerrarSorteioLive.style.display = "none";
-        alert("Sorteio encerrado! O Painel voltou para o monitoramento normal das corridas.");
+        alert("Sorteio encerrado!");
       } catch (err) {
         alert("Erro ao encerrar exibição: " + err.message);
       }
@@ -961,8 +956,6 @@
         alert("Erro ao gravar resultado: " + err.message);
       }
     }
-
-    let jaFinalizouCategoria = false;
 
     async function verificarEProcessarFinalizacaoCategoria() {
       if (triosAtuais.length === 0 || jaFinalizouCategoria) return;
