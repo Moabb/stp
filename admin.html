@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Administração & Cronometragem - Team Penning</title>
+  <title>1Administração & Cronometragem - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -565,18 +565,33 @@
       try {
         if (!selectedCategoriaNome) return alert("Selecione uma categoria!");
 
+        // Grava na coleção 'transmissao' lida pelo painel.html
         await setDoc(doc(db, "transmissao", "ativa"), {
           nomeCategoria: selectedCategoriaNome || "",
           fase: selectedFase || "CLASSIFICACAO",
           competicaoId: selectedCompId || "",
           dataAtiva: selectedCategoriaData || "",
           regulamento: {
-            numBaterias: currentNumBaterias || 1,
-            corridasPorBateria: currentLimiteGado || 25,
-            classificadosPorBateria: currentClassificados || 3
+            numBaterias: currentNumBaterias,
+            corridasPorBateria: currentLimiteGado,
+            classificadosPorBateria: currentClassificados
           },
           atualizadoEm: serverTimestamp()
         }, { merge: true });
+
+        // Grava também no painel_global para redundância
+        if (selectedCompId) {
+          await setDoc(doc(db, "painel_global", "ativo"), {
+            competicaoId: selectedCompId,
+            categoriaAtiva: selectedCategoriaNome,
+            faseAtiva: selectedFase,
+            dataAtiva: selectedCategoriaData,
+            numBaterias: currentNumBaterias,
+            limiteGado: currentLimiteGado,
+            classificados: currentClassificados,
+            atualizadoEm: serverTimestamp()
+          }, { merge: true });
+        }
 
         alert("Painel transmitido e atualizado com sucesso!");
       } catch (error) {
@@ -618,16 +633,27 @@
       if (selectedFase === "CLASSIFICACAO") {
         const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
         if (catInfo) {
-          currentNumBaterias = catInfo.qtdBaterias || 2;
-          currentLimiteGado = catInfo.limiteGado || 25;
-          currentClassificados = catInfo.classificadosPorBateria || catInfo.classificadosLote || 3;
+          currentNumBaterias = parseInt(catInfo.qtdBaterias) || 2;
+          currentLimiteGado = parseInt(catInfo.limiteGado) || 25;
+          currentClassificados = parseInt(catInfo.classificadosPorBateria || catInfo.classificadosLote) || 3;
         }
       } else {
-        currentNumBaterias = comp.qtdBateriasFaseEspecial || 1; 
-        currentLimiteGado = comp.limiteGadoFaseEspecial || 25;
-        currentClassificados = comp.classificadosFaseEspecial || 5;
+        // Busca as configurações salvas na competição para Semifinal/Final ou pega da categoria
+        const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
+
+        currentNumBaterias = parseInt(comp.qtdBateriasFaseEspecial || comp.qtdBateriasSemifinal || catInfo?.qtdBaterias) || 1; 
+        currentLimiteGado = parseInt(comp.limiteGadoFaseEspecial || catInfo?.limiteGado) || 25;
+        
+        // Pega as vagas da semifinal salvas na config, ou da categoria se existir
+        currentClassificados = parseInt(
+          comp.classificadosFaseEspecial || 
+          comp.vagasSemifinal || 
+          catInfo?.classificadosFaseEspecial || 
+          2
+        );
       }
 
+      // Atualiza os rótulos na tela
       lblQtdBaterias.innerText = currentNumBaterias;
       lblLimiteGado.innerText = currentLimiteGado;
       lblClassificados.innerText = currentClassificados;
