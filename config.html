@@ -48,6 +48,9 @@
     .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr; gap: 8px; }
     @media (max-width: 768px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
 
+    .checkbox-container { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; font-size: 0.85rem; color: var(--accent-gold); }
+    .checkbox-container input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent-gold); cursor: pointer; }
+
     .btn-add-cat { background: transparent; border: 1px dashed var(--accent-gold); color: var(--accent-gold); width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
     .btn-add-cat:hover { background: rgba(255, 183, 3, 0.1); }
 
@@ -207,7 +210,7 @@
     const listaExcluirCheckboxes = document.getElementById("listaExcluirCheckboxes");
     const checkMarcarTodos = document.getElementById("checkMarcarTodos");
 
-    function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, limiteGado = 25, classificados = 3) {
+    function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, limiteGado = 25, classificados = 3, isFeminino = false) {
       const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
 
       const div = document.createElement("div");
@@ -237,6 +240,9 @@
             <input type="number" class="cat-classificados" min="1" value="${classificados}" required>
           </div>
         </div>
+        <label class="checkbox-container">
+          <input type="checkbox" class="cat-feminino" ${isFeminino ? "checked" : ""}> ♀️ Categoria Feminina
+        </label>
       `;
 
       div.querySelector(".btn-remover").addEventListener("click", () => {
@@ -276,7 +282,8 @@
           data: bloco.querySelector(".cat-data").value,
           qtdBaterias: parseInt(bloco.querySelector(".cat-baterias").value) || 2,
           limiteGado: parseInt(bloco.querySelector(".cat-limitegado").value) || 25,
-          classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value) || 3
+          classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value) || 3,
+          isFeminino: bloco.querySelector(".cat-feminino").checked
         });
       });
 
@@ -357,13 +364,13 @@
           card.className = "card-prova-item";
           
           const detalhesCat = comp.categorias && comp.categorias.length > 0
-            ? comp.categorias.map(c => `${c.nome} (${c.qtdBaterias || 2} Bat / ${c.limiteGado || 25} Lote / ${c.classificadosPorBateria || 3} Class)`).join(" | ")
+            ? comp.categorias.map(c => `${c.nome}${c.isFeminino ? ' (♀️ Fem)' : ''} (${c.qtdBaterias || 2} Bat / ${c.limiteGado || 25} Lote / ${c.classificadosPorBateria || 3} Class)`).join(" | ")
             : "Nenhuma categoria";
 
           let optionsCategorias = `<option value="">Selecione...</option>`;
           if (comp.categorias && comp.categorias.length > 0) {
             comp.categorias.forEach((cat) => {
-              optionsCategorias += `<option value="${cat.nome}">${cat.nome}</option>`;
+              optionsCategorias += `<option value="${cat.nome}">${cat.nome}${cat.isFeminino ? ' (♀️ Fem)' : ''}</option>`;
             });
           }
 
@@ -556,7 +563,8 @@
             cat.data || comp.dataInicio,
             cat.qtdBaterias || 2,
             cat.limiteGado || 25,
-            cat.classificadosPorBateria || cat.classificadosLote || 3
+            cat.classificadosPorBateria || cat.classificadosLote || 3,
+            cat.isFeminino || false
           );
         });
       } else {
