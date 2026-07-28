@@ -130,18 +130,7 @@
 
   <script type="module">
     import { 
-      auth, 
-      db, 
-      collection, 
-      addDoc, 
-      getDocs, 
-      query, 
-      where, 
-      doc, 
-      setDoc, 
-      updateDoc, 
-      onAuthStateChanged,
-      signOut 
+      auth, db, collection, addDoc, getDocs, getDoc, query, where, doc, setDoc, updateDoc, onAuthStateChanged, signOut 
     } from "./firebase-config.js";
 
     let currentUser = null;
@@ -348,16 +337,39 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Semifinal...";
 
-        const configId = `${nomeSemifinal.toLowerCase().replace(/\s+/g, '_')}_${dataSemifinal}`;
-        await setDoc(doc(db, "competicoes", compId, "configuracoes", configId), {
-          categoria: nomeSemifinal,
+        // 1. Monta o objeto de categoria da Semifinal
+        const novaCategoriaSemifinal = {
+          nome: nomeSemifinal,
           data: dataSemifinal,
           numBaterias: parseInt(document.getElementById("inputNumBaterias").value) || 1,
           corridasPorBateria: parseInt(document.getElementById("inputCorridasPorBateria").value) || 25,
           classificadosPorBateria: parseInt(document.getElementById("inputClassificadosPorBateria").value) || 2,
           fase: "SEMIFINAL"
-        }, { merge: true });
+        };
 
+        // 2. Busca o documento da competição para atualizar a lista de categorias
+        const compRef = doc(db, "competicoes", compId);
+        const compSnap = await getDoc(compRef);
+        
+        let categoriasAtuais = [];
+        if (compSnap.exists() && compSnap.data().categorias) {
+          categoriasAtuais = compSnap.data().categorias;
+        }
+
+        // Remove categoria antiga com mesmo nome caso exista e adiciona a nova
+        categoriasAtuais = categoriasAtuais.filter(c => c.nome !== nomeSemifinal);
+        categoriasAtuais.push(novaCategoriaSemifinal);
+
+        // Atualiza a competição com a nova lista de categorias no Firestore
+        await updateDoc(compRef, {
+          categorias: categoriasAtuais
+        });
+
+        // 3. Salva a configuração individual
+        const configId = `${nomeSemifinal.toLowerCase().replace(/\s+/g, '_')}_${dataSemifinal}`;
+        await setDoc(doc(db, "competicoes", compId, "configuracoes", configId), novaCategoriaSemifinal, { merge: true });
+
+        // 4. Cadastra os trios classificados
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "competicoes", compId, "trios"), {
@@ -375,6 +387,7 @@
           });
         }
 
+        // 5. Marca os documentos como processados
         const docsProcessados = new Set();
         document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
           const docId = chk.getAttribute("data-doc-id");
@@ -385,7 +398,7 @@
           await updateDoc(doc(db, "competicoes", compId, "classificados", idProcessado), { status: "PROCESSADO" });
         }
 
-        alert("Semifinal criada com sucesso!");
+        alert("Semifinal criada e adicionada às categorias com sucesso!");
         window.location.href = "./admin.html";
 
       } catch (err) {

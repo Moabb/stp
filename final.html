@@ -338,16 +338,39 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Grande Final...";
 
-        const configId = `${nomeFinal.toLowerCase().replace(/\s+/g, '_')}_${dataFinal}`;
-        await setDoc(doc(db, "competicoes", compId, "configuracoes", configId), {
-          categoria: nomeFinal,
+        // 1. Monta o objeto de categoria da Grande Final
+        const novaCategoriaFinal = {
+          nome: nomeFinal,
           data: dataFinal,
           numBaterias: 1,
           corridasPorBateria: 25,
           classificadosPorBateria: parseInt(document.getElementById("inputClassificadosPorBateria").value) || 10,
           fase: "FINAL"
-        }, { merge: true });
+        };
 
+        // 2. Busca o documento da competição para atualizar o array de categorias
+        const compRef = doc(db, "competicoes", compId);
+        const compSnap = await getDoc(compRef);
+        
+        let categoriasAtuais = [];
+        if (compSnap.exists() && compSnap.data().categorias) {
+          categoriasAtuais = compSnap.data().categorias;
+        }
+
+        // Remove categoria antiga com mesmo nome se existir e adiciona a nova
+        categoriasAtuais = categoriasAtuais.filter(c => c.nome !== nomeFinal);
+        categoriasAtuais.push(novaCategoriaFinal);
+
+        // Atualiza a competição no Firestore
+        await updateDoc(compRef, {
+          categorias: categoriasAtuais
+        });
+
+        // 3. Salva a configuração individual
+        const configId = `${nomeFinal.toLowerCase().replace(/\s+/g, '_')}_${dataFinal}`;
+        await setDoc(doc(db, "competicoes", compId, "configuracoes", configId), novaCategoriaFinal, { merge: true });
+
+        // 4. Cadastra os trios finalistas
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "competicoes", compId, "trios"), {
@@ -365,6 +388,7 @@
           });
         }
 
+        // 5. Marca os documentos como processados
         const docsProcessados = new Set();
         document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
           const docId = chk.getAttribute("data-doc-id");
@@ -375,7 +399,7 @@
           await updateDoc(doc(db, "competicoes", compId, "classificados", idProcessado), { status: "PROCESSADO" });
         }
 
-        alert("Grande Final criada com sucesso!");
+        alert("Grande Final criada e adicionada às categorias com sucesso!");
         window.location.href = "./admin.html";
 
       } catch (err) {
