@@ -568,6 +568,8 @@
         await setDoc(doc(db, "transmissao", "ativa"), {
           nomeCategoria: selectedCategoriaNome || "",
           fase: selectedFase || "CLASSIFICACAO",
+          competicaoId: selectedCompId || "",
+          dataAtiva: selectedCategoriaData || "",
           regulamento: {
             numBaterias: currentNumBaterias || 1,
             corridasPorBateria: currentLimiteGado || 25,
@@ -575,19 +577,6 @@
           },
           atualizadoEm: serverTimestamp()
         }, { merge: true });
-
-        if (selectedCompId) {
-          await setDoc(doc(db, "painel_global", "ativo"), {
-            competicaoId: selectedCompId,
-            categoriaAtiva: selectedCategoriaNome,
-            faseAtiva: selectedFase,
-            dataAtiva: selectedCategoriaData,
-            numBaterias: currentNumBaterias,
-            limiteGado: currentLimiteGado,
-            classificados: currentClassificados,
-            atualizadoEm: serverTimestamp()
-          }, { merge: true });
-        }
 
         alert("Painel transmitido e atualizado com sucesso!");
       } catch (error) {
