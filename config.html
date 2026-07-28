@@ -3,136 +3,573 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Configurações das Categorias</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>Gerenciamento de Provas - Team Penning</title>
+  <script type="module" src="./firebase-config.js"></script>
   <style>
-    body { background-color: #f8f9fa; }
-    .card-custom { max-width: 600px; margin: 40px auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --accent-gold: #ffb703;
+      --accent-green: #2a9d8f;
+      --accent-blue: #0077b6;
+      --accent-red: #e76f51;
+      --text-light: #f8f9fa;
+      --input-bg: #2b2b2b;
+      --border-color: #333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+    header h1 { color: var(--accent-gold); font-size: 1.6rem; text-transform: uppercase; }
+
+    .btn-action { background: var(--accent-gold); flex:1; color: #000; font-weight: bold; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
+    .btn-action:hover { opacity: 0.9; }
+    .btn-danger { background: var(--accent-red); color: #fff; }
+    .btn-secondary { background: #555; color: #fff; }
+    .btn-fase { flex: 1; background: var(--accent-blue); color: #000; font-size: 18px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+
+    .grid-config { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; align-items: start; }
+    @media (max-width: 900px) { .grid-config { grid-template-columns: 1fr; } }
+
+    .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
+    .secao-card h2 { color: var(--accent-gold); font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+
+    .fases-nav { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; }
+
+    .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
+    .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: var(--accent-red); cursor: pointer; font-weight: bold; font-size: 1.1rem; }
+    
+    .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+    @media (max-width: 768px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
+
+    .checkbox-container { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; font-size: 0.85rem; color: var(--accent-gold); }
+    .checkbox-container input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent-gold); cursor: pointer; }
+
+    .btn-add-cat { background: transparent; border: 1px dashed var(--accent-gold); color: var(--accent-gold); width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
+    .btn-add-cat:hover { background: rgba(255, 183, 3, 0.1); }
+
+    .btn-salvar { width: 100%; padding: 12px; background: var(--accent-green); color: #fff; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; }
+    .btn-salvar:disabled { background: #555; cursor: not-allowed; }
+
+    .lista-provas { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; }
+    .card-prova-item { background: #262626; border-radius: 6px; padding: 15px; border-left: 4px solid var(--accent-gold); display: flex; flex-direction: column; gap: 15px; }
+    .card-prova-item .top-info { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .card-prova-item .info h3 { font-size: 1.1rem; color: #fff; margin-bottom: 4px; }
+    .card-prova-item .info p { font-size: 0.85rem; color: #aaa; }
+    .card-prova-item .acoes { width: 100%; display: flex; gap: 6px; flex-wrap: wrap; }
+    
+    .box-categoria-embutida { background: #141414; padding: 12px; border-radius: 6px; border: 1px solid #333; }
+    .box-categoria-embutida h4 { color: var(--accent-gold); font-size: 0.9rem; margin-bottom: 8px; }
+    .form-embutida-inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .form-embutida-inline select { flex: 1; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; min-width: 140px; }
+    .btn-vincular-emb { background: var(--accent-green); color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .btn-vincular-emb:hover { opacity: 0.9; }
+
+    .btn-excluir-no-rodape { width: 100%; padding: 10px; background: rgba(231, 111, 81, 0.15); border: 1px solid var(--accent-red); color: var(--accent-red); font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .btn-excluir-no-rodape:hover { background: var(--accent-red); color: #fff; }
+
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
+    .modal-overlay.active { display: flex; }
+    .modal-card { background: var(--card-bg); border-radius: 8px; border: 1px solid var(--accent-red); width: 100%; max-width: 550px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.7); }
+    .modal-header { padding: 15px 20px; background: #222; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { color: var(--accent-red); font-size: 1.1rem; }
+    .modal-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .modal-footer { padding: 15px 20px; background: #222; border-top: 1px solid #333; display: flex; gap: 10px; justify-content: flex-end; }
+    .item-excluir-check { background: #262626; padding: 12px; border-radius: 6px; display: flex; align-items: center; gap: 12px; border: 1px solid #333; cursor: pointer; }
+    .item-excluir-check:hover { border-color: var(--accent-red); }
+    .item-excluir-check input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-red); }
+
+    .fixar { position: sticky; top: 20px; align-self: start; }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <div class="card card-custom p-4 bg-white">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="mb-0 text-primary">⚙️ Gerenciar Categorias</h4>
-        <button id="btnSair" class="btn btn-outline-danger btn-sm">Sair</button>
-      </div>
-      <p class="text-muted small">Cadastre ou edite o nome e a data das categorias da competição. As regras de baterias e corridas são definidas no Admin.</p>
-      
-      <hr>
+  <header>
+    <h1>⚙️ CONFIGURAÇÃO DE COMPETIÇÕES</h1>
+    <div>
+      <button class="btn-action" onclick="window.location.href='./cadastro.html'">📝 CADASTRAR TRIOS</button>
+      <button class="btn-action" id="btnIrAdmin">⏱️ IR PARA PROVA (ADMIN)</button>
+      <button class="btn-action btn-danger" id="btnSair">SAIR</button>
+    </div>
+  </header>
 
-      <form id="formConfigCategoria">
-        <div class="mb-3">
-          <label for="selectCompeticao" class="form-label font-weight-bold">Selecione a Competição:</label>
-          <select id="selectCompeticao" class="form-select" required>
-            <option value="">Carregando competições...</option>
-          </select>
+  <main class="grid-config">
+    
+    <section class="secao-card fixar">
+      <h2 id="tituloForm">CRIAR NOVA COMPETIÇÃO</h2>
+      <form id="formCompeticao">
+        
+        <div class="form-group">
+          <label for="nomeComp">Nome Principal da Competição / Evento:</label>
+          <input type="text" id="nomeComp" placeholder="Ex: 1º Grande Team Penning de Uberaba" required>
         </div>
 
-        <div class="mb-3">
-          <label for="inputNomeCategoria" class="form-label">Nome da Categoria:</label>
-          <input type="text" id="inputNomeCategoria" class="form-control" placeholder="Ex: Categoria Aberta, Amador, etc." required>
+        <div class="form-group">
+          <label for="dataComp">Data de Início do Evento:</label>
+          <input type="date" id="dataComp" required>
         </div>
 
-        <div class="mb-3">
-          <label for="inputDataCategoria" class="form-label">Data de Realização:</label>
-          <input type="date" id="inputDataCategoria" class="form-control" required>
-        </div>
+        <h3 style="font-size: 1rem; color: #ccc; margin: 15px 0 10px 0;">Categorias:</h3>
+        
+        <div id="containerCategorias"></div>
 
-        <div class="d-grid gap-2 mt-4">
-          <button type="submit" id="btnSalvar" class="btn btn-primary btn-lg">Salvar Categoria</button>
-          <a href="./admin.html" class="btn btn-secondary">Voltar ao Admin</a>
+        <button type="button" class="btn-add-cat" id="btnAddCategoria">+ Adicionar Categoria</button>
+        
+        <div style="display: flex; gap: 10px;">
+          <button type="submit" class="btn-salvar" id="btnSalvarComp">Salvar e Criar Competição</button>
+          <button type="button" class="btn-action btn-secondary" id="btnCancelarEdicao" style="display: none;">Cancelar</button>
         </div>
       </form>
+    </section>
+
+    <section class="secao-card">
+      <h2>MINHAS COMPETIÇÕES CADASTRADAS</h2>
+      
+      <div class="fases-nav">
+        <button class="btn-action btn-fase" id="btnIrAdmin">⏱️ IR PARA PROVA (CLASSIFICATORIAS)</button>
+        <button class="btn-action btn-fase" onclick="window.location.href='./semifinais.html'">🔥 Semifinais</button>
+        <button class="btn-action btn-fase" onclick="window.location.href='./final.html'">🏆 Final</button>
+      </div>
+
+      <div class="lista-provas" id="listaProvas">
+        <p style="color: #888;">Carregando competições...</p>
+      </div>
+
+      <button type="button" class="btn-excluir-no-rodape" id="btnAbrirModalExcluir">
+        🗑️ EXCLUIR COMPETIÇÃO / APAGAR DADOS DO BANCO
+      </button>
+    </section>
+
+  </main>
+
+  <div class="modal-overlay" id="modalExcluir">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🗑️ EXCLUIR COMPETIÇÃO(ÕES)</h3>
+        <button type="button" id="btnFecharModal" style="background:transparent; border:none; color:#888; font-size:1.2rem; cursor:pointer;">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:#aaa; margin-bottom:5px;">
+          Selecione as competições que deseja apagar. <strong>Atenção:</strong> Isso removerá a competição e seus dados do banco de dados.
+        </p>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+          <label style="font-size:0.8rem; color:var(--accent-gold); cursor:pointer;">
+            <input type="checkbox" id="checkMarcarTodos" style="accent-color: var(--accent-gold);"> Marcar / Desmarcar Todos
+          </label>
+        </div>
+
+        <div id="listaExcluirCheckboxes"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-action btn-secondary" id="btnCancelarModal">Cancelar</button>
+        <button type="button" class="btn-action btn-danger" id="btnConfirmarExclusao">Confirmar e Apagar Tudo</button>
+      </div>
     </div>
   </div>
 
   <script type="module">
-    import { auth, db, collection, getDocs, doc, getDoc, updateDoc, onAuthStateChanged, signOut } from "./firebase-config.js";
+    import { 
+      auth, 
+      db, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      doc,
+      updateDoc,
+      deleteDoc,
+      query, 
+      where, 
+      onAuthStateChanged,
+      signOut 
+    } from "./firebase-config.js";
 
-    const selectCompeticao = document.getElementById("selectCompeticao");
-    const formConfigCategoria = document.getElementById("formConfigCategoria");
-    const btnSalvar = document.getElementById("btnSalvar");
+    let currentUser = null;
+    let modoEdicaoId = null;
+    let competicoesCache = {};
 
-    // Verificar autenticação
-    onAuthStateChanged(auth, (user) => {
+    const containerCategorias = document.getElementById("containerCategorias");
+    const btnAddCategoria = document.getElementById("btnAddCategoria");
+    const btnSalvarComp = document.getElementById("btnSalvarComp");
+    const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
+    const tituloForm = document.getElementById("tituloForm");
+
+    const modalExcluir = document.getElementById("modalExcluir");
+    const btnAbrirModalExcluir = document.getElementById("btnAbrirModalExcluir");
+    const btnFecharModal = document.getElementById("btnFecharModal");
+    const btnCancelarModal = document.getElementById("btnCancelarModal");
+    const btnConfirmarExclusao = document.getElementById("btnConfirmarExclusao");
+    const listaExcluirCheckboxes = document.getElementById("listaExcluirCheckboxes");
+    const checkMarcarTodos = document.getElementById("checkMarcarTodos");
+
+    function adicionarCampoCategoria(nome = "", dataCat = "", isFeminino = false) {
+      const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
+
+      const div = document.createElement("div");
+      div.className = "categoria-box";
+      
+      div.innerHTML = `
+        <button type="button" class="btn-remover" title="Remover Categoria">✕</button>
+        <div class="grid-cat-inputs">
+          <div class="form-group" style="margin:0;">
+            <label>Nome Categoria</label>
+            <input type="text" class="cat-nome" placeholder="Ex: Soma 3" value="${nome}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Data Prova</label>
+            <input type="date" class="cat-data" value="${dataPadrao}" required>
+          </div>
+        </div>
+        <label class="checkbox-container">
+          <input type="checkbox" class="cat-feminino" ${isFeminino ? "checked" : ""}> ♀️ Categoria Feminina
+        </label>
+      `;
+
+      div.querySelector(".btn-remover").addEventListener("click", () => {
+        div.remove();
+      });
+
+      containerCategorias.appendChild(div);
+    }
+
+    btnAddCategoria.addEventListener("click", () => adicionarCampoCategoria());
+
+    onAuthStateChanged(auth, async (user) => {
       if (!user) {
         window.location.href = "./index.html";
-      } else {
+        return;
+      }
+      currentUser = user;
+      carregarCompeticoes();
+    });
+
+    document.getElementById("formCompeticao").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const nomeComp = document.getElementById("nomeComp").value.trim();
+      const dataComp = document.getElementById("dataComp").value;
+
+      const blocosCategorias = containerCategorias.querySelectorAll(".categoria-box");
+      if (blocosCategorias.length === 0) {
+        alert("Por favor, adicione pelo menos uma categoria para a competição.");
+        return;
+      }
+
+      const categorias = [];
+      blocosCategorias.forEach(bloco => {
+        categorias.push({
+          nome: bloco.querySelector(".cat-nome").value.trim(),
+          data: bloco.querySelector(".cat-data").value,
+          isFeminino: bloco.querySelector(".cat-feminino").checked
+        });
+      });
+
+      try {
+        btnSalvarComp.disabled = true;
+        btnSalvarComp.innerText = "Salvando...";
+
+        if (modoEdicaoId) {
+          const compRef = doc(db, "competicoes", modoEdicaoId);
+          await updateDoc(compRef, {
+            nome: nomeComp,
+            dataInicio: dataComp,
+            categorias: categorias,
+            atualizadoEm: new Date()
+          });
+          alert("Competição e categorias atualizadas com sucesso!");
+        } else {
+          await addDoc(collection(db, "competicoes"), {
+            organizadorId: currentUser.uid,
+            nome: nomeComp,
+            dataInicio: dataComp,
+            categorias: categorias,
+            criadoEm: new Date(),
+            status: "ATIVA"
+          });
+          alert("Competição criada com sucesso!");
+        }
+
+        resetarFormulario();
         carregarCompeticoes();
+
+      } catch (error) {
+        console.error("Erro no Firestore:", error);
+        alert("Erro ao salvar no banco de dados: " + error.message);
+      } finally {
+        btnSalvarComp.disabled = false;
       }
     });
 
-    document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+    function resetarFormulario() {
+      modoEdicaoId = null;
+      document.getElementById("formCompeticao").reset();
+      containerCategorias.innerHTML = "";
+      tituloForm.innerText = "CRIAR NOVA COMPETIÇÃO";
+      btnSalvarComp.innerText = "Salvar e Criar Competição";
+      btnCancelarEdicao.style.display = "none";
+      adicionarCampoCategoria();
+    }
 
-    // Carrega competições no select
+    btnCancelarEdicao.addEventListener("click", resetarFormulario);
+
     async function carregarCompeticoes() {
+      const listaProvas = document.getElementById("listaProvas");
+      listaProvas.innerHTML = "<p style='color:#888;'>Carregando competições...</p>";
+
       try {
-        const querySnapshot = await getDocs(collection(db, "competicoes"));
-        selectCompeticao.innerHTML = '<option value="">-- Selecione uma Competição --</option>';
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          selectCompeticao.innerHTML += `<option value="${docSnap.id}">${data.nome || docSnap.id}</option>`;
+        const q = query(
+          collection(db, "competicoes"), 
+          where("organizadorId", "==", currentUser.uid)
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          listaProvas.innerHTML = "<p style='color:#888;'>Nenhuma competição cadastrada ainda.</p>";
+          competicoesCache = {};
+          return;
+        }
+
+        competicoesCache = {};
+        listaProvas.innerHTML = "";
+
+        snapshot.forEach(docSnap => {
+          const comp = docSnap.data();
+          const compId = docSnap.id;
+          competicoesCache[compId] = comp;
+
+          const card = document.createElement("div");
+          card.className = "card-prova-item";
+          
+          const detalhesCat = comp.categorias && comp.categorias.length > 0
+            ? comp.categorias.map(c => `${c.nome}${c.isFeminino ? ' (♀️ Fem)' : ''}`).join(" | ")
+            : "Nenhuma categoria";
+
+          let optionsCategorias = `<option value="">Selecione...</option>`;
+          if (comp.categorias && comp.categorias.length > 0) {
+            comp.categorias.forEach((cat) => {
+              optionsCategorias += `<option value="${cat.nome}">${cat.nome}${cat.isFeminino ? ' (♀️ Fem)' : ''}</option>`;
+            });
+          }
+
+          const infoVinculo = comp.vinculoEmbutido 
+            ? `<p style="font-size:0.8rem; color:#2a9d8f; margin-top:5px;"><strong>Vínculo Ativo:</strong> ${comp.vinculoEmbutido.catPai} ➔ ${comp.vinculoEmbutido.catEspelho}</p>`
+            : '';
+
+          card.innerHTML = `
+            <div class="top-info">
+              <div class="info">
+                <h3>${comp.nome}</h3>
+                <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
+              </div>
+              <div class="acoes">
+                <button class="btn-action btnEditar" data-id="${compId}">✏️ Editar Categoria</button>
+                <button class="btn-action btnInscritos" data-id="${compId}">📝 Iniciar Cadastrar Trios</button>
+              </div>
+            </div>
+
+            <hr style="border-color: #333; margin: 0;">
+
+            <div class="box-categoria-embutida">
+              <h4>🔗 Vincular Categoria Embutida (Espelho)</h4>
+              <div class="form-embutida-inline">
+                <select id="selectCatPai_${compId}">
+                  <option value="">Categoria Principal (Pista)</option>
+                  ${optionsCategorias}
+                </select>
+
+                <span style="color: #888;">➔</span>
+
+                <select id="selectCatEspelho_${compId}">
+                  <option value="">Categoria Embutida (Recebe Tempos)</option>
+                  ${optionsCategorias}
+                </select>
+
+                <button class="btn-vincular-emb btnVincular" data-id="${compId}">
+                  Vincular
+                </button>
+              </div>
+              ${infoVinculo}
+            </div>
+          `;
+
+          card.querySelector(".btnEditar").addEventListener("click", () => carregarParaEdicao(compId));
+          card.querySelector(".btnInscritos").addEventListener("click", () => irParaCadastro(compId));
+          card.querySelector(".btnVincular").addEventListener("click", () => vincularCategoriaEmbutida(compId));
+
+          if (comp.vinculoEmbutido) {
+            setTimeout(() => {
+              const selPai = document.getElementById(`selectCatPai_${compId}`);
+              const selEsp = document.getElementById(`selectCatEspelho_${compId}`);
+              if (selPai) selPai.value = comp.vinculoEmbutido.catPai || "";
+              if (selEsp) selEsp.value = comp.vinculoEmbutido.catEspelho || "";
+            }, 50);
+          }
+
+          listaProvas.appendChild(card);
         });
-      } catch (err) {
-        alert("Erro ao carregar competições: " + err.message);
+      } catch (error) {
+        console.error("Erro ao carregar:", error);
+        listaProvas.innerHTML = "<p style='color:#e76f51;'>Erro ao carregar competições.</p>";
       }
     }
 
-    // Salva ou atualiza a Categoria no Array de Categorias
-    formConfigCategoria.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    async function vincularCategoriaEmbutida(compId) {
+      const selectPai = document.getElementById(`selectCatPai_${compId}`);
+      const selectEspelho = document.getElementById(`selectCatEspelho_${compId}`);
 
-      const compId = selectCompeticao.value;
-      const nomeCategoria = document.getElementById("inputNomeCategoria").value.trim();
-      const dataCategoria = document.getElementById("inputDataCategoria").value;
+      const catPai = selectPai ? selectPai.value : "";
+      const catEspelho = selectEspelho ? selectEspelho.value : "";
 
-      if (!compId) {
-        alert("Por favor, selecione uma competição.");
+      if (!catPai || !catEspelho) {
+        alert("Por favor, selecione tanto a Categoria Principal quanto a Categoria Embutida.");
+        return;
+      }
+
+      if (catPai === catEspelho) {
+        alert("A Categoria Principal e a Categoria Embutida não podem ser a mesma!");
         return;
       }
 
       try {
-        btnSalvar.disabled = true;
-        btnSalvar.innerText = "Salvando...";
-
         const compRef = doc(db, "competicoes", compId);
-        const compSnap = await getDoc(compRef);
-
-        let categoriasAtuais = [];
-        if (compSnap.exists() && compSnap.data().categorias) {
-          categoriasAtuais = compSnap.data().categorias;
-        }
-
-        // Mantém configurações anteriores da categoria se já existirem (ex: regras setadas pelo admin) ou cria limpa
-        const indexExistente = categoriasAtuais.findIndex(c => c.nome.toLowerCase() === nomeCategoria.toLowerCase());
-        
-        if (indexExistente !== -1) {
-          categoriasAtuais[indexExistente].nome = nomeCategoria;
-          categoriasAtuais[indexExistente].data = dataCategoria;
-        } else {
-          categoriasAtuais.push({
-            nome: nomeCategoria,
-            data: dataCategoria,
-            fase: "CLASSIFICATORIA"
-          });
-        }
-
         await updateDoc(compRef, {
-          categorias: categoriasAtuais
+          vinculoEmbutido: {
+            catPai: catPai,
+            catEspelho: catEspelho,
+            vinculadoEm: new Date()
+          }
         });
 
-        alert("Categoria salva com sucesso!");
-        formConfigCategoria.reset();
-        
-      } catch (err) {
-        alert("Erro ao salvar categoria: " + err.message);
+        alert(`Vínculo realizado com sucesso!\n\nCategoria Principal (Pista): ${catPai}\nCategoria Embutida (Espelho): ${catEspelho}`);
+        carregarCompeticoes();
+      } catch (error) {
+        console.error("Erro ao vincular categorias:", error);
+        alert("Erro ao salvar o vínculo no banco de dados: " + error.message);
+      }
+    }
+
+    btnAbrirModalExcluir.addEventListener("click", () => {
+      const ids = Object.keys(competicoesCache);
+      if (ids.length === 0) {
+        alert("Não há competições cadastradas para excluir.");
+        return;
+      }
+
+      listaExcluirCheckboxes.innerHTML = "";
+      checkMarcarTodos.checked = false;
+
+      ids.forEach(compId => {
+        const comp = competicoesCache[compId];
+        const item = document.createElement("label");
+        item.className = "item-excluir-check";
+        item.innerHTML = `
+          <input type="checkbox" class="chk-comp-item" value="${compId}">
+          <div>
+            <strong style="color:#fff; display:block;">${comp.nome}</strong>
+            <span style="font-size:0.75rem; color:#aaa;">Início: ${comp.dataInicio}</span>
+          </div>
+        `;
+        listaExcluirCheckboxes.appendChild(item);
+      });
+
+      modalExcluir.classList.add("active");
+    });
+
+    function fecharModalExclusao() {
+      modalExcluir.classList.remove("active");
+    }
+
+    btnFecharModal.addEventListener("click", fecharModalExclusao);
+    btnCancelarModal.addEventListener("click", fecharModalExclusao);
+
+    checkMarcarTodos.addEventListener("change", (e) => {
+      const checkboxes = listaExcluirCheckboxes.querySelectorAll(".chk-comp-item");
+      checkboxes.forEach(chk => chk.checked = e.target.checked);
+    });
+
+    btnConfirmarExclusao.addEventListener("click", async () => {
+      const selecionados = Array.from(listaExcluirCheckboxes.querySelectorAll(".chk-comp-item:checked"))
+                                .map(chk => chk.value);
+
+      if (selecionados.length === 0) {
+        alert("Selecione ao menos uma competição para excluir.");
+        return;
+      }
+
+      const confirma = confirm(`TEM CERTEZA?\n\nVocê está prestes a apagar ${selecionados.length} competição(ões) do banco de dados de forma IRREVERSÍVEL.`);
+      if (!confirma) return;
+
+      try {
+        btnConfirmarExclusao.disabled = true;
+        btnConfirmarExclusao.innerText = "Apagando do banco...";
+
+        for (const compId of selecionados) {
+          await deleteDoc(doc(db, "competicoes", compId));
+        }
+
+        alert("Competição(ões) excluída(s) com sucesso!");
+        fecharModalExclusao();
+        carregarCompeticoes();
+      } catch (error) {
+        console.error("Erro ao excluir competição:", error);
+        alert("Erro ao excluir do banco de dados: " + error.message);
       } finally {
-        btnSalvar.disabled = false;
-        btnSalvar.innerText = "Salvar Categoria";
+        btnConfirmarExclusao.disabled = false;
+        btnConfirmarExclusao.innerText = "Confirmar e Apagar Tudo";
       }
     });
+
+    function carregarParaEdicao(compId) {
+      const comp = competicoesCache[compId];
+      if (!comp) return;
+
+      modoEdicaoId = compId;
+      tituloForm.innerText = "EDITAR COMPETIÇÃO / CATEGORIAS";
+      btnSalvarComp.innerText = "Atualizar Competição";
+      btnCancelarEdicao.style.display = "inline-block";
+
+      document.getElementById("nomeComp").value = comp.nome || "";
+      document.getElementById("dataComp").value = comp.dataInicio || "";
+
+      containerCategorias.innerHTML = "";
+
+      if (comp.categorias && comp.categorias.length > 0) {
+        comp.categorias.forEach(cat => {
+          adicionarCampoCategoria(
+            cat.nome,
+            cat.data || comp.dataInicio,
+            cat.isFeminino || false
+          );
+        });
+      } else {
+        adicionarCampoCategoria();
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function irParaCadastro(compId) {
+      localStorage.setItem("selectedCompId", compId);
+      window.location.href = "./cadastro.html";
+    }
+
+    document.getElementById("btnIrAdmin").addEventListener("click", () => {
+      window.location.href = "./admin.html";
+    });
+
+    document.getElementById("btnSair").addEventListener("click", () => {
+      signOut(auth).then(() => window.location.href = "./index.html");
+    });
+
+    adicionarCampoCategoria();
   </script>
 </body>
 </html>
