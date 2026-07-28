@@ -615,7 +615,6 @@
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
 
-      // Se for Fase Classificatória, pega do regulamento normal da competição
       if (selectedFase === "CLASSIFICACAO") {
         const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
         if (catInfo) {
@@ -624,8 +623,6 @@
           currentClassificados = catInfo.classificadosPorBateria || catInfo.classificadosLote || 3;
         }
       } else {
-        // Se for SEMIFINAL ou FINAL, lê os dados dos trios cadastrados na fase para definir os parâmetros
-        // Ou mantém os parâmetros configurados na criação da Semifinal/Final
         currentNumBaterias = comp.qtdBateriasFaseEspecial || 1; 
         currentLimiteGado = comp.limiteGadoFaseEspecial || 25;
         currentClassificados = comp.classificadosFaseEspecial || 5;
@@ -668,7 +665,6 @@
       }
 
       try {
-        // Atualiza no painel_global inclusive os parâmetros das fases Semifinal e Final
         await setDoc(doc(db, "painel_global", "ativo"), {
           competicaoId: selectedCompId,
           categoriaAtiva: selectedCategoriaNome,

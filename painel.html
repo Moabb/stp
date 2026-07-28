@@ -541,7 +541,6 @@
     function renderizarLinha2FilaDinamica(trios, tamanhoLote, numBaterias) {
       tbTriosPainel.innerHTML = "";
 
-      // Exibe na fila de pista todos os trios recebidos da etapa (incluindo Feminina/Espelho)
       const triosPendentes = trios.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {
