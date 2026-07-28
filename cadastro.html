@@ -203,7 +203,7 @@
 
           const option = document.createElement("option");
           option.value = docSnap.id;
-          option.textContent = `${comp.nome} (${comp.dataInicio || comp.data})`;
+          option.textContent = `${comp.nome} (${comp.dataInicio || ''})`;
           selectCompeticao.appendChild(option);
         });
 
@@ -275,10 +275,9 @@
 
       try {
         const q = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", selectedCompId),
+          collection(db, "competicoes", selectedCompId, "trios"),
           where("categoria", "==", selectedCategoriaNome),
-          where("categoriaData", "==", selectedCategoriaData),
+          where("data", "==", selectedCategoriaData),
           where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
@@ -332,11 +331,7 @@
         const compDados = competicoesCache[selectedCompId];
 
         if (cobrancaAtiva) {
-          const qTodasSenhasComp = query(
-            collection(db, "trios"),
-            where("competicaoId", "==", selectedCompId)
-          );
-          const snapTodasSenhas = await getDocs(qTodasSenhasComp);
+          const snapTodasSenhas = await getDocs(collection(db, "competicoes", selectedCompId, "trios"));
           const totalSenhasAtuais = snapTodasSenhas.size;
           const estaLiberado = compDados && compDados.assinaturaLiberada === true;
 
@@ -350,10 +345,9 @@
 
         // 2. VERIFICAÇÃO DE TRIO DUPLICADO
         const q = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", selectedCompId),
+          collection(db, "competicoes", selectedCompId, "trios"),
           where("categoria", "==", selectedCategoriaNome),
-          where("categoriaData", "==", selectedCategoriaData),
+          where("data", "==", selectedCategoriaData),
           where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
@@ -380,29 +374,32 @@
         const vinculo = compDados ? compDados.vinculoEmbutido : null;
 
         const dadosNovoTrio = {
-          competicaoId: selectedCompId || "",
           categoria: selectedCategoriaNome || "",
-          categoriaData: selectedCategoriaData || "",
+          data: selectedCategoriaData || "",
           fase: "CLASSIFICACAO",
           senha: senha,
+          ordemPista: senha,
           integrantes: [c1, c2, c3],
+          status: "INSCRITO",
+          tempo: null,
+          boisCurralados: 0,
+          boiSorteado: null,
           animais: animais || "",
-          criadoEm: new Date(),
-          status: "INSCRITO"
+          criadoEm: new Date()
         };
 
-        const novoTrioDoc = await addDoc(collection(db, "trios"), dadosNovoTrio);
+        const triosColRef = collection(db, "competicoes", selectedCompId, "trios");
+        const novoTrioDoc = await addDoc(triosColRef, dadosNovoTrio);
 
         if (vinculo && vinculo.catPai === selectedCategoriaNome && vinculo.catEspelho) {
           const dadosTrioEspelho = {
             ...dadosNovoTrio,
             categoria: vinculo.catEspelho,
-            categoriaEspelho: true,
             trioPaiId: novoTrioDoc.id
           };
 
-          const trioEspelhoDoc = await addDoc(collection(db, "trios"), dadosTrioEspelho);
-          await updateDoc(doc(db, "trios", novoTrioDoc.id), { trioEspelhoId: trioEspelhoDoc.id });
+          const trioEspelhoDoc = await addDoc(triosColRef, dadosTrioEspelho);
+          await updateDoc(doc(db, "competicoes", selectedCompId, "trios", novoTrioDoc.id), { trioEspelhoId: trioEspelhoDoc.id });
         }
 
         alert("Trio cadastrado com sucesso!");
@@ -429,10 +426,9 @@
 
       try {
         const q = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", selectedCompId),
+          collection(db, "competicoes", selectedCompId, "trios"),
           where("categoria", "==", selectedCategoriaNome),
-          where("categoriaData", "==", selectedCategoriaData),
+          where("data", "==", selectedCategoriaData),
           where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);

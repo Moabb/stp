@@ -249,7 +249,6 @@
     const badgeFase = document.getElementById("badgeFase");
     const containerBaterias = document.getElementById("containerBaterias");
     const tbTriosPainel = document.getElementById("tbTriosPainel");
-    const txtRegraClassificacao = document.getElementById("txtRegraClassificacao");
 
     const modalSorteioLive = document.getElementById("modalSorteioLive");
     const subtituloSorteio = document.getElementById("subtituloSorteio");
@@ -271,16 +270,16 @@
         badgeFase.textContent = `${data.fase || 'SEMIFINAL'} • ${data.nomeCategoria}`;
       }
 
-      if (data.categoriaId) {
-        carregarResultadosESequencia(data.categoriaId);
+      if (data.competicaoId && data.categoriaId) {
+        carregarResultadosESequencia(data.competicaoId, data.categoriaId);
       }
     });
 
-    function carregarResultadosESequencia(categoriaId) {
-      const compId = selectedCompId || categoriaId.split('|')[0] || categoriaId;
-      const catNome = categoriaId.includes('|') ? categoriaId.split('|')[0] : categoriaId;
-      const faseNome = categoriaId.includes('|') ? categoriaId.split('|')[2] || "SEMIFINAL" : "SEMIFINAL";
-      const dataNome = categoriaId.includes('|') ? categoriaId.split('|')[1] || "" : "";
+    function carregarResultadosESequencia(compId, categoriaId) {
+      const parts = categoriaId.split('|');
+      const catNome = parts[0] || categoriaId;
+      const dataNome = parts[1] || "";
+      const faseNome = parts[2] || "CLASSIFICACAO";
 
       escutarTriosEtapa(compId, catNome, faseNome, dataNome);
     }
@@ -327,25 +326,20 @@
 
         verificarSorteioLive();
 
-        const catNome = competicaoAtiva.categoriaAtivaPainel || competicaoAtiva.categoriaEmSorteio;
-        const faseNome = competicaoAtiva.faseAtivaPainel || competicaoAtiva.faseEmSorteio || "CLASSIFICACAO";
-        const dataNome = competicaoAtiva.dataAtivaPainel || "";
+        const catNome = competicaoAtiva.categoriaEmSorteio;
+        const faseNome = competicaoAtiva.faseEmSorteio || "CLASSIFICACAO";
 
         if (catNome) {
-          if (badgeFase) badgeFase.innerText = `${faseNome} • ${catNome} (${dataNome})`;
-          escutarTriosEtapa(compId, catNome, faseNome, dataNome);
-        } else {
-          if (badgeFase) badgeFase.innerText = "Sem categoria em andamento";
-          containerBaterias.innerHTML = '<p style="color:#888;">Nenhuma prova em andamento nesta competição.</p>';
-          tbTriosPainel.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Aguardando início das corridas...</td></tr>';
+          if (badgeFase) badgeFase.innerText = `${faseNome} • ${catNome}`;
+          escutarTriosEtapa(compId, catNome, faseNome, "");
         }
       });
     }
 
     function verificarSorteioLive() {
-      if (competicaoAtiva && competicaoAtiva.sorteioStatus === "EXIBINDO") {
+      if (competicaoAtiva && competicaoAtiva.categoriaEmSorteio) {
         modalSorteioLive.style.display = "flex";
-        subtituloSorteio.innerText = `CATEGORIA: ${competicaoAtiva.categoriaEmSorteio || ''} | FASE: ${competicaoAtiva.faseEmSorteio || 'CLASSIFICACAO'}`;
+        subtituloSorteio.innerText = `CATEGORIA: ${competicaoAtiva.categoriaEmSorteio} | FASE: ${competicaoAtiva.faseEmSorteio || 'CLASSIFICACAO'}`;
       } else {
         modalSorteioLive.style.display = "none";
       }
@@ -360,8 +354,7 @@
       }
 
       const q = query(
-        collection(db, "trios"),
-        where("competicaoId", "==", compId),
+        collection(db, "competicoes", compId, "trios"),
         where("categoria", "in", categoriasParaBuscar),
         where("fase", "==", faseNome)
       );
@@ -376,7 +369,7 @@
         const catConfigPai = competicaoAtiva?.categorias ? competicaoAtiva.categorias.find(c => c.nome === catNome) : null;
         renderizarLinha2FilaDinamica(triosPainel, catConfigPai?.limiteGado || 25, catConfigPai?.qtdBaterias || 2);
 
-        if (competicaoAtiva?.sorteioStatus === "EXIBINDO") {
+        if (competicaoAtiva?.categoriaEmSorteio) {
           renderizarCardsSorteio(triosPainel);
         }
       });
@@ -411,7 +404,7 @@
           const classificadosExibicao = triosComTempo.slice(0, vagas);
 
           let linhasHtml = classificadosExibicao.length === 0 
-            ? '<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum tempo válido</td></tr>'
+            ? '<tr><td colspan="3" style="text-align:center; color:#888;">Nenum tempo válido</td></tr>'
             : classificadosExibicao.map((trio, idx) => `
                 <tr ${idx === vagas - 1 ? 'class="linha-corte"' : ''}>
                   <td><strong>#${idx + 1}</strong></td>

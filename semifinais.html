@@ -58,7 +58,7 @@
     <h1>🔥 MONTAGEM DE SEMIFINAIS</h1>
     <div>
       <a href="./config.html" class="btn-header">⚙️ CONFIG</a>
-      <a href="./final.html" class="btn-header">🏆 FINAL</a>
+      <a href="./final.html" class="btn-header">🏆 GRANDE FINAL</a>
       <a href="./admin.html" class="btn-header">⏱️ PROVA (ADMIN)</a>
       <button class="btn-header" id="btnSair" style="background:#e76f51; color:#fff;">SAIR</button>
     </div>
@@ -68,9 +68,9 @@
 
     <main>
       <article class="card">
-        <h2>1. Selecionar Classificados das Etapas</h2>
+        <h2>1. Conferência dos Classificados por Categoria</h2>
         <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 15px;">
-          Selecione abaixo as baterias da fase classificatória que participarão desta Semifinal.
+          Selecione abaixo as baterias que farão parte da Semifinal.
         </p>
 
         <div class="form-group">
@@ -89,31 +89,31 @@
     <aside class="fixar">
       <article class="card">
         <h2>2. Configurar Semifinal</h2>
-        <form id="formGerarSemi">
+        <form id="formGerarSemifinal">
           
           <div class="form-group">
-            <label for="inputNomeSemi">Nome da Categoria Semifinal:</label>
-            <input type="text" id="inputNomeSemi" placeholder="Ex: Semifinal - SOMA 3" required>
+            <label for="inputNomeSemifinal">Nome da Semifinal:</label>
+            <input type="text" id="inputNomeSemifinal" placeholder="Ex: Semifinal - SOMA 3" required>
           </div>
 
           <div class="form-group">
-            <label for="inputNumBaterias">Número de Baterias / Lotes:</label>
-            <input type="number" id="inputNumBaterias" min="1" value="1" required>
+            <label for="inputNumBaterias">Nº de Baterias / Lotes:</label>
+            <input type="number" id="inputNumBaterias" value="1" min="1" required>
           </div>
 
           <div class="form-group">
             <label for="inputCorridasPorBateria">Corridas por Lote/Bateria:</label>
-            <input type="number" id="inputCorridasPorBateria" min="1" value="1" required>
+            <input type="number" id="inputCorridasPorBateria" value="25" min="1" required>
           </div>
 
           <div class="form-group">
-            <label for="inputClassificadosPorBateria">Classificados por Bateria p/ Final:</label>
-            <input type="number" id="inputClassificadosPorBateria" min="1" value="5" required>
+            <label for="inputClassificadosPorBateria">Classificados p/ Grande Final:</label>
+            <input type="number" id="inputClassificadosPorBateria" value="2" min="1" required>
           </div>
 
           <div class="form-group">
-            <label for="inputDataSemi">Data da Prova:</label>
-            <input type="date" id="inputDataSemi" required>
+            <label for="inputDataSemifinal">Data da Prova:</label>
+            <input type="date" id="inputDataSemifinal" required>
           </div>
 
           <div style="background: #2b2b2b; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid var(--accent-gold);">
@@ -137,9 +137,9 @@
       getDocs, 
       query, 
       where, 
-      doc,
-      setDoc,
-      updateDoc,
+      doc, 
+      setDoc, 
+      updateDoc, 
       onAuthStateChanged,
       signOut 
     } from "./firebase-config.js";
@@ -160,7 +160,7 @@
         return;
       }
       currentUser = user;
-      document.getElementById("inputDataSemi").value = new Date().toISOString().split('T')[0];
+      document.getElementById("inputDataSemifinal").value = new Date().toISOString().split('T')[0];
       carregarCompeticoes();
     });
 
@@ -185,7 +185,7 @@
 
           const option = document.createElement("option");
           option.value = docSnap.id;
-          option.textContent = `${comp.nome} (${comp.dataInicio})`;
+          option.textContent = `${comp.nome} (${comp.dataInicio || ''})`;
           selectCompeticao.appendChild(option);
         });
 
@@ -211,47 +211,30 @@
     });
 
     async function carregarClassificados(compId) {
-      containerClassificadas.innerHTML = '<p style="color: #888;">Buscando classificados...</p>';
+      containerClassificadas.innerHTML = '<p style="color: #888;">Buscando classificados da etapa de classificação...</p>';
       
       try {
         const q = query(
-          collection(db, "classificados"),
-          where("competicaoId", "==", compId),
+          collection(db, "competicoes", compId, "classificados"),
           where("faseOrigem", "==", "CLASSIFICACAO"),
           where("status", "==", "PENDENTE")
         );
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma etapa classificatória pendente no momento.</p>';
+          containerClassificadas.innerHTML = '<p style="color: #e76f51;">Nenhuma categoria de classificação pendente até o momento.</p>';
           return;
         }
 
-        const mapaUnicos = {};
-
+        classificadosUnicos = [];
         snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          const chaveUnica = `${data.categoria}_${data.dataCategoria || 'semdata'}`;
-
-          if (!mapaUnicos[chaveUnica]) {
-            mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
-          } else {
-            const dataExistente = mapaUnicos[chaveUnica].criadoEm?.seconds || 0;
-            const dataNova = data.criadoEm?.seconds || 0;
-            if (dataNova > dataExistente) {
-              mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
-            }
-          }
-        });
-
-        classificadosUnicos = Object.values(mapaUnicos).sort((a, b) => {
-          return (a.dataCategoria || "").localeCompare(b.dataCategoria || "");
+          classificadosUnicos.push({ id: docSnap.id, ...docSnap.data() });
         });
 
         renderizarBlocosClassificados();
 
       } catch (err) {
-        console.error("Erro ao carregar classificados:", err);
+        console.error(err);
         containerClassificadas.innerHTML = '<p style="color: #e76f51;">Erro ao carregar classificados.</p>';
       }
     }
@@ -305,7 +288,6 @@
         divBox.innerHTML = `
           <h3>
             <span>${item.categoria}</span>
-            <small style="font-size:0.85rem; color:var(--accent-gold);">Data: ${item.dataCategoria || '--'}</small>
           </h3>
           <div class="grid-baterias">
             ${htmlBaterias}
@@ -342,13 +324,13 @@
       txtTotalSelecionados.innerText = `${total} Trio${total !== 1 ? 's' : ''}`;
       btnGerar.disabled = total === 0;
 
-      const inputNome = document.getElementById("inputNomeSemi");
+      const inputNome = document.getElementById("inputNomeSemifinal");
       if (!inputNome.value && classificadosUnicos.length > 0) {
         inputNome.value = `Semifinal - ${classificadosUnicos[0].categoria}`;
       }
     }
 
-    document.getElementById("formGerarSemi").addEventListener("submit", async (e) => {
+    document.getElementById("formGerarSemifinal").addEventListener("submit", async (e) => {
       e.preventDefault();
 
       if (triosUnificadosSelecionados.length === 0) {
@@ -357,54 +339,50 @@
       }
 
       const compId = selectCompeticao.value;
-      const nomeSemi = document.getElementById("inputNomeSemi").value.trim();
-      const dataSemi = document.getElementById("inputDataSemi").value;
+      const nomeSemifinal = document.getElementById("inputNomeSemifinal").value.trim();
+      const dataSemifinal = document.getElementById("inputDataSemifinal").value;
 
-      const numBaterias = parseInt(document.getElementById("inputNumBaterias").value) || 1;
-      const corridasPorBateria = parseInt(document.getElementById("inputCorridasPorBateria").value) || 1;
-      const classificadosPorBateria = parseInt(document.getElementById("inputClassificadosPorBateria").value) || 5;
-
-      if (!confirm(`Confirmar a criação da "${nomeSemi}" com ${triosUnificadosSelecionados.length} trios semifinalistas?`)) return;
+      if (!confirm(`Confirmar a criação da "${nomeSemifinal}" com ${triosUnificadosSelecionados.length} trios semifinalistas?`)) return;
 
       try {
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Semifinal...";
 
-        const configId = `${compId}_${nomeSemi.toLowerCase().replace(/\s+/g, '_')}_${dataSemi}`;
-        await setDoc(doc(db, "configuracoes", configId), {
-          competicaoId: compId,
-          categoria: nomeSemi,
-          data: dataSemi,
-          numBaterias: numBaterias,
-          corridasPorBateria: corridasPorBateria,
-          classificadosPorBateria: classificadosPorBateria,
-          fase: "SEMIFINAL",
-          atualizadoEm: new Date()
+        const configId = `${nomeSemifinal.toLowerCase().replace(/\s+/g, '_')}_${dataSemifinal}`;
+        await setDoc(doc(db, "competicoes", compId, "configuracoes", configId), {
+          categoria: nomeSemifinal,
+          data: dataSemifinal,
+          numBaterias: parseInt(document.getElementById("inputNumBaterias").value) || 1,
+          corridasPorBateria: parseInt(document.getElementById("inputCorridasPorBateria").value) || 25,
+          classificadosPorBateria: parseInt(document.getElementById("inputClassificadosPorBateria").value) || 2,
+          fase: "SEMIFINAL"
         }, { merge: true });
 
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
-          await addDoc(collection(db, "trios"), {
-            competicaoId: compId,
-            categoria: nomeSemi,
-            data: dataSemi,
-            categoriaData: dataSemi,
+          await addDoc(collection(db, "competicoes", compId, "trios"), {
+            categoria: nomeSemifinal,
+            data: dataSemifinal,
             fase: "SEMIFINAL",
             senha: i + 1,
+            ordemPista: i + 1,
             integrantes: t.integrantes,
             status: "INSCRITO",
+            tempo: null,
+            boisCurralados: 0,
+            boiSorteado: null,
             criadoEm: new Date()
           });
         }
 
-        const docIdsProcessados = new Set();
+        const docsProcessados = new Set();
         document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
           const docId = chk.getAttribute("data-doc-id");
-          if (docId) docIdsProcessados.add(docId);
+          if (docId) docsProcessados.add(docId);
         });
 
-        for (const docId of docIdsProcessados) {
-          await updateDoc(doc(db, "classificados", docId), { status: "PROCESSADO" });
+        for (const idProcessado of docsProcessados) {
+          await updateDoc(doc(db, "competicoes", compId, "classificados", idProcessado), { status: "PROCESSADO" });
         }
 
         alert("Semifinal criada com sucesso!");

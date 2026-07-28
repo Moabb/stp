@@ -280,7 +280,6 @@
           <label for="editStatus">Status:</label>
           <select id="editStatus">
             <option value="INSCRITO">INSCRITO</option>
-            <option value="AGUARDANDO">AGUARDANDO</option>
             <option value="OK">OK</option>
             <option value="SAT">SAT / N.T.</option>
             <option value="DO">D.O.</option>
@@ -424,16 +423,12 @@
 
       const etapasFinalizadas = new Set();
       try {
-        const qClassificados = query(
-          collection(db, "classificados"),
-          where("competicaoId", "==", compId)
-        );
-        const snapClassificados = await getDocs(qClassificados);
+        const snapClassificados = await getDocs(collection(db, "competicoes", compId, "classificados"));
         snapClassificados.forEach(d => {
           const data = d.data();
           if (data.categoria) {
             const fase = data.faseOrigem || "CLASSIFICACAO";
-            const chaveUnica = `${data.categoria}|${data.dataCategoria || ""}|${fase}`;
+            const chaveUnica = `${data.categoria}|${data.data || ""}|${fase}`;
             etapasFinalizadas.add(chaveUnica);
           }
         });
@@ -455,16 +450,12 @@
 
       const fasesEspeciaisEncontradas = new Map();
       try {
-        const qTrios = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", compId)
-        );
-        const snapTrios = await getDocs(qTrios);
+        const snapTrios = await getDocs(collection(db, "competicoes", compId, "trios"));
         snapTrios.forEach(d => {
           const data = d.data();
           const fase = data.fase || "CLASSIFICACAO";
           if (fase === "SEMIFINAL" || fase === "FINAL") {
-            const catData = data.categoriaData || data.data || "";
+            const catData = data.data || "";
             const chaveUnica = `${data.categoria}|${catData}|${fase}`;
             
             if (!etapasFinalizadas.has(chaveUnica) && !fasesEspeciaisEncontradas.has(chaveUnica)) {
@@ -567,30 +558,14 @@
         if (!selectedCategoriaNome) return alert("Selecione uma categoria!");
 
         await setDoc(doc(db, "transmissao", "ativa"), {
+          competicaoId: selectedCompId || "",
+          categoriaId: `${selectedCategoriaNome}|${selectedCategoriaData}|${selectedFase}`,
           nomeCategoria: selectedCategoriaNome || "",
           fase: selectedFase || "CLASSIFICACAO",
-          competicaoId: selectedCompId || "",
-          dataAtiva: selectedCategoriaData || "",
           regulamento: {
-            numBaterias: currentNumBaterias,
-            corridasPorBateria: currentLimiteGado,
             classificadosPorBateria: currentClassificados
-          },
-          atualizadoEm: serverTimestamp()
+          }
         }, { merge: true });
-
-        if (selectedCompId) {
-          await setDoc(doc(db, "painel_global", "ativo"), {
-            competicaoId: selectedCompId,
-            categoriaAtiva: selectedCategoriaNome,
-            faseAtiva: selectedFase,
-            dataAtiva: selectedCategoriaData,
-            numBaterias: currentNumBaterias,
-            limiteGado: currentLimiteGado,
-            classificados: currentClassificados,
-            atualizadoEm: serverTimestamp()
-          }, { merge: true });
-        }
 
         alert("Painel transmitido e atualizado com sucesso!");
       } catch (error) {
@@ -634,20 +609,14 @@
         if (catInfo) {
           currentNumBaterias = parseInt(catInfo.qtdBaterias) || 2;
           currentLimiteGado = parseInt(catInfo.limiteGado) || 25;
-          currentClassificados = parseInt(catInfo.classificadosPorBateria || catInfo.classificadosLote) || 3;
+          currentClassificados = parseInt(catInfo.classificadosPorBateria) || 3;
         }
       } else {
         const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
 
-        currentNumBaterias = parseInt(comp.qtdBateriasFaseEspecial || comp.qtdBateriasSemifinal || catInfo?.qtdBaterias) || 1; 
+        currentNumBaterias = parseInt(comp.qtdBateriasFaseEspecial || catInfo?.qtdBaterias) || 1; 
         currentLimiteGado = parseInt(comp.limiteGadoFaseEspecial || catInfo?.limiteGado) || 25;
-        
-        currentClassificados = parseInt(
-          comp.classificadosFaseEspecial || 
-          comp.vagasSemifinal || 
-          catInfo?.classificadosFaseEspecial || 
-          2
-        );
+        currentClassificados = parseInt(comp.classificadosFaseEspecial || catInfo?.classificadosPorBateria) || 2;
       }
 
       lblQtdBaterias.innerText = currentNumBaterias;
@@ -660,8 +629,7 @@
       }
 
       let q = query(
-        collection(db, "trios"),
-        where("competicaoId", "==", selectedCompId),
+        collection(db, "competicoes", selectedCompId, "trios"),
         where("categoria", "in", categoriasParaBuscar),
         where("fase", "==", selectedFase)
       );
@@ -696,12 +664,12 @@
         const triosEmbaralhados = [...triosAtuais].sort(() => Math.random() - 0.5);
 
         for (let i = 0; i < triosEmbaralhados.length; i++) {
-          const trioRef = doc(db, "trios", triosEmbaralhados[i].id);
-          await updateDoc(trioRef, { ordemPista: i + 1, status: "AGUARDANDO" });
+          const trioRef = doc(db, "competicoes", selectedCompId, "trios", triosEmbaralhados[i].id);
+          await updateDoc(trioRef, { ordemPista: i + 1, status: "INSCRITO" });
         }
 
         await updateDoc(doc(db, "competicoes", selectedCompId), {
-          sorteioStatus: "EXIBINDO",
+          status: "ATIVA",
           categoriaEmSorteio: selectedCategoriaNome,
           faseEmSorteio: selectedFase
         });
@@ -717,7 +685,8 @@
     btnEncerrarSorteioLive.addEventListener("click", async () => {
       try {
         await updateDoc(doc(db, "competicoes", selectedCompId), {
-          sorteioStatus: "FINALIZADO"
+          categoriaEmSorteio: null,
+          faseEmSorteio: null
         });
         btnEncerrarSorteioLive.style.display = "none";
         alert("Sorteio encerrado!");
@@ -856,11 +825,11 @@
       const status = document.getElementById("editStatus").value;
 
       try {
-        const trioRef = doc(db, "trios", id);
+        const trioRef = doc(db, "competicoes", selectedCompId, "trios", id);
         await updateDoc(trioRef, {
           senha: senha,
           integrantes: [c1, c2, c3],
-          boiSorteado: boi || "N/A",
+          boiSorteado: boi || null,
           tempo: tempoVal !== "" ? parseFloat(tempoVal) : null,
           status: status
         });
@@ -909,16 +878,19 @@
       const animais = document.getElementById("modalAnimais").value.trim();
 
       try {
-        await addDoc(collection(db, "trios"), {
-          competicaoId: selectedCompId,
+        await addDoc(collection(db, "competicoes", selectedCompId, "trios"), {
           categoria: selectedCategoriaNome,
-          categoriaData: selectedCategoriaData,
+          data: selectedCategoriaData,
           fase: selectedFase,
           senha: senha,
+          ordemPista: senha,
           integrantes: [c1, c2, c3],
+          status: "INSCRITO",
+          tempo: null,
+          boisCurralados: 0,
+          boiSorteado: null,
           animais: animais,
-          criadoEm: new Date(),
-          status: "INSCRITO"
+          criadoEm: new Date()
         });
 
         alert("Trio adicionado com sucesso!");
@@ -951,17 +923,16 @@
       try {
         const dadosResultado = {
           tempo: status === "OK" ? tempo : null,
-          boiSorteado: boi || "N/A",
+          boiSorteado: boi || null,
           boisCurralados: boisCurral,
-          status: status,
-          finalizadoEm: new Date()
+          status: status
         };
 
-        const trioRef = doc(db, "trios", trioAtualPista.id);
+        const trioRef = doc(db, "competicoes", selectedCompId, "trios", trioAtualPista.id);
         await updateDoc(trioRef, dadosResultado);
 
         if (trioAtualPista?.trioEspelhoId) {
-          const trioEspelhoRef = doc(db, "trios", trioAtualPista.trioEspelhoId);
+          const trioEspelhoRef = doc(db, "competicoes", selectedCompId, "trios", trioAtualPista.trioEspelhoId);
           await updateDoc(trioEspelhoRef, dadosResultado);
         }
 
@@ -1014,12 +985,8 @@
             
             const classificadosBateria = baterias[b].slice(0, currentClassificados).map((t, idx) => ({
               posicao: idx + 1,
-              trioId: t.id,
-              senha: t.senha,
               integrantes: t.integrantes,
-              tempo: t.tempo,
-              boiSorteado: t.boiSorteado,
-              categoria: t.categoria
+              tempo: t.tempo
             }));
 
             resultadoFinalPorBateria[`bateria${b}`] = classificadosBateria;
@@ -1027,19 +994,15 @@
 
           const dataFormatada = (selectedCategoriaData || "").replace(/[^a-zA-Z0-9]/g, '_');
           const nomeFormatado = catNome.replace(/\s+/g, '_');
-          const idDocumentoFinal = `${selectedCompId}_${nomeFormatado}_${selectedFase}_${dataFormatada}`;
+          const idDocumentoFinal = `${nomeFormatado}_${selectedFase}_${dataFormatada}`;
 
-          const refClassificados = doc(db, "classificados", idDocumentoFinal);
+          const refClassificados = doc(db, "competicoes", selectedCompId, "classificados", idDocumentoFinal);
 
           await setDoc(refClassificados, {
-            competicaoId: selectedCompId,
             categoria: catNome,
-            dataCategoria: selectedCategoriaData,
             faseOrigem: selectedFase,
-            vagasPorBateria: currentClassificados,
-            totalBaterias: currentNumBaterias,
-            resultadosPorBateria: resultadoFinalPorBateria,
             status: "PENDENTE",
+            resultadosPorBateria: resultadoFinalPorBateria,
             criadoEm: new Date()
           }, { merge: true });
         }

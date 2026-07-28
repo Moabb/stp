@@ -175,7 +175,7 @@
 
           const option = document.createElement("option");
           option.value = docSnap.id;
-          option.textContent = `${comp.nome} (${comp.dataInicio})`;
+          option.textContent = `${comp.nome} (${comp.dataInicio || ''})`;
           selectCompeticao.appendChild(option);
         });
 
@@ -205,8 +205,7 @@
       
       try {
         const q = query(
-          collection(db, "classificados"),
-          where("competicaoId", "==", compId),
+          collection(db, "competicoes", compId, "classificados"),
           where("faseOrigem", "==", "SEMIFINAL"),
           where("status", "==", "PENDENTE")
         );
@@ -217,31 +216,15 @@
           return;
         }
 
-        const mapaUnicos = {};
-
+        classificadosUnicos = [];
         snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          const chaveUnica = `${data.categoria}_${data.dataCategoria || 'semdata'}`;
-
-          if (!mapaUnicos[chaveUnica]) {
-            mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
-          } else {
-            const dataExistente = mapaUnicos[chaveUnica].criadoEm?.seconds || 0;
-            const dataNova = data.criadoEm?.seconds || 0;
-            
-            if (dataNova > dataExistente) {
-              mapaUnicos[chaveUnica] = { id: docSnap.id, ...data };
-            }
-          }
-        });
-
-        classificadosUnicos = Object.values(mapaUnicos).sort((a, b) => {
-          return (a.dataCategoria || "").localeCompare(b.dataCategoria || "");
+          classificadosUnicos.push({ id: docSnap.id, ...docSnap.data() });
         });
 
         renderizarBlocosClassificados();
 
       } catch (err) {
+        console.error(err);
         containerClassificadas.innerHTML = '<p style="color: #e76f51;">Erro ao carregar classificados.</p>';
       }
     }
@@ -276,7 +259,7 @@
 
           htmlBaterias += `
             <div style="background: #1e1e1e; padding: 10px; border-radius: 6px; border: 1px solid #333;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+              <div style="display:flex; justify-space-between; align-items:center; margin-bottom: 8px;">
                 <label style="font-weight:bold; color:var(--accent-gold); cursor:pointer; display:flex; align-items:center; gap:8px;">
                   <input type="checkbox" class="checkbox-bateria" data-doc-id="${item.id}" data-bat-key="${batKey}">
                   Incluir na Final - Bat. ${numeroBateria} (${triosClassificados.length} Trios)
@@ -295,7 +278,6 @@
         divBox.innerHTML = `
           <h3>
             <span>${item.categoria}</span>
-            <small style="font-size:0.85rem; color:var(--accent-gold);">Data: ${item.dataCategoria || '--'}</small>
           </h3>
           <div class="grid-baterias">
             ${htmlBaterias}
@@ -356,27 +338,29 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Grande Final...";
 
-        const configId = `${compId}_${nomeFinal.toLowerCase().replace(/\s+/g, '_')}_${dataFinal}`;
-        await setDoc(doc(doc(db, "configuracoes", configId)), {
-          competicaoId: compId,
+        const configId = `${nomeFinal.toLowerCase().replace(/\s+/g, '_')}_${dataFinal}`;
+        await setDoc(doc(db, "competicoes", compId, "configuracoes", configId), {
           categoria: nomeFinal,
           data: dataFinal,
+          numBaterias: 1,
+          corridasPorBateria: 25,
           classificadosPorBateria: parseInt(document.getElementById("inputClassificadosPorBateria").value) || 10,
-          fase: "FINAL",
-          atualizadoEm: new Date()
+          fase: "FINAL"
         }, { merge: true });
 
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
-          await addDoc(collection(db, "trios"), {
-            competicaoId: compId,
+          await addDoc(collection(db, "competicoes", compId, "trios"), {
             categoria: nomeFinal,
             data: dataFinal,
-            categoriaData: dataFinal,
             fase: "FINAL",
             senha: i + 1,
+            ordemPista: i + 1,
             integrantes: t.integrantes,
             status: "INSCRITO",
+            tempo: null,
+            boisCurralados: 0,
+            boiSorteado: null,
             criadoEm: new Date()
           });
         }
@@ -388,7 +372,7 @@
         });
 
         for (const idProcessado of docsProcessados) {
-          await updateDoc(doc(db, "classificados", idProcessado), { status: "PROCESSADO" });
+          await updateDoc(doc(db, "competicoes", compId, "classificados", idProcessado), { status: "PROCESSADO" });
         }
 
         alert("Grande Final criada com sucesso!");
