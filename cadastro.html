@@ -330,7 +330,43 @@
           const snapTodasSenhas = await getDocs(qTodasSenhasComp);
           const totalSenhasAtuais = snapTodasSenhas.size;
 
-          const compDados = competicoesCache[selectedCompId];
+          // 3. SALVAR TRIO PRINCIPAL E VERIFICAR VÍNCULO EMBUTIDO DINÂMICO
+        const compDados = competicoesCache[selectedCompId];
+        const vinculo = compDados ? compDados.vinculoEmbutido : null;
+
+        const novoTrioDoc = await addDoc(collection(db, "trios"), {
+          competicaoId: selectedCompId,
+          categoria: selectedCategoriaNome,
+          categoriaData: selectedCategoriaData,
+          fase: "CLASSIFICACAO",
+          senha: senha,
+          integrantes: [c1, c2, c3],
+          animais: animais,
+          criadoEm: new Date(),
+          status: "INSCRITO"
+        });
+
+        // Se a categoria selecionada é a Principal e possui QUALQUER Categoria Embutida vinculada
+        if (vinculo && vinculo.catPai === selectedCategoriaNome && vinculo.catEspelho) {
+          const trioEspelhoDoc = await addDoc(collection(db, "trios"), {
+            competicaoId: selectedCompId,
+            categoria: vinculo.catEspelho, // Usa o nome exato configurado (Ex: Amazonas, Mulheres, etc)
+            categoriaData: selectedCategoriaData,
+            fase: "CLASSIFICACAO",
+            senha: senha,
+            integrantes: [c1, c2, c3],
+            animais: animais,
+            categoriaEspelho: true,
+            trioPaiId: novoTrioDoc.id,
+            criadoEm: new Date(),
+            status: "INSCRITO"
+          });
+
+          // Conecta o pai ao filho para que o tempo lançado no admin vá para ambos
+          await updateDoc(doc(db, "trios", novoTrioDoc.id), { trioEspelhoId: trioEspelhoDoc.id });
+        }
+
+        alert("Trio cadastrado com sucesso!");
           const estaLiberado = compDados && compDados.assinaturaLiberada === true;
 
           if (totalSenhasAtuais >= limiteSenhasGlobal && !estaLiberado) {

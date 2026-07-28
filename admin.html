@@ -615,39 +615,37 @@
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
 
-      const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
-      if (catInfo) {
-        currentNumBaterias = catInfo.qtdBaterias || 2;
-        currentLimiteGado = catInfo.limiteGado || 25;
-        currentClassificados = catInfo.classificadosPorBateria || catInfo.classificadosLote || 3;
-
-        lblQtdBaterias.innerText = currentNumBaterias;
-        lblLimiteGado.innerText = currentLimiteGado;
-        lblClassificados.innerText = currentClassificados;
+      // Se for Fase Classificatória, pega do regulamento normal da competição
+      if (selectedFase === "CLASSIFICACAO") {
+        const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
+        if (catInfo) {
+          currentNumBaterias = catInfo.qtdBaterias || 2;
+          currentLimiteGado = catInfo.limiteGado || 25;
+          currentClassificados = catInfo.classificadosPorBateria || catInfo.classificadosLote || 3;
+        }
+      } else {
+        // Se for SEMIFINAL ou FINAL, lê os dados dos trios cadastrados na fase para definir os parâmetros
+        // Ou mantém os parâmetros configurados na criação da Semifinal/Final
+        currentNumBaterias = comp.qtdBateriasFaseEspecial || 1; 
+        currentLimiteGado = comp.limiteGadoFaseEspecial || 25;
+        currentClassificados = comp.classificadosFaseEspecial || 5;
       }
 
+      lblQtdBaterias.innerText = currentNumBaterias;
+      lblLimiteGado.innerText = currentLimiteGado;
+      lblClassificados.innerText = currentClassificados;
+
       let categoriasParaBuscar = [selectedCategoriaNome];
-      if (comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
+      if (selectedFase === "CLASSIFICACAO" && comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
         categoriasParaBuscar.push(comp.vinculoEmbutido.catEspelho);
       }
 
-      let q;
-      if (categoriasParaBuscar.length > 1) {
-        q = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", selectedCompId),
-          where("categoria", "in", categoriasParaBuscar),
-          where("fase", "==", selectedFase)
-        );
-      } else {
-        q = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", selectedCompId),
-          where("categoria", "==", selectedCategoriaNome),
-          where("categoriaData", "==", selectedCategoriaData),
-          where("fase", "==", selectedFase)
-        );
-      }
+      let q = query(
+        collection(db, "trios"),
+        where("competicaoId", "==", selectedCompId),
+        where("categoria", "in", categoriasParaBuscar),
+        where("fase", "==", selectedFase)
+      );
 
       onSnapshot(q, (snapshot) => {
         triosAtuais = [];
@@ -662,6 +660,31 @@
         verificarEProcessarFinalizacaoCategoria();
       });
     }
+
+    btnAtivarPainel.addEventListener("click", async () => {
+      if (!selectedCompId || !selectedCategoriaNome) {
+        alert("Selecione uma competição e uma categoria primeiro!");
+        return;
+      }
+
+      try {
+        // Atualiza no painel_global inclusive os parâmetros das fases Semifinal e Final
+        await setDoc(doc(db, "painel_global", "ativo"), {
+          competicaoId: selectedCompId,
+          categoriaAtiva: selectedCategoriaNome,
+          faseAtiva: selectedFase,
+          dataAtiva: selectedCategoriaData,
+          numBaterias: currentNumBaterias,
+          limiteGado: currentLimiteGado,
+          classificados: currentClassificados,
+          atualizadoEm: new Date()
+        }, { merge: true });
+
+        alert("📺 Categoria e Fase configuradas transmitidas para o Painel!");
+      } catch (err) {
+        alert("Erro ao ativar painel: " + err.message);
+      }
+    });
 
     btnRealizarSorteio.addEventListener("click", async () => {
       if (triosAtuais.length === 0) {
