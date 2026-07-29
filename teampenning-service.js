@@ -1,9 +1,13 @@
+// teampenning-service.js - VERSÃO 1.6 (Espelhamento 100% Dinâmico)
 import { 
   db, 
   collection, 
   doc, 
   addDoc, 
-  updateDoc 
+  updateDoc, 
+  onSnapshot, 
+  query, 
+  orderBy 
 } from "./firebase-config.js";
 
 /**
@@ -15,7 +19,6 @@ export async function cadastrarTrioComEspelho(userId, compId, dadosTrio, vinculo
   // 1. Cadastra o Trio Principal
   const docRefPai = await addDoc(triosRef, {
     ...dadosTrio,
-    fase: dadosTrio.fase || "CLASSIFICACAO",
     status: "INSCRITO",
     tempo: null,
     boisCurralados: 0,
@@ -23,12 +26,11 @@ export async function cadastrarTrioComEspelho(userId, compId, dadosTrio, vinculo
     criadoEm: new Date()
   });
 
-  // 2. Se houver Categoria Embutida vinculada, gera o registro espelho
+  // 2. Se houver Categoria Embutida vinculada (de qualquer nome), gera o registro espelho
   if (vinculoEmbutido && vinculoEmbutido.catPai === dadosTrio.categoria && vinculoEmbutido.catEspelho) {
     const docRefFilho = await addDoc(triosRef, {
       ...dadosTrio,
-      categoria: vinculoEmbutido.catEspelho,
-      fase: dadosTrio.fase || "CLASSIFICACAO",
+      categoria: vinculoEmbutido.catEspelho, // Define o nome genérico da categoria espelho
       categoriaEspelho: true,
       trioPaiId: docRefPai.id,
       status: "INSCRITO",

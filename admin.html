@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Administração & Cronometragem - Team Penning</title>
+  <title>1Administração & Cronometragem - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -46,6 +46,17 @@
       width: 100%; padding: 10px; background-color: var(--input-bg);
       border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 0.95rem;
     }
+
+    .info-regulamento-box {
+      background: #181818;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+    .info-regulamento-box p { margin-bottom: 6px; color: #ddd; }
+    .info-regulamento-box strong { color: var(--accent-gold); }
 
     .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 8px; font-size: 0.9rem; }
     .btn:disabled { background: #555; cursor: not-allowed; opacity: 0.6; }
@@ -113,22 +124,13 @@
       </article>
 
       <article class="card">
-        <h2>2. Configurar Regulamento da Corrida</h2>
-        <form id="formRegulamentoAdmin">
-          <div class="form-group">
-            <label for="inputNumBaterias">Nº de Baterias / Lotes:</label>
-            <input type="number" id="inputNumBaterias" min="1" value="2" required disabled>
-          </div>
-          <div class="form-group">
-            <label for="inputLimiteGado">Corridas por Lote/Bateria:</label>
-            <input type="number" id="inputLimiteGado" min="1" value="25" required disabled>
-          </div>
-          <div class="form-group">
-            <label for="inputClassificados">Classificados por Bateria:</label>
-            <input type="number" id="inputClassificados" min="1" value="3" required disabled>
-          </div>
-          <button type="submit" class="btn btn-warning" id="btnSalvarRegulamento" disabled>💾 Salvar Regulamento</button>
-        </form>
+        <h2>2. Regulamento da Categoria</h2>
+        <div class="info-regulamento-box">
+          <p>Nº de Baterias / Lotes: <strong id="lblQtdBaterias">--</strong></p>
+          <p>Corridas por Lote/Bateria: <strong id="lblLimiteGado">--</strong></p>
+          <p>Classificados por Bateria: <strong id="lblClassificados">--</strong></p>
+        </div>
+        <button type="button" class="btn btn-warning" onclick="window.location.href='./config.html'">⚙️ Ir para Configurações Modificar</button>
       </article>
 
       <article class="card">
@@ -335,10 +337,9 @@
     const btnEncerrarSorteioLive = document.getElementById("btnEncerrarSorteioLive");
     const btnCompartilharLista = document.getElementById("btnCompartilharLista");
 
-    const inputNumBaterias = document.getElementById("inputNumBaterias");
-    const inputLimiteGado = document.getElementById("inputLimiteGado");
-    const inputClassificados = document.getElementById("inputClassificados");
-    const btnSalvarRegulamento = document.getElementById("btnSalvarRegulamento");
+    const lblQtdBaterias = document.getElementById("lblQtdBaterias");
+    const lblLimiteGado = document.getElementById("lblLimiteGado");
+    const lblClassificados = document.getElementById("lblClassificados");
 
     const inputTempo = document.getElementById("inputTempo");
     const inputBoiSorteado = document.getElementById("inputBoiSorteado");
@@ -532,9 +533,9 @@
       document.getElementById("juizTrioAtual").innerText = "Selecione uma categoria ativa";
       document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: -- | Bateria: --";
       document.getElementById("tbTriosAdmin").innerHTML = '<tr><td colspan="8" style="text-align:center; color:#888;">Selecione uma categoria...</td></tr>';
-      inputNumBaterias.value = 2;
-      inputLimiteGado.value = 25;
-      inputClassificados.value = 3;
+      lblQtdBaterias.innerText = "--";
+      lblLimiteGado.innerText = "--";
+      lblClassificados.innerText = "--";
     }
 
     selectCompeticao.addEventListener("change", (e) => {
@@ -560,38 +561,11 @@
       }
     });
 
-    document.getElementById("formRegulamentoAdmin").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!selectedCompId || !selectedCategoriaNome) return alert("Selecione uma competição e categoria!");
-
-      currentNumBaterias = parseInt(inputNumBaterias.value) || 2;
-      currentLimiteGado = parseInt(inputLimiteGado.value) || 25;
-      currentClassificados = parseInt(inputClassificados.value) || 3;
-
-      try {
-        const configId = `${selectedCompId}_${selectedCategoriaNome.toLowerCase().replace(/\s+/g, '_')}_${selectedFase}`;
-        await setDoc(doc(db, "configuracoes", configId), {
-          competicaoId: selectedCompId,
-          categoria: selectedCategoriaNome,
-          fase: selectedFase,
-          qtdBaterias: currentNumBaterias,
-          limiteGado: currentLimiteGado,
-          classificadosPorBateria: currentClassificados,
-          atualizadoEm: new Date()
-        }, { merge: true });
-
-        alert("Regulamento atualizado com sucesso!");
-        atualizarTabelaAdmin();
-        atualizarMesaJuiz();
-      } catch (err) {
-        alert("Erro ao salvar regulamento: " + err.message);
-      }
-    });
-
     btnAtivarPainel.addEventListener('click', async () => {
       try {
         if (!selectedCategoriaNome) return alert("Selecione uma categoria!");
 
+        // Grava na coleção 'transmissao' lida pelo painel.html
         await setDoc(doc(db, "transmissao", "ativa"), {
           nomeCategoria: selectedCategoriaNome || "",
           fase: selectedFase || "CLASSIFICACAO",
@@ -605,6 +579,7 @@
           atualizadoEm: serverTimestamp()
         }, { merge: true });
 
+        // Grava também no painel_global para redundância
         if (selectedCompId) {
           await setDoc(doc(db, "painel_global", "ativo"), {
             competicaoId: selectedCompId,
@@ -630,10 +605,6 @@
       btnAbrirModalTrio.disabled = false;
       btnRealizarSorteio.disabled = false;
       btnCompartilharLista.disabled = false;
-      inputNumBaterias.disabled = false;
-      inputLimiteGado.disabled = false;
-      inputClassificados.disabled = false;
-      btnSalvarRegulamento.disabled = false;
       inputTempo.disabled = false;
       inputBoiSorteado.disabled = false;
       inputQuantidadeBois.disabled = false;
@@ -647,10 +618,6 @@
       btnAbrirModalTrio.disabled = true;
       btnRealizarSorteio.disabled = true;
       btnCompartilharLista.disabled = true;
-      inputNumBaterias.disabled = true;
-      inputLimiteGado.disabled = true;
-      inputClassificados.disabled = true;
-      btnSalvarRegulamento.disabled = true;
       inputTempo.disabled = true;
       inputBoiSorteado.disabled = true;
       inputQuantidadeBois.disabled = true;
@@ -659,66 +626,54 @@
       btnDO.disabled = true;
     }
 
-    async function carregarDadosCategoria() {
+    function carregarDadosCategoria() {
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
 
-      try {
-        const configId = `${selectedCompId}_${selectedCategoriaNome.toLowerCase().replace(/\s+/g, '_')}_${selectedFase}`;
-        const docConfig = await getDoc(doc(db, "configuracoes", configId));
-        if (docConfig.exists()) {
-          const cfg = docConfig.data();
-          currentNumBaterias = parseInt(cfg.qtdBaterias) || 2;
-          currentLimiteGado = parseInt(cfg.limiteGado) || 25;
-          currentClassificados = parseInt(cfg.classificadosPorBateria) || 3;
-        } else {
-          currentNumBaterias = 2;
-          currentLimiteGado = 25;
-          currentClassificados = 3;
+      if (selectedFase === "CLASSIFICACAO") {
+        const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
+        if (catInfo) {
+          currentNumBaterias = parseInt(catInfo.qtdBaterias) || 2;
+          currentLimiteGado = parseInt(catInfo.limiteGado) || 25;
+          currentClassificados = parseInt(catInfo.classificadosPorBateria || catInfo.classificadosLote) || 3;
         }
-      } catch (e) {
-        console.error("Erro ao carregar configurações da categoria:", e);
+      } else {
+        // Busca as configurações salvas na competição para Semifinal/Final ou pega da categoria
+        const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
+
+        currentNumBaterias = parseInt(comp.qtdBateriasFaseEspecial || comp.qtdBateriasSemifinal || catInfo?.qtdBaterias) || 1; 
+        currentLimiteGado = parseInt(comp.limiteGadoFaseEspecial || catInfo?.limiteGado) || 25;
+        
+        // Pega as vagas da semifinal salvas na config, ou da categoria se existir
+        currentClassificados = parseInt(
+          comp.classificadosFaseEspecial || 
+          comp.vagasSemifinal || 
+          catInfo?.classificadosFaseEspecial || 
+          2
+        );
       }
 
-      inputNumBaterias.value = currentNumBaterias;
-      inputLimiteGado.value = currentLimiteGado;
-      inputClassificados.value = currentClassificados;
+      // Atualiza os rótulos na tela
+      lblQtdBaterias.innerText = currentNumBaterias;
+      lblLimiteGado.innerText = currentLimiteGado;
+      lblClassificados.innerText = currentClassificados;
 
-      // 1. Definimos as categorias a buscar (incluindo espelho, se houver)
       let categoriasParaBuscar = [selectedCategoriaNome];
       if (selectedFase === "CLASSIFICACAO" && comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
         categoriasParaBuscar.push(comp.vinculoEmbutido.catEspelho);
       }
 
-      // 2. Ajuste na busca para trazer os trios mesmo se o campo 'fase' não tiver sido gravado na inscrição
-      let q;
-      if (selectedFase === "CLASSIFICACAO") {
-        q = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", selectedCompId),
-          where("categoria", "in", categoriasParaBuscar)
-        );
-      } else {
-        q = query(
-          collection(db, "trios"),
-          where("competicaoId", "==", selectedCompId),
-          where("categoria", "in", categoriasParaBuscar),
-          where("fase", "==", selectedFase)
-        );
-      }
+      let q = query(
+        collection(db, "trios"),
+        where("competicaoId", "==", selectedCompId),
+        where("categoria", "in", categoriasParaBuscar),
+        where("fase", "==", selectedFase)
+      );
 
       onSnapshot(q, (snapshot) => {
         triosAtuais = [];
         snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          // Se for CLASSIFICACAO, aceita trios sem fase definida ou explicitamente CLASSIFICACAO
-          if (selectedFase === "CLASSIFICACAO") {
-            if (!data.fase || data.fase === "CLASSIFICACAO") {
-              triosAtuais.push({ id: docSnap.id, ...data });
-            }
-          } else {
-            triosAtuais.push({ id: docSnap.id, ...data });
-          }
+          triosAtuais.push({ id: docSnap.id, ...docSnap.data() });
         });
 
         triosAtuais.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
@@ -918,56 +873,23 @@
     });
 
     function atualizarMesaJuiz() {
-  // Encontra o PRIMEIRO trio da fila que ainda NÃO correu
-  const proximoTrio = triosAtuais.find(t => 
-    (!t.tempo || t.tempo === "" || parseFloat(t.tempo) === 0) && 
-    (!t.status || t.status === "INSCRITO" || t.status === "PENDENTE")
-  );
+      trioAtualPista = triosAtuais.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
-    const containerJuiz = document.querySelector(".mesa-juiz-container"); // ou o ID da div da mesa
-  
-      if (!proximoTrio) {
-        // Só exibe que todos correram se realmente não houver NENHUM trio pendente
-        if (triosAtuais.length > 0) {
-          document.getElementById("infoTrioAtual").innerHTML = `
-            <h2 style="color: #ffc107; text-align: center;">Todos os trios desta etapa já correram!</h2>
-          `;
-        } else {
-          document.getElementById("infoTrioAtual").innerHTML = `
-            <h2 style="color: #aaa; text-align: center;">Nenhum trio cadastrado para esta categoria.</h2>
-          `;
-        }
-        
-        // Limpa os campos do cronômetro/mesa
-        if (document.getElementById("inputTempo")) document.getElementById("inputTempo").value = "";
-        if (document.getElementById("inputBoi")) document.getElementById("inputBoi").value = "";
-        return;
+      if (trioAtualPista) {
+        const ordemNum = trioAtualPista.ordemPista || trioAtualPista.senha;
+        const batNum = calcularBateria(ordemNum, currentLimiteGado, currentNumBaterias);
+        const comp = competicoesCache[selectedCompId];
+
+        const tagCat = (comp && comp.vinculoEmbutido && trioAtualPista.categoria === comp.vinculoEmbutido.catEspelho)
+          ? ` [🎀 ${comp.vinculoEmbutido.catEspelho}]`
+          : "";
+
+        document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ") + tagCat;
+        document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha: #${trioAtualPista.senha} | Bateria: ${batNum} | Fase: ${selectedFase}`;
+      } else {
+        document.getElementById("juizTrioAtual").innerText = "Todos os trios desta etapa já correram.";
+        document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: -- | Bateria: --";
       }
-
-      // Se existe um próximo trio, monta a Mesa do Juiz normalmente:
-      const ordemNum = proximoTrio.ordemPista || proximoTrio.senha;
-      const batNum = calcularBateria(ordemNum, currentLimiteGado, currentNumBaterias);
-
-      // Exibe as informações do trio ativo na pista
-      const infoHeader = document.getElementById("infoTrioAtual");
-      if (infoHeader) {
-        infoHeader.innerHTML = `
-          <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 5px;">
-            MESA DO JUIZ DE PISTA
-          </div>
-          <div>
-            <strong>Ordem de Pista:</strong> #${ordemNum} | 
-            <strong>Senha:</strong> #${proximoTrio.senha} | 
-            <strong>Bateria:</strong> ${batNum}
-          </div>
-          <div style="font-size: 1.1rem; color: #4caf50; margin-top: 5px;">
-            <strong>Integrantes:</strong> ${proximoTrio.integrantes ? proximoTrio.integrantes.join(" / ") : ""}
-          </div>
-        `;
-      }
-
-      // Guarda a referência do trio atual para o botão de confirmar tempo
-      trioEmPistaAtual = proximoTrio;
     }
 
     btnAbrirModalTrio.addEventListener("click", () => {

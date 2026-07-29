@@ -102,6 +102,21 @@
           </div>
 
           <div class="form-group">
+            <label for="inputNumBaterias">Número de Baterias / Lotes:</label>
+            <input type="number" id="inputNumBaterias" min="1" value="1" required>
+          </div>
+
+          <div class="form-group">
+            <label for="inputCorridasPorBateria">Corridas por Lote/Bateria:</label>
+            <input type="number" id="inputCorridasPorBateria" min="1" value="1" required>
+          </div>
+
+          <div class="form-group">
+            <label for="inputClassificadosPorBateria">Classificados por Bateria p/ Final:</label>
+            <input type="number" id="inputClassificadosPorBateria" min="1" value="5" required>
+          </div>
+
+          <div class="form-group">
             <label for="inputDataSemi">Data da Prova:</label>
             <input type="date" id="inputDataSemi" required>
           </div>
@@ -128,7 +143,7 @@
       query, 
       where, 
       doc,
-      setDoc,
+      setDoc,     // <--- ADICIONADO AQUI
       updateDoc,
       onAuthStateChanged,
       signOut 
@@ -362,21 +377,30 @@
       const nomeSemi = document.getElementById("inputNomeSemi").value.trim();
       const dataSemi = document.getElementById("inputDataSemi").value;
 
-      if (!confirm(`Confirmar a criação da "${nomeSemi}" com ${triosUnificadosSelecionados.length} trios finalistas?`)) return;
+      const numBaterias = parseInt(document.getElementById("inputNumBaterias").value) || 1;
+      const corridasPorBateria = parseInt(document.getElementById("inputCorridasPorBateria").value) || 1;
+      const classificadosPorBateria = parseInt(document.getElementById("inputClassificadosPorBateria").value) || 5;
+
+      if (!confirm(`Confirmar a criação da "${nomeSemi}" com ${triosUnificadosSelecionados.length} trios semifinalistas?`)) return;
 
       try {
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Semifinal...";
 
+        // 0. Grava as regras da semifinal na coleção configuracoes
         const configId = `${compId}_${nomeSemi.toLowerCase().replace(/\s+/g, '_')}_${dataSemi}`;
         await setDoc(doc(db, "configuracoes", configId), {
           competicaoId: compId,
           categoria: nomeSemi,
           data: dataSemi,
+          numBaterias: numBaterias,
+          corridasPorBateria: corridasPorBateria,
+          classificadosPorBateria: classificadosPorBateria,
           fase: "SEMIFINAL",
           atualizadoEm: new Date()
         }, { merge: true });
 
+        // 1. Grava os trios semifinalistas
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
@@ -392,14 +416,15 @@
           });
         }
 
-        const docsProcessados = new Set();
+        // 2. Marca os documentos selecionados como PROCESSADO
+        const docIdsProcessados = new Set();
         document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
           const docId = chk.getAttribute("data-doc-id");
-          if (docId) docsProcessados.add(docId);
+          if (docId) docIdsProcessados.add(docId);
         });
 
-        for (const idProcessado of docsProcessados) {
-          const docRef = doc(db, "classificados", idProcessado);
+        for (const docId of docIdsProcessados) {
+          const docRef = doc(db, "classificados", docId);
           await updateDoc(docRef, { status: "PROCESSADO" });
         }
 
@@ -412,7 +437,7 @@
         btnGerar.disabled = false;
         btnGerar.innerText = "🔥 Gerar Semifinal e Enviar para Admin";
       }
-    });
+    }); // <--- FECHAMENTO CORRETO DO SUBMIT
 
     document.getElementById("btnSair").addEventListener("click", () => {
       signOut(auth).then(() => window.location.href = "./index.html");

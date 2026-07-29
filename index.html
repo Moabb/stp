@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portal Oficial - Team Penning System</title>
   
+  <!-- Script Oficial do Google reCAPTCHA v2 -->
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <script type="module" src="./firebase-config.js"></script>
 
@@ -34,6 +35,7 @@
 
     .secao-card { background: var(--card-bg); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); }
     
+    /* NAVEGAÇÃO POR ABAS */
     .abas-container { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
     .btn-aba { background: #262626; color: #aaa; border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
     .btn-aba.ativa { background: var(--accent-gold); color: #000; border-color: var(--accent-gold); }
@@ -44,6 +46,7 @@
     .card-prova { background: #262626; border-radius: 6px; padding: 16px; border-left: 4px solid var(--accent-green); transition: 0.2s; cursor: pointer; }
     .card-prova:hover { transform: translateY(-3px); background: #2f2f2f; }
     .card-prova.encerrada { border-left-color: #777; opacity: 0.85; }
+    .card-prova.encerrada:hover { opacity: 1; }
 
     .card-prova h3 { font-size: 1.1rem; color: #fff; margin-bottom: 6px; text-transform: uppercase; }
     .card-prova p { font-size: 0.85rem; color: #ccc; margin-bottom: 4px; }
@@ -59,7 +62,8 @@
     .btn-submit:hover { opacity: 0.9; }
 
     .btn-logout { width: 100%; padding: 12px; background: var(--accent-red); color: #fff; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; }
-    
+    .btn-logout:hover { opacity: 0.9; }
+
     .toggle-auth { text-align: center; margin-top: 15px; font-size: 0.85rem; color: #aaa; }
     .toggle-auth a { color: var(--accent-gold); text-decoration: underline; cursor: pointer; }
     
@@ -80,6 +84,7 @@
 
   <main class="portal-container">
     
+    <!-- SEÇÃO DE COMPETIÇÕES PUBLICAS -->
     <section class="secao-card">
       <div class="abas-container">
         <button class="btn-aba ativa" id="abaEmAndamento">🔴 PROVAS EM ANDAMENTO</button>
@@ -91,11 +96,14 @@
       </div>
     </section>
 
+    <!-- ÁREA DE AUTENTICAÇÃO / PERFIL -->
     <section class="secao-card" id="boxAuth">
       <h2 id="tituloAuth">ENTRAR NA CONTA</h2>
       
+      <!-- Bloco Deslogado -->
       <div id="wrapperDeslogado">
         <form id="formAuth">
+          
           <div class="form-group" id="groupTelefone" style="display: none;">
             <label for="authTelefone">Número do Celular (com DDD):</label>
             <input type="tel" id="authTelefone" placeholder="(00) 90000-0000">
@@ -125,6 +133,7 @@
         </div>
       </div>
 
+      <!-- Bloco Logado -->
       <div id="wrapperLogado" style="display: none;">
         <div class="user-logged-info">
           <p>Você está conectado como: <strong id="lblEmailUsuario">carregando...</strong></p>
@@ -152,7 +161,7 @@
     } from "./firebase-config.js";
 
     let modoCadastro = false;
-    let abaAtual = "ANDAMENTO";
+    let abaAtual = "ANDAMENTO"; // "ANDAMENTO" ou "FINALIZADAS"
     let listaCompeticoes = [];
 
     const linkToggle = document.getElementById("linkToggle");
@@ -171,6 +180,7 @@
     const abaEmAndamento = document.getElementById("abaEmAndamento");
     const abaFinalizadas = document.getElementById("abaFinalizadas");
 
+    // CARREGAR PROVAS DO FIRESTORE EM TEMPO REAL
     async function carregarProvasGerais() {
       try {
         const querySnapshot = await getDocs(collection(db, "competicoes"));
@@ -209,6 +219,7 @@
         
         card.className = `card-prova ${estaEncerrada ? 'encerrada' : ''}`;
         
+        // Formatação de categorias
         const qtdCats = comp.categorias ? comp.categorias.length : 0;
         const textoData = comp.dataInicio || comp.data || "Data não inf.";
 
@@ -222,6 +233,7 @@
         `;
 
         card.addEventListener("click", () => {
+          // Redireciona para o painel de transmissão / resultados com o ID da prova
           localStorage.setItem("selectedCompId", comp.id);
           window.location.href = `./painel.html?compId=${comp.id}`;
         });
@@ -230,6 +242,7 @@
       });
     }
 
+    // NAVEGAÇÃO DE ABAS
     abaEmAndamento.addEventListener("click", () => {
       abaAtual = "ANDAMENTO";
       abaEmAndamento.classList.add("ativa");
@@ -244,6 +257,7 @@
       renderizarProvas();
     });
 
+    // SISTEMA DE AUTENTICAÇÃO
     linkToggle.addEventListener("click", () => {
       modoCadastro = !modoCadastro;
       msgErro.style.display = "none";
@@ -300,7 +314,7 @@
         window.location.href = "./config.html";
       } catch (error) {
         if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
-        exibirErro(error.message);
+        tratarErroFirebase(error);
       }
     });
 
@@ -318,6 +332,29 @@
       msgErro.style.display = "block";
     }
 
+    function tratarErroFirebase(error) {
+      console.error(error);
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          exibirErro("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
+          break;
+        case 'auth/weak-password':
+          exibirErro("A senha deve ter pelo menos 6 caracteres.");
+          break;
+        case 'auth/invalid-email':
+          exibirErro("O e-mail digitado é inválido.");
+          break;
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          exibirErro("E-mail ou senha incorretos.");
+          break;
+        default:
+          exibirErro("Erro ao autenticar: " + error.message);
+      }
+    }
+
+    // MONITORAMENTO DE LOGINS E CARREGAMENTO INICIAL
     onAuthStateChanged(auth, (user) => {
       carregarProvasGerais();
 

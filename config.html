@@ -45,7 +45,7 @@
     .categoria-box { background: #262626; border: 1px solid #444; border-radius: 6px; padding: 15px; margin-bottom: 12px; position: relative; }
     .categoria-box .btn-remover { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: var(--accent-red); cursor: pointer; font-weight: bold; font-size: 1.1rem; }
     
-    .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+    .grid-cat-inputs { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr; gap: 8px; }
     @media (max-width: 768px) { .grid-cat-inputs { grid-template-columns: 1fr; } }
 
     .checkbox-container { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; font-size: 0.85rem; color: var(--accent-gold); }
@@ -115,7 +115,7 @@
           <input type="date" id="dataComp" required>
         </div>
 
-        <h3 style="font-size: 1rem; color: #ccc; margin: 15px 0 10px 0;">Categorias:</h3>
+        <h3 style="font-size: 1rem; color: #ccc; margin: 15px 0 10px 0;">Regulamento por Categoria:</h3>
         
         <div id="containerCategorias"></div>
 
@@ -210,7 +210,7 @@
     const listaExcluirCheckboxes = document.getElementById("listaExcluirCheckboxes");
     const checkMarcarTodos = document.getElementById("checkMarcarTodos");
 
-    function adicionarCampoCategoria(nome = "", dataCat = "", isFeminino = false) {
+    function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, limiteGado = 25, classificados = 3, isFeminino = false) {
       const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
 
       const div = document.createElement("div");
@@ -226,6 +226,18 @@
           <div class="form-group" style="margin:0;">
             <label>Data Prova</label>
             <input type="date" class="cat-data" value="${dataPadrao}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Nº Baterias</label>
+            <input type="number" class="cat-baterias" min="1" value="${baterias}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Corridas/Lote</label>
+            <input type="number" class="cat-limitegado" min="1" value="${limiteGado}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Classif./Bat.</label>
+            <input type="number" class="cat-classificados" min="1" value="${classificados}" required>
           </div>
         </div>
         <label class="checkbox-container">
@@ -268,6 +280,9 @@
         categorias.push({
           nome: bloco.querySelector(".cat-nome").value.trim(),
           data: bloco.querySelector(".cat-data").value,
+          qtdBaterias: parseInt(bloco.querySelector(".cat-baterias").value) || 2,
+          limiteGado: parseInt(bloco.querySelector(".cat-limitegado").value) || 25,
+          classificadosPorBateria: parseInt(bloco.querySelector(".cat-classificados").value) || 3,
           isFeminino: bloco.querySelector(".cat-feminino").checked
         });
       });
@@ -284,7 +299,7 @@
             categorias: categorias,
             atualizadoEm: new Date()
           });
-          alert("Competição e categorias atualizadas com sucesso!");
+          alert("Competição e regulamentos atualizados com sucesso!");
         } else {
           await addDoc(collection(db, "competicoes"), {
             organizadorId: currentUser.uid,
@@ -349,7 +364,7 @@
           card.className = "card-prova-item";
           
           const detalhesCat = comp.categorias && comp.categorias.length > 0
-            ? comp.categorias.map(c => `${c.nome}${c.isFeminino ? ' (♀️ Fem)' : ''}`).join(" | ")
+            ? comp.categorias.map(c => `${c.nome}${c.isFeminino ? ' (♀️ Fem)' : ''} (${c.qtdBaterias || 2} Bat / ${c.limiteGado || 25} Lote / ${c.classificadosPorBateria || 3} Class)`).join(" | ")
             : "Nenhuma categoria";
 
           let optionsCategorias = `<option value="">Selecione...</option>`;
@@ -370,7 +385,7 @@
                 <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
               </div>
               <div class="acoes">
-                <button class="btn-action btnEditar" data-id="${compId}">✏️ Editar Categoria</button>
+                <button class="btn-action btnEditar" data-id="${compId}">✏️ Editar / Regulamento</button>
                 <button class="btn-action btnInscritos" data-id="${compId}">📝 Iniciar Cadastrar Trios</button>
               </div>
             </div>
@@ -532,7 +547,7 @@
       if (!comp) return;
 
       modoEdicaoId = compId;
-      tituloForm.innerText = "EDITAR COMPETIÇÃO / CATEGORIAS";
+      tituloForm.innerText = "EDITAR COMPETIÇÃO / REGULAMENTO";
       btnSalvarComp.innerText = "Atualizar Competição";
       btnCancelarEdicao.style.display = "inline-block";
 
@@ -546,6 +561,9 @@
           adicionarCampoCategoria(
             cat.nome,
             cat.data || comp.dataInicio,
+            cat.qtdBaterias || 2,
+            cat.limiteGado || 25,
+            cat.classificadosPorBateria || cat.classificadosLote || 3,
             cat.isFeminino || false
           );
         });

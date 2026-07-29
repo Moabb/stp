@@ -102,6 +102,11 @@
           </div>
 
           <div class="form-group">
+            <label for="inputClassificadosPorBateria">Quantidade de Campeões/Premiados (ex: 5 para Top 5, 10 para Top 10):</label>
+            <input type="number" id="inputClassificadosPorBateria" value="10" min="1" required>
+          </div>
+
+          <div class="form-group">
             <label for="inputDataFinal">Data da Prova:</label>
             <input type="date" id="inputDataFinal" required>
           </div>
@@ -128,7 +133,7 @@
       query, 
       where, 
       doc, 
-      setDoc,
+      setDoc,     // <--- 1. IMPORTADO AQUI
       updateDoc, 
       onAuthStateChanged,
       signOut 
@@ -357,15 +362,18 @@
         btnGerar.disabled = true;
         btnGerar.innerText = "Criando Grande Final...";
 
+        // 0. Grava as regras da Grande Final na coleção configuracoes
         const configId = `${compId}_${nomeFinal.toLowerCase().replace(/\s+/g, '_')}_${dataFinal}`;
         await setDoc(doc(db, "configuracoes", configId), {
           competicaoId: compId,
           categoria: nomeFinal,
           data: dataFinal,
+          classificadosPorBateria: parseInt(document.getElementById("inputClassificadosPorBateria").value) || 10,
           fase: "FINAL",
           atualizadoEm: new Date()
         }, { merge: true });
 
+        // 1. Grava os novos trios para o admin
         for (let i = 0; i < triosUnificadosSelecionados.length; i++) {
           const t = triosUnificadosSelecionados[i];
           await addDoc(collection(db, "trios"), {
@@ -381,6 +389,7 @@
           });
         }
 
+        // 2. MARCA COMO PROCESSADO SOMENTE OS DOCUMENTOS SELECIONADOS NO CHECKBOX
         const docsProcessados = new Set();
         document.querySelectorAll(".checkbox-bateria:checked").forEach(chk => {
           const docId = chk.getAttribute("data-doc-id");

@@ -203,7 +203,7 @@
 
           const option = document.createElement("option");
           option.value = docSnap.id;
-          option.textContent = `${comp.nome} (${comp.dataInicio || ''})`;
+          option.textContent = `${comp.nome} (${comp.dataInicio || comp.data})`;
           selectCompeticao.appendChild(option);
         });
 
@@ -275,9 +275,10 @@
 
       try {
         const q = query(
-          collection(db, "competicoes", selectedCompId, "trios"),
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId),
           where("categoria", "==", selectedCategoriaNome),
-          where("data", "==", selectedCategoriaData),
+          where("categoriaData", "==", selectedCategoriaData),
           where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
@@ -315,15 +316,8 @@
         btnSalvarTrio.innerText = "Verificando e Cadastrando...";
 
         // 1. VERIFICAÇÃO DE COBRANÇA GLOBAL E LIMITE DE SENHAS DINÂMICO
-        let configData = {};
-        try {
-          const configGlobalDoc = await getDoc(doc(db, "configuracoesGlobal", "sistema"));
-          if (configGlobalDoc.exists()) {
-            configData = configGlobalDoc.data();
-          }
-        } catch (errConfig) {
-          console.warn("Aviso: Falha ao consultar configuracoesGlobal.", errConfig);
-        }
+        const configGlobalDoc = await getDoc(doc(db, "configuracoesGlobal", "sistema"));
+        const configData = configGlobalDoc.exists() ? configGlobalDoc.data() : {};
         
         const cobrancaAtiva = configData.cobrancaAtiva === true;
         const limiteSenhasGlobal = configData.limiteSenhas || 100;
@@ -331,23 +325,26 @@
         const compDados = competicoesCache[selectedCompId];
 
         if (cobrancaAtiva) {
-          const snapTodasSenhas = await getDocs(collection(db, "competicoes", selectedCompId, "trios"));
+          const qTodasSenhasComp = query(
+            collection(db, "trios"),
+            where("competicaoId", "==", selectedCompId)
+          );
+          const snapTodasSenhas = await getDocs(qTodasSenhasComp);
           const totalSenhasAtuais = snapTodasSenhas.size;
           const estaLiberado = compDados && compDados.assinaturaLiberada === true;
 
           if (totalSenhasAtuais >= limiteSenhasGlobal && !estaLiberado) {
             alert(`⚠️ LIMITE ATINGIDO! Esta competição atingiu o limite gratuito de ${limiteSenhasGlobal} senhas. Para cadastrar mais senhas, é necessário realizar a assinatura/liberação do evento.`);
-            btnSalvarTrio.disabled = false;
-            btnSalvarTrio.innerText = "Cadastrar Trio";
             return;
           }
         }
 
         // 2. VERIFICAÇÃO DE TRIO DUPLICADO
         const q = query(
-          collection(db, "competicoes", selectedCompId, "trios"),
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId),
           where("categoria", "==", selectedCategoriaNome),
-          where("data", "==", selectedCategoriaData),
+          where("categoriaData", "==", selectedCategoriaData),
           where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
@@ -365,8 +362,6 @@
 
         if (trioDuplicado) {
           alert(`⚠️ ATENÇÃO: O trio composto por "${c1}", "${c2}" e "${c3}" JÁ ESTÁ CADASTRADO nesta categoria!`);
-          btnSalvarTrio.disabled = false;
-          btnSalvarTrio.innerText = "Cadastrar Trio";
           return;
         }
 
@@ -374,32 +369,32 @@
         const vinculo = compDados ? compDados.vinculoEmbutido : null;
 
         const dadosNovoTrio = {
+          competicaoId: selectedCompId || "",
           categoria: selectedCategoriaNome || "",
-          data: selectedCategoriaData || "",
+          categoriaData: selectedCategoriaData || "",
           fase: "CLASSIFICACAO",
           senha: senha,
-          ordemPista: senha,
           integrantes: [c1, c2, c3],
-          status: "INSCRITO",
-          tempo: null,
-          boisCurralados: 0,
-          boiSorteado: null,
           animais: animais || "",
-          criadoEm: new Date()
+          criadoEm: new Date(),
+          status: "INSCRITO"
         };
 
-        const triosColRef = collection(db, "competicoes", selectedCompId, "trios");
-        const novoTrioDoc = await addDoc(triosColRef, dadosNovoTrio);
+        const novoTrioDoc = await addDoc(collection(db, "trios"), dadosNovoTrio);
 
+        // Se houver vínculo de categoria embutida (qualquer nome)
         if (vinculo && vinculo.catPai === selectedCategoriaNome && vinculo.catEspelho) {
           const dadosTrioEspelho = {
             ...dadosNovoTrio,
             categoria: vinculo.catEspelho,
+            categoriaEspelho: true,
             trioPaiId: novoTrioDoc.id
           };
 
-          const trioEspelhoDoc = await addDoc(triosColRef, dadosTrioEspelho);
-          await updateDoc(doc(db, "competicoes", selectedCompId, "trios", novoTrioDoc.id), { trioEspelhoId: trioEspelhoDoc.id });
+          const trioEspelhoDoc = await addDoc(collection(db, "trios"), dadosTrioEspelho);
+
+          // Atualiza a referência cruzada
+          await updateDoc(doc(db, "trios", novoTrioDoc.id), { trioEspelhoId: trioEspelhoDoc.id });
         }
 
         alert("Trio cadastrado com sucesso!");
@@ -426,9 +421,10 @@
 
       try {
         const q = query(
-          collection(db, "competicoes", selectedCompId, "trios"),
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId),
           where("categoria", "==", selectedCategoriaNome),
-          where("data", "==", selectedCategoriaData),
+          where("categoriaData", "==", selectedCategoriaData),
           where("fase", "==", "CLASSIFICACAO")
         );
         const snapshot = await getDocs(q);
