@@ -684,22 +684,41 @@
       inputLimiteGado.value = currentLimiteGado;
       inputClassificados.value = currentClassificados;
 
+      // 1. Definimos as categorias a buscar (incluindo espelho, se houver)
       let categoriasParaBuscar = [selectedCategoriaNome];
       if (selectedFase === "CLASSIFICACAO" && comp.vinculoEmbutido && comp.vinculoEmbutido.catPai === selectedCategoriaNome) {
         categoriasParaBuscar.push(comp.vinculoEmbutido.catEspelho);
       }
 
-      let q = query(
-        collection(db, "trios"),
-        where("competicaoId", "==", selectedCompId),
-        where("categoria", "in", categoriasParaBuscar),
-        where("fase", "==", selectedFase)
-      );
+      // 2. Ajuste na busca para trazer os trios mesmo se o campo 'fase' não tiver sido gravado na inscrição
+      let q;
+      if (selectedFase === "CLASSIFICACAO") {
+        q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId),
+          where("categoria", "in", categoriasParaBuscar)
+        );
+      } else {
+        q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", selectedCompId),
+          where("categoria", "in", categoriasParaBuscar),
+          where("fase", "==", selectedFase)
+        );
+      }
 
       onSnapshot(q, (snapshot) => {
         triosAtuais = [];
         snapshot.forEach(docSnap => {
-          triosAtuais.push({ id: docSnap.id, ...docSnap.data() });
+          const data = docSnap.data();
+          // Se for CLASSIFICACAO, aceita trios sem fase definida ou explicitamente CLASSIFICACAO
+          if (selectedFase === "CLASSIFICACAO") {
+            if (!data.fase || data.fase === "CLASSIFICACAO") {
+              triosAtuais.push({ id: docSnap.id, ...data });
+            }
+          } else {
+            triosAtuais.push({ id: docSnap.id, ...data });
+          }
         });
 
         triosAtuais.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
