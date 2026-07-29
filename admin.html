@@ -918,23 +918,56 @@
     });
 
     function atualizarMesaJuiz() {
-      trioAtualPista = triosAtuais.find(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
+  // Encontra o PRIMEIRO trio da fila que ainda NÃO correu
+  const proximoTrio = triosAtuais.find(t => 
+    (!t.tempo || t.tempo === "" || parseFloat(t.tempo) === 0) && 
+    (!t.status || t.status === "INSCRITO" || t.status === "PENDENTE")
+  );
 
-      if (trioAtualPista) {
-        const ordemNum = trioAtualPista.ordemPista || trioAtualPista.senha;
-        const batNum = calcularBateria(ordemNum, currentLimiteGado, currentNumBaterias);
-        const comp = competicoesCache[selectedCompId];
-
-        const tagCat = (comp && comp.vinculoEmbutido && trioAtualPista.categoria === comp.vinculoEmbutido.catEspelho)
-          ? ` [🎀 ${comp.vinculoEmbutido.catEspelho}]`
-          : "";
-
-        document.getElementById("juizTrioAtual").innerText = trioAtualPista.integrantes.join(" • ") + tagCat;
-        document.getElementById("juizTrioDetalhes").innerText = `Ordem de Pista: #${trioAtualPista.ordemPista || '--'} | Senha: #${trioAtualPista.senha} | Bateria: ${batNum} | Fase: ${selectedFase}`;
-      } else {
-        document.getElementById("juizTrioAtual").innerText = "Todos os trios desta etapa já correram.";
-        document.getElementById("juizTrioDetalhes").innerText = "Ordem de Pista: -- | Senha: -- | Bateria: --";
+    const containerJuiz = document.querySelector(".mesa-juiz-container"); // ou o ID da div da mesa
+  
+      if (!proximoTrio) {
+        // Só exibe que todos correram se realmente não houver NENHUM trio pendente
+        if (triosAtuais.length > 0) {
+          document.getElementById("infoTrioAtual").innerHTML = `
+            <h2 style="color: #ffc107; text-align: center;">Todos os trios desta etapa já correram!</h2>
+          `;
+        } else {
+          document.getElementById("infoTrioAtual").innerHTML = `
+            <h2 style="color: #aaa; text-align: center;">Nenhum trio cadastrado para esta categoria.</h2>
+          `;
+        }
+        
+        // Limpa os campos do cronômetro/mesa
+        if (document.getElementById("inputTempo")) document.getElementById("inputTempo").value = "";
+        if (document.getElementById("inputBoi")) document.getElementById("inputBoi").value = "";
+        return;
       }
+
+      // Se existe um próximo trio, monta a Mesa do Juiz normalmente:
+      const ordemNum = proximoTrio.ordemPista || proximoTrio.senha;
+      const batNum = calcularBateria(ordemNum, currentLimiteGado, currentNumBaterias);
+
+      // Exibe as informações do trio ativo na pista
+      const infoHeader = document.getElementById("infoTrioAtual");
+      if (infoHeader) {
+        infoHeader.innerHTML = `
+          <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 5px;">
+            MESA DO JUIZ DE PISTA
+          </div>
+          <div>
+            <strong>Ordem de Pista:</strong> #${ordemNum} | 
+            <strong>Senha:</strong> #${proximoTrio.senha} | 
+            <strong>Bateria:</strong> ${batNum}
+          </div>
+          <div style="font-size: 1.1rem; color: #4caf50; margin-top: 5px;">
+            <strong>Integrantes:</strong> ${proximoTrio.integrantes ? proximoTrio.integrantes.join(" / ") : ""}
+          </div>
+        `;
+      }
+
+      // Guarda a referência do trio atual para o botão de confirmar tempo
+      trioEmPistaAtual = proximoTrio;
     }
 
     btnAbrirModalTrio.addEventListener("click", () => {
