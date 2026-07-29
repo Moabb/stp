@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1Painel Oficial em Tempo Real - Team Penning</title>
+  <title>Painel Oficial em Tempo Real - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
 
   <style>
@@ -63,7 +63,7 @@
       max-width: 100%;
     }
 
-    .badge-etapa, .SEMIFINAL-badge { 
+    .badge-etapa { 
       background: var(--accent-blue); 
       color: #fff; 
       padding: 6px 14px; 
@@ -88,7 +88,7 @@
         align-items: stretch;
         width: 100%;
       }
-      .select-comp, .badge-etapa, .SEMIFINAL-badge {
+      .select-comp, .badge-etapa {
         width: 100%;
       }
     }
@@ -252,7 +252,7 @@
       <select id="selectCompeticao" class="select-comp">
         <option value="">-- Selecione o Evento --</option>
       </select>
-      <div class="badge-etapa" id="badgeFase">Aguardando Seleção...</div>
+      <div class="badge-etapa" id="txtEtapaAtiva">Aguardando Seleção...</div>
     </div>
   </header>
 
@@ -311,7 +311,7 @@
 
     const selectCompeticao = document.getElementById("selectCompeticao");
     const txtNomeCompeticao = document.getElementById("txtNomeCompeticao");
-    const badgeFase = document.getElementById("badgeFase") || document.querySelector(".SEMIFINAL-badge");
+    const txtEtapaAtiva = document.getElementById("txtEtapaAtiva");
     const containerBaterias = document.getElementById("containerBaterias");
     const tbTriosPainel = document.getElementById("tbTriosPainel");
     const txtRegraClassificacao = document.getElementById("txtRegraClassificacao");
@@ -326,44 +326,6 @@
       const loteTam = tamanhoLote || 25;
       const indiceLote = Math.floor((ordemPista - 1) / loteTam);
       return (indiceLote % qtdBaterias) + 1;
-    }
-
-    // Escuta direta da coleção transmissao / documento ativa
-    onSnapshot(doc(db, "transmissao", "ativa"), (docSnap) => {
-      if (!docSnap.exists()) return;
-
-      const data = docSnap.data();
-
-      // 1. Atualiza o Badge/Título da Categoria e Fase
-      if (badgeFase) {
-        badgeFase.textContent = `${data.fase || 'SEMIFINAL'} • ${data.nomeCategoria}`;
-      }
-
-      // 2. Aplica as configurações do Regulamento na tela
-      if (data.regulamento) {
-        const numVagas = data.regulamento.classificadosPorBateria || 0;
-
-        // Atualiza a indicação de vagas nas caixas de baterias
-        document.querySelectorAll(".vagas-count").forEach(el => {
-          el.textContent = `Vagas: ${numVagas}`;
-        });
-      }
-
-      // 3. Carrega as filas e resultados da semifinal ativa
-      if (data.categoriaId) {
-        carregarResultadosESequencia(data.categoriaId);
-      }
-    }, (error) => {
-      console.error("Erro na escuta da transmissão:", error);
-    });
-
-    function carregarResultadosESequencia(categoriaId) {
-      const compId = selectedCompId || categoriaId.split('|')[0] || categoriaId;
-      const catNome = categoriaId.includes('|') ? categoriaId.split('|')[0] : categoriaId;
-      const faseNome = categoriaId.includes('|') ? categoriaId.split('|')[2] || "SEMIFINAL" : "SEMIFINAL";
-      const dataNome = categoriaId.includes('|') ? categoriaId.split('|')[1] || "" : "";
-
-      escutarTriosEtapa(compId, catNome, faseNome, dataNome);
     }
 
     async function carregarListaCompeticoes() {
@@ -418,14 +380,10 @@
         const dataNome = competicaoAtiva.dataAtivaPainel || "";
 
         if (catNome) {
-          if (badgeFase) {
-            badgeFase.innerText = `${faseNome} • ${catNome} (${dataNome})`;
-          }
+          txtEtapaAtiva.innerText = `${faseNome} • ${catNome} (${dataNome})`;
           escutarTriosEtapa(compId, catNome, faseNome, dataNome);
         } else {
-          if (badgeFase) {
-            badgeFase.innerText = "Sem categoria em andamento";
-          }
+          txtEtapaAtiva.innerText = "Sem categoria em andamento";
           containerBaterias.innerHTML = '<p style="color:#888;">Nenhuma prova em andamento nesta competição.</p>';
           tbTriosPainel.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Aguardando início das corridas...</td></tr>';
         }
@@ -481,12 +439,12 @@
 
         renderizarLinha1BateriasSeparadas(triosPainel, categoriasParaBuscar);
         
-        const catConfigPai = competicaoAtiva?.categorias ? competicaoAtiva.categorias.find(c => c.nome === catNome) : null;
+        const catConfigPai = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catNome) : null;
         const numBateriasPai = catConfigPai ? catConfigPai.qtdBaterias : 2;
         const tamanhoLotePai = catConfigPai ? catConfigPai.limiteGado : 25;
         renderizarLinha2FilaDinamica(triosPainel, tamanhoLotePai, numBateriasPai);
 
-        if (competicaoAtiva?.sorteioStatus === "EXIBINDO") {
+        if (competicaoAtiva.sorteioStatus === "EXIBINDO") {
           renderizarCardsSorteio(triosPainel);
         }
       });
@@ -498,7 +456,7 @@
       listaCategorias.forEach(catAtual => {
         const triosDaCategoria = trios.filter(t => t.categoria === catAtual);
 
-        const catConfig = competicaoAtiva?.categorias ? competicaoAtiva.categorias.find(c => c.nome === catAtual) : null;
+        const catConfig = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catAtual) : null;
         const numBaterias = catConfig ? (catConfig.qtdBaterias || 2) : 2;
         const tamanhoLote = catConfig ? (catConfig.limiteGado || 25) : 25;
         const vagas = catConfig ? (catConfig.classificadosPorBateria || catConfig.classificadosLote || 3) : 3;
@@ -537,7 +495,7 @@
 
           let linhasHtml = "";
           if (classificadosExibicao.length === 0) {
-            linhasHtml = '<tr><td colspan="3" style="text-align:center; color:#888;">Nenum tempo válido</td></tr>';
+            linhasHtml = '<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum tempo válido</td></tr>';
           } else {
             classificadosExibicao.forEach((trio, idx) => {
               const tempoFormatado = parseFloat(trio.tempo).toFixed(3);
@@ -563,7 +521,7 @@
           box.innerHTML = `
             <div class="bateria-header">
               <span>BATERIA ${b}</span>
-              <small style="color:#aaa;" class="vagas-count">Vagas: ${vagas}</small>
+              <small style="color:#aaa;">Vagas: ${vagas}</small>
             </div>
             <table>
               <thead>
@@ -583,6 +541,7 @@
     function renderizarLinha2FilaDinamica(trios, tamanhoLote, numBaterias) {
       tbTriosPainel.innerHTML = "";
 
+      // Exibe na fila de pista todos os trios recebidos da etapa (incluindo Feminina/Espelho)
       const triosPendentes = trios.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
 
       if (triosPendentes.length === 0) {

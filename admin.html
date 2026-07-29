@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1Administração & Cronometragem - Team Penning</title>
+  <title>Administração & Cronometragem - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -300,7 +300,6 @@
       db, 
       collection, 
       addDoc, 
-      getDoc,
       getDocs,
       setDoc, 
       doc, 
@@ -312,13 +311,10 @@
       signOut
     } from "./firebase-config.js";
 
-    import { serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
     let currentUser = null;
     let competicoesCache = {};
     let triosAtuais = [];
     let trioAtualPista = null;
-    let jaFinalizouCategoria = false;
 
     let selectedCompId = localStorage.getItem("selectedCompId") || null;
     let selectedCategoriaNome = null;
@@ -393,7 +389,7 @@
 
           const option = document.createElement("option");
           option.value = docSnap.id;
-          option.textContent = `${comp.nome || 'Competição'} (${comp.dataInicio || 'Sem Data'})`;
+          option.textContent = `${comp.nome} (${comp.dataInicio})`;
           selectCompeticao.appendChild(option);
         });
 
@@ -404,7 +400,6 @@
 
       } catch (error) {
         console.error("Erro ao carregar competições:", error);
-        selectCompeticao.innerHTML = '<option value="">Erro ao carregar lista</option>';
       }
     }
 
@@ -561,42 +556,32 @@
       }
     });
 
-    btnAtivarPainel.addEventListener('click', async () => {
-      try {
-        if (!selectedCategoriaNome) return alert("Selecione uma categoria!");
+    btnAtivarPainel.addEventListener("click", async () => {
+      if (!selectedCompId || !selectedCategoriaNome) {
+        alert("Selecione uma competição e uma categoria primeiro!");
+        return;
+      }
 
-        // Grava na coleção 'transmissao' lida pelo painel.html
-        await setDoc(doc(db, "transmissao", "ativa"), {
-          nomeCategoria: selectedCategoriaNome || "",
-          fase: selectedFase || "CLASSIFICACAO",
-          competicaoId: selectedCompId || "",
-          dataAtiva: selectedCategoriaData || "",
-          regulamento: {
-            numBaterias: currentNumBaterias,
-            corridasPorBateria: currentLimiteGado,
-            classificadosPorBateria: currentClassificados
-          },
-          atualizadoEm: serverTimestamp()
+      try {
+        await updateDoc(doc(db, "competicoes", selectedCompId), {
+          painelAtivo: true,
+          categoriaAtivaPainel: selectedCategoriaNome,
+          faseAtivaPainel: selectedFase,
+          dataAtivaPainel: selectedCategoriaData,
+          atualizadoEm: new Date()
+        });
+
+        await setDoc(doc(db, "painel_global", "ativo"), {
+          competicaoId: selectedCompId,
+          categoriaAtiva: selectedCategoriaNome,
+          faseAtiva: selectedFase,
+          dataAtiva: selectedCategoriaData,
+          atualizadoEm: new Date()
         }, { merge: true });
 
-        // Grava também no painel_global para redundância
-        if (selectedCompId) {
-          await setDoc(doc(db, "painel_global", "ativo"), {
-            competicaoId: selectedCompId,
-            categoriaAtiva: selectedCategoriaNome,
-            faseAtiva: selectedFase,
-            dataAtiva: selectedCategoriaData,
-            numBaterias: currentNumBaterias,
-            limiteGado: currentLimiteGado,
-            classificados: currentClassificados,
-            atualizadoEm: serverTimestamp()
-          }, { merge: true });
-        }
-
-        alert("Painel transmitido e atualizado com sucesso!");
-      } catch (error) {
-        console.error("Erro ao ativar painel:", error);
-        alert("Erro ao ativar painel: " + error.message);
+        alert("📺 Categoria ativada no Painel em tempo real com sucesso! Todos os monitores sincronizados.");
+      } catch (err) {
+        alert("Erro ao ativar painel: " + err.message);
       }
     });
 
@@ -630,30 +615,22 @@
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
 
+      // Se for Fase Classificatória, pega do regulamento normal da competição
       if (selectedFase === "CLASSIFICACAO") {
         const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
         if (catInfo) {
-          currentNumBaterias = parseInt(catInfo.qtdBaterias) || 2;
-          currentLimiteGado = parseInt(catInfo.limiteGado) || 25;
-          currentClassificados = parseInt(catInfo.classificadosPorBateria || catInfo.classificadosLote) || 3;
+          currentNumBaterias = catInfo.qtdBaterias || 2;
+          currentLimiteGado = catInfo.limiteGado || 25;
+          currentClassificados = catInfo.classificadosPorBateria || catInfo.classificadosLote || 3;
         }
       } else {
-        // Busca as configurações salvas na competição para Semifinal/Final ou pega da categoria
-        const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
-
-        currentNumBaterias = parseInt(comp.qtdBateriasFaseEspecial || comp.qtdBateriasSemifinal || catInfo?.qtdBaterias) || 1; 
-        currentLimiteGado = parseInt(comp.limiteGadoFaseEspecial || catInfo?.limiteGado) || 25;
-        
-        // Pega as vagas da semifinal salvas na config, ou da categoria se existir
-        currentClassificados = parseInt(
-          comp.classificadosFaseEspecial || 
-          comp.vagasSemifinal || 
-          catInfo?.classificadosFaseEspecial || 
-          2
-        );
+        // Se for SEMIFINAL ou FINAL, lê os dados dos trios cadastrados na fase para definir os parâmetros
+        // Ou mantém os parâmetros configurados na criação da Semifinal/Final
+        currentNumBaterias = comp.qtdBateriasFaseEspecial || 1; 
+        currentLimiteGado = comp.limiteGadoFaseEspecial || 25;
+        currentClassificados = comp.classificadosFaseEspecial || 5;
       }
 
-      // Atualiza os rótulos na tela
       lblQtdBaterias.innerText = currentNumBaterias;
       lblLimiteGado.innerText = currentLimiteGado;
       lblClassificados.innerText = currentClassificados;
@@ -684,6 +661,31 @@
       });
     }
 
+    btnAtivarPainel.addEventListener("click", async () => {
+      if (!selectedCompId || !selectedCategoriaNome) {
+        alert("Selecione uma competição e uma categoria primeiro!");
+        return;
+      }
+
+      try {
+        // Atualiza no painel_global inclusive os parâmetros das fases Semifinal e Final
+        await setDoc(doc(db, "painel_global", "ativo"), {
+          competicaoId: selectedCompId,
+          categoriaAtiva: selectedCategoriaNome,
+          faseAtiva: selectedFase,
+          dataAtiva: selectedCategoriaData,
+          numBaterias: currentNumBaterias,
+          limiteGado: currentLimiteGado,
+          classificados: currentClassificados,
+          atualizadoEm: new Date()
+        }, { merge: true });
+
+        alert("📺 Categoria e Fase configuradas transmitidas para o Painel!");
+      } catch (err) {
+        alert("Erro ao ativar painel: " + err.message);
+      }
+    });
+
     btnRealizarSorteio.addEventListener("click", async () => {
       if (triosAtuais.length === 0) {
         alert("Não há trios inscritos nesta categoria para sortear!");
@@ -707,7 +709,7 @@
         });
 
         btnEncerrarSorteioLive.style.display = "block";
-        alert("Sorteio realizado! O Painel agora exibe o Sorteio ao Vivo.");
+        alert("Sorteio realizado! O Painel em qualquer PC agora exibe o Sorteio ao Vivo.");
 
       } catch (err) {
         alert("Erro ao realizar sorteio: " + err.message);
@@ -720,7 +722,7 @@
           sorteioStatus: "FINALIZADO"
         });
         btnEncerrarSorteioLive.style.display = "none";
-        alert("Sorteio encerrado!");
+        alert("Sorteio encerrado! O Painel voltou para o monitoramento normal das corridas.");
       } catch (err) {
         alert("Erro ao encerrar exibição: " + err.message);
       }
@@ -971,6 +973,8 @@
         alert("Erro ao gravar resultado: " + err.message);
       }
     }
+
+    let jaFinalizouCategoria = false;
 
     async function verificarEProcessarFinalizacaoCategoria() {
       if (triosAtuais.length === 0 || jaFinalizouCategoria) return;
