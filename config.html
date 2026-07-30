@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações da Prova - Novo Sistema</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #0f172a; color: #f8fafc; }
+    .navbar { background-color: #1e293b; border-bottom: 1px solid #334155; }
+    .card-custom { background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; }
+    .form-control, .form-select { background-color: #0f172a; color: #fff; border: 1px solid #334155; }
+    .form-control:focus, .form-select:focus { background-color: #0f172a; color: #fff; border-color: #2563eb; box-shadow: none; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="#">PROVA DE LAÇO</a>
+      <div class="navbar-nav me-auto">
+        <a class="nav-link active" href="config.html">Parâmetros</a>
+        <a class="nav-link" href="cadastro.html">Inscrições/Trios</a>
+        <a class="nav-link" href="admin.html">Mesa do Juiz</a>
+        <a class="nav-link" href="apuracao.html">Apuração</a>
+        <a class="nav-link" href="telao.html" target="_blank">Telão (OBS)</a>
+        <a class="nav-link" href="relatorios.html">Relatórios</a>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" id="btn-sair">Sair</button>
+    </div>
+  </nav>
+
+  <div class="container mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2>Parâmetros do Campeonato</h2>
+      <button class="btn btn-success fw-bold" id="btn-salvar">Salvar Configurações</button>
+    </div>
+
+    <div id="msg-sucesso" class="alert alert-success d-none">Configurações salvas com sucesso!</div>
+
+    <div class="row g-4">
+      <!-- Dados Gerais -->
+      <div class="col-md-6">
+        <div class="card card-custom p-3 h-100">
+          <h5 class="text-primary border-bottom border-secondary pb-2">Informações do Evento</h5>
+          <div class="mb-3 mt-2">
+            <label class="form-label">Nome do Evento / Prova</label>
+            <input type="text" id="nomeEvento" class="form-control" placeholder="Ex: Grande Grande Prova de Laço 2026">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Categoria Ativa</label>
+            <input type="text" id="categoriaAtiva" class="form-control" placeholder="Ex: Aberta, Amador, Soma 6">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Valor da Inscrição R$</label>
+            <input type="number" id="valorInscricao" class="form-control" step="0.01" placeholder="150.00">
+          </div>
+        </div>
+      </div>
+
+      <!-- Regras de Pista e Baterias -->
+      <div class="col-md-6">
+        <div class="card card-custom p-3 h-100">
+          <h5 class="text-primary border-bottom border-secondary pb-2">Regras de Pista e Baterias</h5>
+          <div class="row">
+            <div class="col-6 mb-3 mt-2">
+              <label class="form-label">Qtd. Baterias (Classificatória)</label>
+              <input type="number" id="qtdBaterias" class="form-control" value="3">
+            </div>
+            <div class="col-6 mb-3 mt-2">
+              <label class="form-label">Tempo Limite de Pista (s)</label>
+              <input type="number" id="tempoLimite" class="form-control" value="30">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Bois por Passada</label>
+              <input type="number" id="boisPorPassada" class="form-control" value="1">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Modo Espelho / Soma</label>
+              <select id="modoEspelho" class="form-select">
+                <option value="desativado">Desativado</option>
+                <option value="soma_idade">Soma de Idade</option>
+                <option value="handicap">Handicap / Soma de Pontos</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Regras de Classificação e Desempate -->
+      <div class="col-md-12">
+        <div class="card card-custom p-3">
+          <h5 class="text-primary border-bottom border-secondary pb-2">Regras de Avanço e Fases</h5>
+          <div class="row">
+            <div class="col-md-4 mb-3 mt-2">
+              <label class="form-label">Trios classificados para Semifinal</label>
+              <input type="number" id="limiteSemifinal" class="form-control" value="20" placeholder="Ex: 20 melhores">
+            </div>
+            <div class="col-md-4 mb-3 mt-2">
+              <label class="form-label">Trios classificados para Final</label>
+              <input type="number" id="limiteFinal" class="form-control" value="10" placeholder="Ex: 10 melhores">
+            </div>
+            <div class="col-md-4 mb-3 mt-2">
+              <label class="form-label">Critério Principal de Desempate</label>
+              <select id="criterioDesempate" class="form-select">
+                <option value="menor_tempo_total">Menor Tempo Total Somado</option>
+                <option value="melhor_tempo_individual">Melhor Tempo de Passada Única</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { db, doc, getDoc, setDoc, checarAutenticacao, signOut, auth } from "./firebase-config.js";
+
+    // Garantir que usuário está autenticado
+    await checarAutenticacao();
+
+    const configRef = doc(db, "parametros", "config_geral");
+
+    // Carregar configurações salvas
+    async function carregarConfiguracoes() {
+      try {
+        const snap = await getDoc(configRef);
+        if (snap.exists()) {
+          const d = snap.data();
+          document.getElementById("nomeEvento").value = d.nomeEvento || "";
+          document.getElementById("categoriaAtiva").value = d.categoriaAtiva || "";
+          document.getElementById("valorInscricao").value = d.valorInscricao || 0;
+          document.getElementById("qtdBaterias").value = d.qtdBaterias || 3;
+          document.getElementById("tempoLimite").value = d.tempoLimite || 30;
+          document.getElementById("boisPorPassada").value = d.boisPorPassada || 1;
+          document.getElementById("modoEspelho").value = d.modoEspelho || "desativado";
+          document.getElementById("limiteSemifinal").value = d.limiteSemifinal || 20;
+          document.getElementById("limiteFinal").value = d.limiteFinal || 10;
+          document.getElementById("criterioDesempate").value = d.criterioDesempate || "menor_tempo_total";
+        }
+      } catch (err) {
+        console.error("Erro ao carregar configurações:", err);
+      }
+    }
+
+    // Salvar alterações
+    document.getElementById("btn-salvar").addEventListener("click", async () => {
+      const dados = {
+        nomeEvento: document.getElementById("nomeEvento").value,
+        categoriaAtiva: document.getElementById("categoriaAtiva").value,
+        valorInscricao: parseFloat(document.getElementById("valorInscricao").value) || 0,
+        qtdBaterias: parseInt(document.getElementById("qtdBaterias").value) || 1,
+        tempoLimite: parseInt(document.getElementById("tempoLimite").value) || 30,
+        boisPorPassada: parseInt(document.getElementById("boisPorPassada").value) || 1,
+        modoEspelho: document.getElementById("modoEspelho").value,
+        limiteSemifinal: parseInt(document.getElementById("limiteSemifinal").value) || 0,
+        limiteFinal: parseInt(document.getElementById("limiteFinal").value) || 0,
+        criterioDesempate: document.getElementById("criterioDesempate").value,
+        atualizadoEm: new Date()
+      };
+
+      try {
+        await setDoc(configRef, dados, { merge: true });
+        const msg = document.getElementById("msg-sucesso");
+        msg.classList.remove("d-none");
+        setTimeout(() => msg.classList.add("d-none"), 3000);
+      } catch (err) {
+        alert("Erro ao salvar: " + err.message);
+      }
+    });
+
+    // Botão Sair
+    document.getElementById("btn-sair").addEventListener("click", () => {
+      signOut(auth).then(() => window.location.href = "index.html");
+    });
+
+    carregarConfiguracoes();
+  </script>
+</body>
+</html>
