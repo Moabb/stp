@@ -85,6 +85,11 @@
     .item-excluir-check:hover { border-color: var(--accent-red); }
     .item-excluir-check input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-red); }
 
+    .header-form { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .header-form h2 { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .btn-nova-comp { background: var(--accent-blue); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; display: none; }
+    .btn-nova-comp:hover { opacity: 0.9; }
+
     .fixar { position: sticky; top: 20px; align-self: start; }
   </style>
 </head>
@@ -102,7 +107,11 @@
   <main class="grid-config">
     
     <section class="secao-card fixar">
-      <h2 id="tituloForm">CRIAR NOVA COMPETIÇÃO</h2>
+      <div class="header-form">
+        <h2 id="tituloForm">CRIAR NOVA COMPETIÇÃO</h2>
+        <button type="button" class="btn-nova-comp" id="btnNovaComp">+ NOVA COMPETIÇÃO</button>
+      </div>
+
       <form id="formCompeticao">
         
         <div class="form-group">
@@ -123,7 +132,6 @@
         
         <div style="display: flex; gap: 10px;">
           <button type="submit" class="btn-salvar" id="btnSalvarComp">Salvar e Criar Competição</button>
-          <button type="button" class="btn-action btn-secondary" id="btnCancelarEdicao" style="display: none;">Cancelar</button>
         </div>
       </form>
     </section>
@@ -132,7 +140,7 @@
       <h2>MINHAS COMPETIÇÕES CADASTRADAS</h2>
       
       <div class="fases-nav">
-        <button class="btn-action btn-fase" id="btnIrAdmin">⏱️ IR PARA PROVA (CLASSIFICATORIAS)</button>
+        <button class="btn-action btn-fase" id="btnIrAdminNav">⏱️ IR PARA PROVA (CLASSIFICATORIAS)</button>
         <button class="btn-action btn-fase" onclick="window.location.href='./semifinais.html'">🔥 Semifinais</button>
         <button class="btn-action btn-fase" onclick="window.location.href='./final.html'">🏆 Final</button>
       </div>
@@ -199,7 +207,7 @@
     const containerCategorias = document.getElementById("containerCategorias");
     const btnAddCategoria = document.getElementById("btnAddCategoria");
     const btnSalvarComp = document.getElementById("btnSalvarComp");
-    const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
+    const btnNovaComp = document.getElementById("btnNovaComp");
     const tituloForm = document.getElementById("tituloForm");
 
     const modalExcluir = document.getElementById("modalExcluir");
@@ -260,6 +268,7 @@
         return;
       }
       currentUser = user;
+      document.getElementById("dataComp").value = new Date().toISOString().split('T')[0];
       carregarCompeticoes();
     });
 
@@ -299,9 +308,9 @@
             categorias: categorias,
             atualizadoEm: new Date()
           });
-          alert("Competição e regulamentos atualizados com sucesso!");
+          alert("Competição e categorias atualizadas com sucesso!");
         } else {
-          await addDoc(collection(db, "competicoes"), {
+          const docRef = await addDoc(collection(db, "competicoes"), {
             organizadorId: currentUser.uid,
             nome: nomeComp,
             dataInicio: dataComp,
@@ -309,11 +318,18 @@
             criadoEm: new Date(),
             status: "ATIVA"
           });
-          alert("Competição criada com sucesso!");
+
+          // Define a recém-criada no modo edição do formulário
+          modoEdicaoId = docRef.id;
+          alert("Competição criada com sucesso! Você pode continuar editando ou adicionando categorias.");
         }
 
-        resetarFormulario();
-        carregarCompeticoes();
+        await carregarCompeticoes();
+        
+        // Garante que o painel continue no modo de edição da competição ativa
+        if (modoEdicaoId) {
+          carregarParaEdicao(modoEdicaoId);
+        }
 
       } catch (error) {
         console.error("Erro no Firestore:", error);
@@ -326,18 +342,18 @@
     function resetarFormulario() {
       modoEdicaoId = null;
       document.getElementById("formCompeticao").reset();
+      document.getElementById("dataComp").value = new Date().toISOString().split('T')[0];
       containerCategorias.innerHTML = "";
       tituloForm.innerText = "CRIAR NOVA COMPETIÇÃO";
       btnSalvarComp.innerText = "Salvar e Criar Competição";
-      btnCancelarEdicao.style.display = "none";
+      btnNovaComp.style.display = "none";
       adicionarCampoCategoria();
     }
 
-    btnCancelarEdicao.addEventListener("click", resetarFormulario);
+    btnNovaComp.addEventListener("click", resetarFormulario);
 
     async function carregarCompeticoes() {
       const listaProvas = document.getElementById("listaProvas");
-      listaProvas.innerHTML = "<p style='color:#888;'>Carregando competições...</p>";
 
       try {
         const q = query(
@@ -532,6 +548,12 @@
 
         alert("Competição(ões) excluída(s) com sucesso!");
         fecharModalExclusao();
+        
+        // Se a competição em edição foi excluída, limpa o formulário
+        if (selecionados.includes(modoEdicaoId)) {
+          resetarFormulario();
+        }
+        
         carregarCompeticoes();
       } catch (error) {
         console.error("Erro ao excluir competição:", error);
@@ -549,7 +571,7 @@
       modoEdicaoId = compId;
       tituloForm.innerText = "EDITAR COMPETIÇÃO / REGULAMENTO";
       btnSalvarComp.innerText = "Atualizar Competição";
-      btnCancelarEdicao.style.display = "inline-block";
+      btnNovaComp.style.display = "inline-block";
 
       document.getElementById("nomeComp").value = comp.nome || "";
       document.getElementById("dataComp").value = comp.dataInicio || "";
@@ -580,6 +602,9 @@
     }
 
     document.getElementById("btnIrAdmin").addEventListener("click", () => {
+      window.location.href = "./admin.html";
+    });
+    document.getElementById("btnIrAdminNav").addEventListener("click", () => {
       window.location.href = "./admin.html";
     });
 
