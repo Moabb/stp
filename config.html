@@ -269,7 +269,21 @@
       }
       currentUser = user;
       document.getElementById("dataComp").value = new Date().toISOString().split('T')[0];
-      carregarCompeticoes();
+      
+      // Carrega as competições do banco de dados
+      await carregarCompeticoes();
+
+      // Se houver uma competição ativa/selecionada no localStorage, carrega no modo de edição automaticamente
+      const selectedCompId = localStorage.getItem("selectedCompId");
+      if (selectedCompId && competicoesCache[selectedCompId]) {
+        carregarParaEdicao(selectedCompId);
+      } else {
+        // Se não houver nada salvo, pega a primeira competição disponível no cache para editar
+        const ids = Object.keys(competicoesCache);
+        if (ids.length > 0) {
+          carregarParaEdicao(ids[0]);
+        }
+      }
     });
 
     document.getElementById("formCompeticao").addEventListener("submit", async (e) => {
