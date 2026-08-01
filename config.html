@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1Gerenciamento de Provas - Team Penning</title>
+  <title>Gerenciamento de Provas - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
   <style>
     :root {
@@ -300,36 +300,43 @@
         btnSalvarComp.disabled = true;
         btnSalvarComp.innerText = "Salvando...";
 
+        const dadosComp = {
+          organizadorId: currentUser.uid,
+          nome: nomeComp,
+          dataInicio: dataComp,
+          categorias: categorias
+        };
+
         if (modoEdicaoId) {
           const compRef = doc(db, "competicoes", modoEdicaoId);
           await updateDoc(compRef, {
-            nome: nomeComp,
-            dataInicio: dataComp,
-            categorias: categorias,
+            ...dadosComp,
             atualizadoEm: new Date()
           });
           alert("Competição e categorias atualizadas com sucesso!");
         } else {
           const docRef = await addDoc(collection(db, "competicoes"), {
-            organizadorId: currentUser.uid,
-            nome: nomeComp,
-            dataInicio: dataComp,
-            categorias: categorias,
+            ...dadosComp,
             criadoEm: new Date(),
             status: "ATIVA"
           });
 
           // Define a recém-criada no modo edição do formulário
           modoEdicaoId = docRef.id;
-          alert("Competição criada com sucesso! Você pode continuar editando ou adicionando categorias.");
+          alert("Competição criada com sucesso!");
         }
 
+        // Atualiza o cache local imediatamente com os dados salvos
+        competicoesCache[modoEdicaoId] = {
+          ...competicoesCache[modoEdicaoId],
+          ...dadosComp
+        };
+
+        // Recarrega a lista do lado direito
         await carregarCompeticoes();
         
-        // Garante que o painel continue no modo de edição da competição ativa
-        if (modoEdicaoId) {
-          carregarParaEdicao(modoEdicaoId);
-        }
+        // Garante a transição visual do formulário esquerdo para o modo "EDITAR COMPETIÇÃO / REGULAMENTO"
+        carregarParaEdicao(modoEdicaoId);
 
       } catch (error) {
         console.error("Erro no Firestore:", error);
