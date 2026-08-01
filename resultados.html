@@ -212,8 +212,15 @@
 
       // Mapeia o termo da aba para a chave correspondente da 'fase' no banco de dados
       let faseBanco = "CLASSIFICACAO";
-      if (faseAtual === "semifinal") faseBanco = "SEMIFINAL";
-      if (faseAtual === "final") faseBanco = "FINAL";
+      let tituloFase = "Classificatórias";
+
+      if (faseAtual === "semifinal") {
+        faseBanco = "SEMIFINAL";
+        tituloFase = "Semifinal";
+      } else if (faseAtual === "final") {
+        faseBanco = "FINAL";
+        tituloFase = "Grande Final";
+      }
 
       let triosDocs = [];
       try {
@@ -228,17 +235,14 @@
       }
 
       for (const cat of categorias) {
-        const cardCat = document.createElement("div");
-        cardCat.className = "card-categoria";
-
-        // Filtra os trios que já concluíram a corrida na fase selecionada
+        // Filtra os trios estritamente para a fase atual selecionada na aba
         const resultadosCat = triosDocs.filter(i => {
           const faseTrio = i.fase || "CLASSIFICACAO";
           const tempoOk = (i.status === "OK" && i.tempo !== null && i.tempo !== undefined) || i.status === "SAT" || i.status === "DO";
           return i.categoria === cat.nome && faseTrio === faseBanco && tempoOk;
         });
 
-        // Ordena colocando tempos válidos primeiro (do menor para o maior) e penalidades por último
+        // Ordena os resultados da categoria selecionada
         resultadosCat.sort((a, b) => {
           if (a.status === "OK" && b.status === "OK") {
             return parseFloat(a.tempo) - parseFloat(b.tempo);
@@ -294,9 +298,8 @@
           });
         }
 
-        let tituloFase = "Classificatórias";
-        if (faseAtual === "semifinal") tituloFase = "Semifinal";
-        if (faseAtual === "final") tituloFase = "Grande Final";
+        const cardCat = document.createElement("div");
+        cardCat.className = "card-categoria";
 
         cardCat.innerHTML = `
           <div class="card-categoria-header">
