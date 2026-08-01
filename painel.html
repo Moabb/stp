@@ -3,216 +3,598 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telão / Transmissão OBS - Team Penning</title>
+  <title>Painel Oficial em Tempo Real - Team Penning</title>
   <script type="module" src="./firebase-config.js"></script>
+
   <style>
     :root {
       --bg-dark: #0a0a0a;
       --card-bg: #141414;
       --accent-gold: #ffb703;
       --accent-green: #2a9d8f;
-      --text-light: #ffffff;
-      --border-color: #222;
+      --accent-blue: #0077b6;
+      --danger-red: #e76f51;
+      --text-light: #f8f9fa;
+      --border-color: #282828;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
-    body { background-color: var(--bg-dark); color: var(--text-light); padding: 30px; overflow-x: hidden; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 15px; overflow-x: hidden; }
 
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent-gold); padding-bottom: 15px; margin-bottom: 25px; }
-    header h1 { color: var(--accent-gold); font-size: 2.2rem; text-transform: uppercase; letter-spacing: 1px; }
+    header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      border-bottom: 2px solid var(--accent-gold); 
+      margin-bottom: 15px; 
+      background: var(--card-bg);
+      padding: 12px 20px;
+      border-radius: 8px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
 
-    .badge-status { background: var(--accent-green); color: #fff; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 1rem; text-transform: uppercase; }
+    header h1 { 
+      color: var(--accent-gold); 
+      font-size: 1.3rem; 
+      text-transform: uppercase; 
+      letter-spacing: 1px;
+      word-break: break-word; 
+    }
 
-    .grid-painel { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
-    @media (max-width: 1000px) { .grid-painel { grid-template-columns: 1fr; } }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      width: auto;
+    }
 
-    .card-painel { background: var(--card-bg); border-radius: 12px; padding: 25px; border: 1px solid var(--border-color); }
-    .card-painel h2 { color: var(--accent-gold); font-size: 1.5rem; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; }
+    .select-comp {
+      background: #1c1c1c;
+      color: var(--accent-gold);
+      border: 1px solid var(--accent-gold);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      outline: none;
+      cursor: pointer;
+      max-width: 100%;
+    }
 
-    .tabela-ranking { width: 100%; border-collapse: collapse; }
-    .tabela-ranking th { font-size: 1.1rem; color: var(--accent-gold); padding: 12px; text-align: left; background: #1f1f1f; border-bottom: 2px solid var(--border-color); }
-    .tabela-ranking td { padding: 14px 12px; border-bottom: 1px solid #222; font-size: 1.1rem; }
+    .badge-etapa { 
+      background: var(--accent-blue); 
+      color: #fff; 
+      padding: 6px 14px; 
+      border-radius: 6px; 
+      font-weight: bold; 
+      font-size: 0.85rem; 
+      text-align: center;
+      white-space: normal;
+      word-break: break-word;
+      max-width: 100%;
+    }
 
-    .linha-classificado { background: rgba(42, 157, 143, 0.15); border-left: 4px solid var(--accent-green); }
-    .posicao-destaque { font-weight: bold; color: var(--accent-gold); font-size: 1.3rem; }
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+        padding: 12px;
+      }
+      .header-controls {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+      }
+      .select-comp, .badge-etapa {
+        width: 100%;
+      }
+    }
+
+    .painel-container { display: flex; flex-direction: column; gap: 15px; }
+
+    .painel-card { 
+      background-color: var(--card-bg); 
+      border-radius: 8px; 
+      padding: 15px; 
+      border: 1px solid var(--border-color); 
+    }
+    .painel-card h2 { 
+      color: var(--accent-gold); 
+      font-size: 1.1rem; 
+      margin-bottom: 10px; 
+      border-bottom: 1px solid var(--border-color); 
+      padding-bottom: 6px; 
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .titulo-categoria-bloco {
+      color: var(--accent-gold);
+      font-size: 1rem;
+      text-transform: uppercase;
+      margin: 15px 0 10px 0;
+      padding-left: 8px;
+      border-left: 4px solid var(--accent-gold);
+    }
+
+    .grid-baterias { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); 
+      gap: 15px; 
+      margin-bottom: 15px;
+    }
+    .bateria-box { 
+      background: #1c1c1c; 
+      border-radius: 6px; 
+      border: 1px solid #333; 
+      padding: 10px; 
+    }
+    .bateria-header { 
+      font-weight: bold; 
+      color: var(--accent-green); 
+      border-bottom: 1px solid #333; 
+      padding-bottom: 5px; 
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .tabela-container { overflow-x: auto; max-height: 450px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+    th { color: var(--accent-gold); background: #1c1c1c; position: sticky; top: 0; }
+    tr:nth-child(even) { background-color: #121212; }
+
+    tr.correndo-agora { background-color: rgba(255, 183, 3, 0.25) !important; border-left: 5px solid var(--accent-gold); }
+    .badge-classificado { background: var(--accent-green); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; display: inline-block; margin-top: 2px; }
+    
+    .badge-corte { background: var(--accent-gold); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; margin-top: 2px; }
+    tr.linha-corte { background-color: rgba(255, 183, 3, 0.12) !important; border-bottom: 2px dashed var(--accent-gold); }
+
+    .badge-status { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
+    .status-aguardando { background: #444; color: #fff; }
+
+    .modal-sorteio-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: radial-gradient(circle, #1a1a2e 0%, #0f0f1a 100%);
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      padding: 30px;
+      overflow-y: auto;
+    }
+
+    .sorteio-header {
+      text-align: center;
+      margin-bottom: 25px;
+      border-bottom: 3px solid var(--accent-gold);
+      padding-bottom: 15px;
+    }
+    
+    .sorteio-header h2 {
+      font-size: 2.2rem;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      animation: pulso 2s infinite alternate;
+    }
+
+    @keyframes pulso {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.02); }
+    }
+
+    .sorteio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 15px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .card-sorteio-item {
+      background: #22223b;
+      border: 1px solid #4a4e69;
+      border-left: 6px solid var(--accent-gold);
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .badge-ordem-sorteio {
+      background: var(--accent-gold);
+      color: #000;
+      font-size: 1.4rem;
+      font-weight: 800;
+      padding: 8px 14px;
+      border-radius: 6px;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .info-trio-sorteio strong {
+      font-size: 1.1rem;
+      color: #fff;
+      display: block;
+    }
+
+    .info-trio-sorteio span {
+      font-size: 0.85rem;
+      color: var(--accent-green);
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
-  <header>
-    <div>
-      <h1 id="txtTituloEvento">CARREGANDO EVENTO...</h1>
-      <p id="txtSubtituloCategoria" style="color: #aaa; font-size: 1.1rem; margin-top: 5px;">Selecione a competição ativa</p>
+  <div class="modal-sorteio-overlay" id="modalSorteioLive">
+    <div class="sorteio-header">
+      <h2>🎲 SORTEIO DA ORDEM DE ENTRADA (START LIST)</h2>
+      <p style="color: #ccc; font-size: 1.2rem;" id="subtituloSorteio">Definindo a ordem de pista oficial...</p>
     </div>
-    <div class="badge-status" id="badgeFase">AO VIVO</div>
+    <div class="sorteio-grid" id="containerSorteioTrios"></div>
+  </div>
+
+  <header>
+    <h1 id="txtNomeCompeticao">📺 PAINEL OFICIAL DE RESULTADOS</h1>
+    
+    <div class="header-controls">
+      <select id="selectCompeticao" class="select-comp">
+        <option value="">-- Selecione o Evento --</option>
+      </select>
+      <div class="badge-etapa" id="txtEtapaAtiva">Aguardando Seleção...</div>
+    </div>
   </header>
 
-  <div class="grid-painel">
+  <div class="painel-container">
 
-    <!-- COLUNA PRINCIPAL: RANKING DA CATEGORIA -->
-    <main class="card-painel">
+    <section class="painel-card">
       <h2>
-        <span>CLASSIFICAÇÃO GERAL</span>
-        <span id="txtLimiteCorte" style="font-size: 0.9rem; color: var(--accent-green);">Corte: Top 5</span>
+        <span>🏆 RESULTADOS DAS BATERIAS (TEMPO REAL)</span>
+        <small id="txtRegraClassificacao" style="font-size:0.8rem; color:#aaa;"></small>
       </h2>
-      
-      <table class="tabela-ranking">
-        <thead>
-          <tr>
-            <th>Pos</th>
-            <th>Senha</th>
-            <th>Integrantes / Trio</th>
-            <th>Tempo</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyRanking">
-          <tr><td colspan="4" style="color: #888; text-align: center;">Aguardando dados da competição...</td></tr>
-        </tbody>
-      </table>
-    </main>
-
-    <!-- COLUNA LATERAL: INFORMAÇÕES ADICIONAIS -->
-    <aside class="card-painel">
-      <h2>REGRAS DA FASE</h2>
-      <div id="boxRegras" style="font-size: 1.05rem; line-height: 1.8; color: #ccc;">
-        <p>Selecione uma competição ativa no Admin para visualizar as regras no telão.</p>
+      <div id="containerBaterias">
+        <p style="color: #888;">Selecione um evento para visualizar os dados...</p>
       </div>
-    </aside>
+    </section>
+
+    <section class="painel-card">
+      <h2>⏱️ SEQUÊNCIA DA PISTA (SUBINDO A FILA DE CORRIDAS)</h2>
+      <div class="tabela-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Ordem</th>
+              <th>Bateria</th>
+              <th>Senha</th>
+              <th>Integrantes do Trio</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbTriosPainel">
+            <tr><td colspan="5" style="text-align:center; color:#888;">Aguardando seleção de evento...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
   </div>
 
   <script type="module">
     import { 
       db, 
+      doc,
       collection, 
-      getDoc, 
-      getDocs, 
       query, 
       where, 
-      doc, 
-      onSnapshot 
+      onSnapshot,
+      getDocs 
     } from "./firebase-config.js";
 
+    const urlParams = new URLSearchParams(window.location.search);
+    let selectedCompId = urlParams.get("compId") || localStorage.getItem("selectedCompId") || null;
+
     let competicaoAtiva = null;
-    let categoriaAtualNome = null;
+    let triosPainel = [];
+    let unsubComp = null;
+    let unsubTrios = null;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const compId = localStorage.getItem("selectedCompId");
-      categoriaAtualNome = localStorage.getItem("selectedCatNome");
+    const selectCompeticao = document.getElementById("selectCompeticao");
+    const txtNomeCompeticao = document.getElementById("txtNomeCompeticao");
+    const txtEtapaAtiva = document.getElementById("txtEtapaAtiva");
+    const containerBaterias = document.getElementById("containerBaterias");
+    const tbTriosPainel = document.getElementById("tbTriosPainel");
+    const txtRegraClassificacao = document.getElementById("txtRegraClassificacao");
 
+    const modalSorteioLive = document.getElementById("modalSorteioLive");
+    const subtituloSorteio = document.getElementById("subtituloSorteio");
+    const containerSorteioTrios = document.getElementById("containerSorteioTrios");
+
+    function calcularBateria(ordemPista, tamanhoLote, numBaterias) {
+      if (!ordemPista || ordemPista <= 0) return 1;
+      const qtdBaterias = numBaterias || 2;
+      const loteTam = tamanhoLote || 25;
+      const indiceLote = Math.floor((ordemPista - 1) / loteTam);
+      return (indiceLote % qtdBaterias) + 1;
+    }
+
+    async function carregarListaCompeticoes() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "competicoes"));
+        selectCompeticao.innerHTML = '<option value="">-- Selecione o Evento --</option>';
+
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const option = document.createElement("option");
+          option.value = docSnap.id;
+          option.textContent = data.nome ? data.nome.toUpperCase() : `EVENTO #${docSnap.id.substring(0,5)}`;
+          selectCompeticao.appendChild(option);
+        });
+
+        if (selectedCompId) {
+          selectCompeticao.value = selectedCompId;
+          iniciarEscutaPainel(selectedCompId);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar competições:", err);
+      }
+    }
+
+    selectCompeticao.addEventListener("change", (e) => {
+      const compId = e.target.value;
       if (compId) {
-        escutarCompeticao(compId);
+        selectedCompId = compId;
+        localStorage.setItem("selectedCompId", compId);
+        
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set("compId", compId);
+        window.history.pushState({}, "", newUrl);
+
+        iniciarEscutaPainel(compId);
       }
     });
 
-    function escutarCompeticao(compId) {
-      const compRef = doc(db, "competicoes", compId);
-      
-      onSnapshot(compRef, (docSnap) => {
+    function iniciarEscutaPainel(compId) {
+      if (unsubComp) unsubComp();
+
+      unsubComp = onSnapshot(doc(db, "competicoes", compId), (docSnap) => {
         if (!docSnap.exists()) return;
 
         competicaoAtiva = { id: docSnap.id, ...docSnap.data() };
-        document.getElementById("txtTituloEvento").innerText = competicaoAtiva.nome || "EVENTO DE TEAM PENNING";
+        txtNomeCompeticao.innerText = competicaoAtiva.nome ? `📺 ${competicaoAtiva.nome.toUpperCase()}` : "📺 PAINEL OFICIAL";
 
-        if (!categoriaAtualNome && competicaoAtiva.categorias && competicaoAtiva.categorias.length > 0) {
-          categoriaAtualNome = competicaoAtiva.categorias[0].nome;
+        verificarSorteioLive();
+
+        const catNome = competicaoAtiva.categoriaAtivaPainel || competicaoAtiva.categoriaEmSorteio;
+        const faseNome = competicaoAtiva.faseAtivaPainel || competicaoAtiva.faseEmSorteio || "CLASSIFICACAO";
+        const dataNome = competicaoAtiva.dataAtivaPainel || "";
+
+        if (catNome) {
+          txtEtapaAtiva.innerText = `${faseNome} • ${catNome} (${dataNome})`;
+          escutarTriosEtapa(compId, catNome, faseNome, dataNome);
+        } else {
+          txtEtapaAtiva.innerText = "Sem categoria em andamento";
+          containerBaterias.innerHTML = '<p style="color:#888;">Nenhuma prova em andamento nesta competição.</p>';
+          tbTriosPainel.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888;">Aguardando início das corridas...</td></tr>';
         }
-
-        renderizarRegrasFase();
-        escutarRanking(compId, categoriaAtualNome);
       });
     }
 
-    // EXTRAÇÃO UNIFICADA DAS REGRAS SALVAS NO ARRAY 'categorias'
-    function obterRegrasCategoriaAtiva(nomeCategoriaAtiva) {
-      if (!competicaoAtiva || !competicaoAtiva.categorias) return null;
-
-      const cat = competicaoAtiva.categorias.find(c => c.nome === nomeCategoriaAtiva);
-      if (!cat) return null;
-
-      return {
-        nome: cat.nome,
-        fase: cat.fase || "CLASSIFICACAO",
-        corteClassificados: parseInt(cat.classificadosPorBateria || 5), 
-        limiteCorridas: parseInt(cat.limiteGado || cat.corridasPorBateria || 1)
-      };
+    function verificarSorteioLive() {
+      if (competicaoAtiva && competicaoAtiva.sorteioStatus === "EXIBINDO") {
+        modalSorteioLive.style.display = "flex";
+        subtituloSorteio.innerText = `CATEGORIA: ${competicaoAtiva.categoriaEmSorteio || ''} | FASE: ${competicaoAtiva.faseEmSorteio || 'CLASSIFICACAO'}`;
+      } else {
+        modalSorteioLive.style.display = "none";
+      }
     }
 
-    function renderizarRegrasFase() {
-      const regras = obterRegrasCategoriaAtiva(categoriaAtualNome);
-      const boxRegras = document.getElementById("boxRegras");
+    function escutarTriosEtapa(compId, catNome, faseNome, dataNome) {
+      if (unsubTrios) unsubTrios();
 
-      if (!regras) {
-        boxRegras.innerHTML = "<p>Nenhuma categoria ativa selecionada.</p>";
-        return;
+      let categoriasParaBuscar = [catNome];
+      
+      if (competicaoAtiva && competicaoAtiva.vinculoEmbutido) {
+        if (competicaoAtiva.vinculoEmbutido.catPai === catNome) {
+          categoriasParaBuscar.push(competicaoAtiva.vinculoEmbutido.catEspelho);
+        }
       }
 
-      document.getElementById("txtSubtituloCategoria").innerText = `CATEGORIA: ${regras.nome}`;
-      document.getElementById("badgeFase").innerText = regras.fase;
-      document.getElementById("txtLimiteCorte").innerText = `Zona de Classificação: Top ${regras.corteClassificados}`;
+      let q;
+      if (categoriasParaBuscar.length > 1) {
+        q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", compId),
+          where("categoria", "in", categoriasParaBuscar),
+          where("fase", "==", faseNome)
+        );
+      } else {
+        q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", compId),
+          where("categoria", "==", catNome),
+          where("fase", "==", faseNome)
+        );
+      }
 
-      boxRegras.innerHTML = `
-        <p><strong>Fase Atual:</strong> ${regras.fase}</p>
-        <p><strong>Limite de Gado/Corridas:</strong> ${regras.limiteCorridas}</p>
-        <p><strong>Vagas p/ Próxima Fase:</strong> ${regras.corteClassificados} Trios</p>
-      `;
-    }
-
-    function escutarRanking(compId, nomeCategoria) {
-      if (!nomeCategoria) return;
-
-      const q = query(
-        collection(db, "trios"),
-        where("competicaoId", "==", compId),
-        where("categoria", "==", nomeCategoria),
-        where("status", "==", "CORREU")
-      );
-
-      onSnapshot(q, (snapshot) => {
-        const trios = [];
+      unsubTrios = onSnapshot(q, (snapshot) => {
+        triosPainel = [];
         snapshot.forEach(docSnap => {
-          trios.push({ id: docSnap.id, ...docSnap.data() });
+          triosPainel.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        trios.sort((a, b) => (a.melhorTempo || 9999) - (b.melhorTempo || 9999));
-        renderizarTabelaPainel(trios);
+        triosPainel.sort((a, b) => (a.ordemPista || a.senha) - (b.ordemPista || b.senha));
+
+        txtRegraClassificacao.innerText = `Baterias individuais conforme regulamento configurado`;
+
+        renderizarLinha1BateriasSeparadas(triosPainel, categoriasParaBuscar);
+        
+        const catConfigPai = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catNome) : null;
+        const numBateriasPai = catConfigPai ? catConfigPai.qtdBaterias : 2;
+        const tamanhoLotePai = catConfigPai ? catConfigPai.limiteGado : 25;
+        renderizarLinha2FilaDinamica(triosPainel, tamanhoLotePai, numBateriasPai);
+
+        if (competicaoAtiva.sorteioStatus === "EXIBINDO") {
+          renderizarCardsSorteio(triosPainel);
+        }
       });
     }
 
-    function renderizarTabelaPainel(trios) {
-      const tbody = document.getElementById("tbodyRanking");
-      tbody.innerHTML = "";
+    function renderizarLinha1BateriasSeparadas(trios, listaCategorias) {
+      containerBaterias.innerHTML = "";
 
-      if (trios.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="color: #888; text-align: center;">Nenhum tempo registrado nesta categoria até o momento.</td></tr>';
+      listaCategorias.forEach(catAtual => {
+        const triosDaCategoria = trios.filter(t => t.categoria === catAtual);
+
+        const catConfig = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catAtual) : null;
+        const numBaterias = catConfig ? (catConfig.qtdBaterias || 2) : 2;
+        const tamanhoLote = catConfig ? (catConfig.limiteGado || 25) : 25;
+        const vagas = catConfig ? (catConfig.classificadosPorBateria || catConfig.classificadosLote || 3) : 3;
+
+        if (listaCategorias.length > 1) {
+          const tituloCat = document.createElement("div");
+          tituloCat.className = "titulo-categoria-bloco";
+          tituloCat.innerText = `CATEGORIA: ${catAtual.toUpperCase()}`;
+          containerBaterias.appendChild(tituloCat);
+        }
+
+        const gridCat = document.createElement("div");
+        gridCat.className = "grid-baterias";
+
+        const baterias = {};
+        for (let i = 1; i <= numBaterias; i++) {
+          baterias[i] = [];
+        }
+
+        triosDaCategoria.forEach(trio => {
+          const ordemNum = trio.ordemPista || trio.senha;
+          const batNum = calcularBateria(ordemNum, tamanhoLote, numBaterias);
+          if (baterias[batNum]) {
+            baterias[batNum].push(trio);
+          }
+        });
+
+        for (let b = 1; b <= numBaterias; b++) {
+          const box = document.createElement("div");
+          box.className = "bateria-box";
+
+          const triosComTempo = baterias[b].filter(t => t.status === "OK" && t.tempo > 0);
+          triosComTempo.sort((a, b) => a.tempo - b.tempo);
+
+          const classificadosExibicao = triosComTempo.slice(0, vagas);
+
+          let linhasHtml = "";
+          if (classificadosExibicao.length === 0) {
+            linhasHtml = '<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum tempo válido</td></tr>';
+          } else {
+            classificadosExibicao.forEach((trio, idx) => {
+              const tempoFormatado = parseFloat(trio.tempo).toFixed(3);
+              
+              const ehCorte = (idx === vagas - 1) || (idx === classificadosExibicao.length - 1 && classificadosExibicao.length === vagas);
+              
+              const badgeTag = ehCorte 
+                ? '<span class="badge-corte">TEMPO DE CORTE</span>' 
+                : '<span class="badge-classificado">CLASSIFICADO</span>';
+              
+              const classeLinha = ehCorte ? 'class="linha-corte"' : '';
+
+              linhasHtml += `
+                <tr ${classeLinha}>
+                  <td><strong>#${idx + 1}</strong></td>
+                  <td>${trio.integrantes ? trio.integrantes.join(" / ") : ""} ${badgeTag}</td>
+                  <td><strong>${tempoFormatado}s</strong></td>
+                </tr>
+              `;
+            });
+          }
+
+          box.innerHTML = `
+            <div class="bateria-header">
+              <span>BATERIA ${b}</span>
+              <small style="color:#aaa;">Vagas: ${vagas}</small>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Pos</th><th>Trio</th><th>Tempo</th></tr>
+              </thead>
+              <tbody>${linhasHtml}</tbody>
+            </table>
+          `;
+
+          gridCat.appendChild(box);
+        }
+
+        containerBaterias.appendChild(gridCat);
+      });
+    }
+
+    function renderizarLinha2FilaDinamica(trios, tamanhoLote, numBaterias) {
+      tbTriosPainel.innerHTML = "";
+
+      // Exibe na fila de pista todos os trios recebidos da etapa (incluindo Feminina/Espelho)
+      const triosPendentes = trios.filter(t => !t.tempo && t.status !== "SAT" && t.status !== "DO" && t.status !== "OK");
+
+      if (triosPendentes.length === 0) {
+        tbTriosPainel.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888; padding: 20px;">🏁 Todos os trios desta categoria já correram!</td></tr>';
         return;
       }
 
-      const regras = obterRegrasCategoriaAtiva(categoriaAtualNome);
-      const limiteCorte = regras ? regras.corteClassificados : 5;
-
-      trios.forEach((trio, index) => {
-        const posicao = index + 1;
-        const estaClassificado = posicao <= limiteCorte;
+      triosPendentes.forEach((trio, index) => {
+        const ordemNum = trio.ordemPista || trio.senha;
+        const ordemStr = trio.ordemPista ? `#${trio.ordemPista}` : "--";
+        const batNum = calcularBateria(ordemNum, tamanhoLote, numBaterias);
+        
+        const ehAtual = (index === 0);
         const tr = document.createElement("tr");
-
-        if (estaClassificado) {
-          tr.className = "linha-classificado";
-        }
-
-        const integrantesStr = trio.integrantes ? trio.integrantes.join(" / ") : "Sem Nomes";
-        const tempoFormatted = trio.melhorTempo ? `${parseFloat(trio.melhorTempo).toFixed(3)}s` : '--';
+        if (ehAtual) tr.className = "correndo-agora";
 
         tr.innerHTML = `
-          <td class="posicao-destaque">#${posicao}</td>
-          <td>${trio.senha || '-'}</td>
-          <td>${integrantesStr}</td>
-          <td style="font-weight: bold; color: var(--accent-gold);">${tempoFormatted}</td>
+          <td><strong>${ordemStr}</strong> ${ehAtual ? '🏃 (NA PISTA AGORA)' : ''}</td>
+          <td>Bat. ${batNum}</td>
+          <td>#${trio.senha}</td>
+          <td>${trio.integrantes ? trio.integrantes.join(" • ") : ""}</td>
+          <td><span class="badge-status status-aguardando">${ehAtual ? 'EM ANDAMENTO' : 'AGUARDANDO'}</span></td>
         `;
 
-        tbody.appendChild(tr);
+        tbTriosPainel.appendChild(tr);
       });
     }
+
+    function renderizarCardsSorteio(trios) {
+      containerSorteioTrios.innerHTML = "";
+      
+      const sorteados = trios.filter(t => t.ordemPista);
+
+      if (sorteados.length === 0) {
+        containerSorteioTrios.innerHTML = '<p style="color:#aaa; text-align:center; grid-column: 1/-1;">Realizando sorteio na mesa diretora...</p>';
+        return;
+      }
+
+      sorteados.forEach(trio => {
+        const card = document.createElement("div");
+        card.className = "card-sorteio-item";
+        card.innerHTML = `
+          <div class="badge-ordem-sorteio">#${trio.ordemPista}</div>
+          <div class="info-trio-sorteio">
+            <strong>${trio.integrantes ? trio.integrantes.join(" • ") : ""}</strong>
+            <span>Senha de Compra: #${trio.senha}</span>
+          </div>
+        `;
+        containerSorteioTrios.appendChild(card);
+      });
+    }
+
+    carregarListaCompeticoes();
   </script>
 </body>
 </html>
