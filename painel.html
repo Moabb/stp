@@ -456,7 +456,12 @@
       listaCategorias.forEach(catAtual => {
         const triosDaCategoria = trios.filter(t => t.categoria === catAtual);
 
-        const catConfig = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catAtual) : null;
+        // Remove prefixos como "Semifinal - " ou "Final - " para buscar o nome exato da categoria no cadastro
+        const nomeCategoriaLimpo = catAtual.replace(/^(Semifinal|Final|CLASSIFICACAO)\s*-\s*/i, "").trim();
+
+        const catConfig = competicaoAtiva.categorias 
+          ? competicaoAtiva.categorias.find(c => c.nome.trim().toLowerCase() === nomeCategoriaLimpo.toLowerCase()) 
+          : null;
         const numBaterias = catConfig ? (catConfig.qtdBaterias || 2) : 2;
         const tamanhoLote = catConfig ? (catConfig.limiteGado || 25) : 25;
         const vagas = catConfig ? (catConfig.classificadosPorBateria || catConfig.classificadosLote || 3) : 3;
