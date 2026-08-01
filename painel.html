@@ -459,10 +459,15 @@
         // Remove prefixos como "Semifinal - " ou "Final - " para buscar o nome exato da categoria no cadastro
         const nomeCategoriaLimpo = catAtual.replace(/^(Semifinal|Final|CLASSIFICACAO)\s*-\s*/i, "").trim();
 
+        // Se for Semifinal ou Final, força 1 bateria (ou a regra específica da fase),
+        // evitando herdar o número de baterias da fase classificatória.
+        const ehFaseEspecial = /^(Semifinal|Final)/i.test(catAtual);
+
         const catConfig = competicaoAtiva.categorias 
           ? competicaoAtiva.categorias.find(c => c.nome.trim().toLowerCase() === nomeCategoriaLimpo.toLowerCase()) 
           : null;
-        const numBaterias = catConfig ? (catConfig.qtdBaterias || 1) : 1;
+
+        const numBaterias = ehFaseEspecial ? 1 : (catConfig ? (catConfig.qtdBaterias || 1) : 1);
         const tamanhoLote = catConfig ? (catConfig.limiteGado || 25) : 25;
         const vagas = catConfig ? (catConfig.classificadosPorBateria || catConfig.classificadosLote || 10) : 10;
 
