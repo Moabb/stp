@@ -462,9 +462,9 @@
         const catConfig = competicaoAtiva.categorias 
           ? competicaoAtiva.categorias.find(c => c.nome.trim().toLowerCase() === nomeCategoriaLimpo.toLowerCase()) 
           : null;
-        const numBaterias = catConfig ? (catConfig.qtdBaterias || 2) : 2;
+        const numBaterias = catConfig ? (catConfig.qtdBaterias || 1) : 1;
         const tamanhoLote = catConfig ? (catConfig.limiteGado || 25) : 25;
-        const vagas = catConfig ? (catConfig.classificadosPorBateria || catConfig.classificadosLote || 3) : 3;
+        const vagas = catConfig ? (catConfig.classificadosPorBateria || catConfig.classificadosLote || 10) : 10;
 
         if (listaCategorias.length > 1) {
           const tituloCat = document.createElement("div");
