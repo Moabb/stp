@@ -60,6 +60,7 @@
 
     .badge-status { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
     .badge-classificado { background: rgba(42, 157, 143, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+    .badge-sat { background: rgba(231, 111, 81, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
 
     .no-data { padding: 20px; text-align: center; color: #888; font-size: 0.9rem; }
   </style>
@@ -209,32 +210,43 @@
         return;
       }
 
-      // Busca todas as corridas/trios cadastrados no banco para esta competição
-      const qInscritos = query(
-        collection(db, "inscricoes"),
-        where("competicaoId", "==", competicaoAtual.id)
-      );
-      
-      let inscritosDocs = [];
+      // Mapeia o termo da aba para a chave correspondente da 'fase' no banco de dados
+      let faseBanco = "CLASSIFICACAO";
+      if (faseAtual === "semifinal") faseBanco = "SEMIFINAL";
+      if (faseAtual === "final") faseBanco = "FINAL";
+
+      let triosDocs = [];
       try {
-        const snapshot = await getDocs(qInscritos);
-        snapshot.forEach(d => inscritosDocs.push({ id: d.id, ...d.data() }));
+        const qTrios = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", competicaoAtual.id)
+        );
+        const snapshot = await getDocs(qTrios);
+        snapshot.forEach(d => triosDocs.push({ id: d.id, ...d.data() }));
       } catch (err) {
-        console.warn("Consulta 'inscricoes' não retornou ou não existe estrutura ainda.", err);
+        console.warn("Erro ao buscar a coleção de trios:", err);
       }
 
       for (const cat of categorias) {
         const cardCat = document.createElement("div");
         cardCat.className = "card-categoria";
 
-        // Filtra inscritos por categoria e pela fase selecionada
-        const resultadosCat = inscritosDocs.filter(i => 
-          i.categoria === cat.nome && 
-          (i.fase === faseAtual || (!i.fase && faseAtual === "classificatoria"))
-        );
+        // Filtra os trios que já concluíram a corrida na fase selecionada
+        const resultadosCat = triosDocs.filter(i => {
+          const faseTrio = i.fase || "CLASSIFICACAO";
+          const tempoOk = (i.status === "OK" && i.tempo !== null && i.tempo !== undefined) || i.status === "SAT" || i.status === "DO";
+          return i.categoria === cat.nome && faseTrio === faseBanco && tempoOk;
+        });
 
-        // Ordenação por menor tempo acumulado (exemplo)
-        resultadosCat.sort((a, b) => (a.tempoTotal || 9999) - (b.tempoTotal || 9999));
+        // Ordena colocando tempos válidos primeiro (do menor para o maior) e penalidades por último
+        resultadosCat.sort((a, b) => {
+          if (a.status === "OK" && b.status === "OK") {
+            return parseFloat(a.tempo) - parseFloat(b.tempo);
+          }
+          if (a.status === "OK") return -1;
+          if (b.status === "OK") return 1;
+          return 0;
+        });
 
         let htmlLinhas = "";
 
@@ -248,8 +260,25 @@
             else if (pos === 2) classePos = "pos-2";
             else if (pos === 3) classePos = "pos-3";
 
-            const cavaleiros = [item.p1, item.p2, item.p3].filter(Boolean).join(" / ") || "Trio não informado";
-            const animais = [item.c1, item.c2, item.c3].filter(Boolean).join(" / ");
+            const cavaleiros = Array.isArray(item.integrantes) ? item.integrantes.join(" / ") : (item.integrantes || "Trio não informado");
+            const animais = item.animais || "";
+
+            let textoTempo = "--";
+            let badgeHtml = "-";
+
+            if (item.status === "OK" && item.tempo) {
+              textoTempo = `${parseFloat(item.tempo).toFixed(2)}s`;
+              const limiteClassificados = cat.classificadosPorBateria || 3;
+              if (pos <= limiteClassificados) {
+                badgeHtml = '<span class="badge-status badge-classificado">Classificado</span>';
+              }
+            } else if (item.status === "SAT") {
+              textoTempo = "SAT";
+              badgeHtml = '<span class="badge-status badge-sat">S.A.T</span>';
+            } else if (item.status === "DO") {
+              textoTempo = "D.O.";
+              badgeHtml = '<span class="badge-status badge-sat">D.O.</span>';
+            }
 
             htmlLinhas += `
               <tr>
@@ -258,10 +287,8 @@
                   <span class="trios-integrantes">${cavaleiros}</span>
                   ${animais ? `<span class="trios-cavalos">🐴 ${animais}</span>` : ''}
                 </td>
-                <td class="tempo-destaque">${item.tempoTotal ? item.tempoTotal.toFixed(3) + 's' : 'SAT'}</td>
-                <td>
-                  ${pos <= (cat.classificadosPorBateria || 3) ? '<span class="badge-status badge-classificado">Classificado</span>' : '-'}
-                </td>
+                <td class="tempo-destaque">${textoTempo}</td>
+                <td>${badgeHtml}</td>
               </tr>
             `;
           });
