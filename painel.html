@@ -322,7 +322,7 @@
 
     function calcularBateria(ordemPista, tamanhoLote, numBaterias) {
       if (!ordemPista || ordemPista <= 0) return 1;
-      const qtdBaterias = numBaterias || 2;
+      const qtdBaterias = numBaterias || 1;
       const loteTam = tamanhoLote || 25;
       const indiceLote = Math.floor((ordemPista - 1) / loteTam);
       return (indiceLote % qtdBaterias) + 1;
@@ -440,7 +440,7 @@
         renderizarLinha1BateriasSeparadas(triosPainel, categoriasParaBuscar);
         
         const catConfigPai = competicaoAtiva.categorias ? competicaoAtiva.categorias.find(c => c.nome === catNome) : null;
-        const numBateriasPai = catConfigPai ? catConfigPai.qtdBaterias : 2;
+        const numBateriasPai = catConfigPai ? catConfigPai.qtdBaterias : 1;
         const tamanhoLotePai = catConfigPai ? catConfigPai.limiteGado : 25;
         renderizarLinha2FilaDinamica(triosPainel, tamanhoLotePai, numBateriasPai);
 
