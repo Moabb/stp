@@ -89,9 +89,7 @@
 
     .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
     .modal-content { background: var(--card-bg); padding: 25px; border-radius: 8px; width: 100%; max-width: 450px; border: 1px solid var(--accent-gold); max-height: 90vh; overflow-y: auto; }
-    .ocultar {
-      display: none;
-    }
+    .ocultar { display: none; }
   </style>
 </head>
 <body>
@@ -108,7 +106,6 @@
   <div class="admin-grid">
 
     <aside>
-      
       <article class="card">
         <h2>1. Seleção e Transmissão</h2>
         <div class="form-group">
@@ -149,11 +146,9 @@
         <h2>4. Inscrições de Última Hora</h2>
         <button class="btn btn-primary" id="btnAbrirModalTrio" disabled>+ Cadastrar Novo Trio (Senha)</button>
       </article>
-
     </aside>
 
     <main>
-      
       <article class="mesa-juiz">
         <h2 style="color: var(--accent-gold); border: none; padding: 0;">⏱️ MESA DO JUIZ DE PISTA</h2>
         
@@ -213,7 +208,6 @@
           </table>
         </div>
       </article>
-
     </main>
 
   </div>
@@ -588,15 +582,10 @@
       }
     });
 
-    // ==========================================
-    // CONTROLES E FLUXO DA MESA DO JUIZ (TECLADO / FOCO / RESET)
-    // ==========================================
-
-    // Coloca o cursor no campo Tempo Final e reseta Bois no Curral para 3
     function resetarEFocarMesaJuiz() {
       inputTempo.value = "";
       inputBoiSorteado.value = "";
-      inputQuantidadeBois.value = "3"; // Voltar automaticamente para 3 Bois
+      inputQuantidadeBois.value = "3";
       
       if (!inputTempo.disabled && trioAtualPista) {
         setTimeout(() => {
@@ -606,10 +595,9 @@
       }
     }
 
-    // 1. Pular do Tempo Final para o Boi Sorteado ao apertar Enter
     inputTempo.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        e.preventDefault(); // Impede submissão precoce do formulário
+        e.preventDefault();
         if (inputTempo.value.trim() !== "") {
           inputBoiSorteado.focus();
           inputBoiSorteado.select();
@@ -617,17 +605,12 @@
       }
     });
 
-    // 2. Atalho do botão Enter para Confirmar Tempo em todo o formulário
     document.getElementById("formLancarResultado").addEventListener("keydown", (e) => {
       if (e.key === "Enter" && e.target !== inputTempo) {
         e.preventDefault();
         btnConfirmarTempo.click();
       }
     });
-
-    // ==========================================
-    // CONTROLES DA MESA
-    // ==========================================
 
     function ativarControles() {
       btnAtivarPainel.disabled = false;
@@ -691,7 +674,6 @@
           await updateDoc(trioEspelhoRef, dadosResultado);
         }
 
-        // Reseta os campos e joga o cursor de volta pro Tempo Final (com 3 Bois selecionados)
         resetarEFocarMesaJuiz();
       } catch (err) {
         alert("Erro ao gravar resultado: " + err.message);
@@ -702,17 +684,22 @@
       const comp = competicoesCache[selectedCompId];
       if (!comp) return;
 
+      const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
+
       if (selectedFase === "CLASSIFICACAO") {
-        const catInfo = comp.categorias ? comp.categorias.find(c => c.nome === selectedCategoriaNome) : null;
         if (catInfo) {
           currentNumBaterias = catInfo.qtdBaterias || 2;
           currentLimiteGado = catInfo.limiteGado || 25;
           currentClassificados = catInfo.classificadosPorBateria || catInfo.classificadosLote || 3;
         }
-      } else {
-        currentNumBaterias = comp.qtdBateriasFaseEspecial || 1; 
-        currentLimiteGado = comp.limiteGadoFaseEspecial || 25;
-        currentClassificados = comp.classificadosFaseEspecial || 5;
+      } else if (selectedFase === "SEMIFINAL") {
+        currentNumBaterias = catInfo?.qtdBateriasSemifinal || comp.qtdBateriasSemifinal || comp.qtdBateriasFaseEspecial || 1; 
+        currentLimiteGado = catInfo?.limiteGadoSemifinal || comp.limiteGadoSemifinal || comp.limiteGadoFaseEspecial || 25;
+        currentClassificados = catInfo?.classificadosSemifinal || comp.classificadosSemifinal || comp.classificadosFaseEspecial || 7;
+      } else if (selectedFase === "FINAL") {
+        currentNumBaterias = catInfo?.qtdBateriasFinal || comp.qtdBateriasFinal || comp.qtdBateriasFaseEspecial || 1; 
+        currentLimiteGado = catInfo?.limiteGadoFinal || comp.limiteGadoFinal || comp.limiteGadoFaseEspecial || 25;
+        currentClassificados = catInfo?.classificadosFinal || comp.classificadosFinal || comp.classificadosFaseEspecial || 10;
       }
 
       lblQtdBaterias.innerText = currentNumBaterias;
