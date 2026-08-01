@@ -71,8 +71,11 @@
     .btn-vincular-emb { background: var(--accent-green); color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
     .btn-vincular-emb:hover { opacity: 0.9; }
 
-    .btn-excluir-no-rodape { width: 100%; padding: 10px; background: rgba(231, 111, 81, 0.15); border: 1px solid var(--accent-red); color: var(--accent-red); font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .btn-excluir-no-rodape { width: 100%; padding: 10px; background: rgba(231, 111, 81, 0.15); border: 1px solid var(--accent-red); color: var(--accent-red); font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
     .btn-excluir-no-rodape:hover { background: var(--accent-red); color: #fff; }
+
+    .btn-finalizar-no-rodape { width: 100%; padding: 10px; background: rgba(42, 157, 143, 0.15); border: 1px solid var(--accent-green); color: var(--accent-green); font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .btn-finalizar-no-rodape:hover { background: var(--accent-green); color: #fff; }
 
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
     .modal-overlay.active { display: flex; }
@@ -152,6 +155,10 @@
       <button type="button" class="btn-excluir-no-rodape" id="btnAbrirModalExcluir">
         🗑️ EXCLUIR COMPETIÇÃO / APAGAR DADOS DO BANCO
       </button>
+
+      <button type="button" class="btn-finalizar-no-rodape" id="btnFinalizarCompeticao">
+        🏁 FINALIZAR COMPETIÇÃO
+      </button>
     </section>
 
   </main>
@@ -217,6 +224,7 @@
     const btnConfirmarExclusao = document.getElementById("btnConfirmarExclusao");
     const listaExcluirCheckboxes = document.getElementById("listaExcluirCheckboxes");
     const checkMarcarTodos = document.getElementById("checkMarcarTodos");
+    const btnFinalizarCompeticao = document.getElementById("btnFinalizarCompeticao");
 
     function adicionarCampoCategoria(nome = "", dataCat = "", baterias = 2, limiteGado = 25, classificados = 3, isFeminino = false) {
       const dataPadrao = dataCat || document.getElementById("dataComp").value || new Date().toISOString().split('T')[0];
@@ -262,6 +270,25 @@
 
     btnAddCategoria.addEventListener("click", () => adicionarCampoCategoria());
 
+    async function verificarEFinalizarPorInatividade(comp, compId) {
+      if (comp.status === "FINALIZADA" || comp.status === "ENCERRADA") return false;
+
+      let ultimaAlteracao = comp.atualizadoEm ? comp.atualizadoEm.toDate() : (comp.criadoEm ? comp.criadoEm.toDate() : null);
+      
+      if (ultimaAlteracao) {
+        const agora = new Date();
+        const diffDias = (agora - ultimaAlteracao) / (1000 * 60 * 60 * 24);
+
+        if (diffDias >= 3) {
+          const compRef = doc(db, "competicoes", compId);
+          await updateDoc(compRef, { status: "FINALIZADA" });
+          comp.status = "FINALIZADA";
+          return true;
+        }
+      }
+      return false;
+    }
+
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
         window.location.href = "./index.html";
@@ -270,15 +297,12 @@
       currentUser = user;
       document.getElementById("dataComp").value = new Date().toISOString().split('T')[0];
       
-      // Carrega as competições do banco de dados
       await carregarCompeticoes();
 
-      // Se houver uma competição ativa/selecionada no localStorage, carrega no modo de edição automaticamente
       const selectedCompId = localStorage.getItem("selectedCompId");
       if (selectedCompId && competicoesCache[selectedCompId]) {
         carregarParaEdicao(selectedCompId);
       } else {
-        // Se não houver nada salvo, pega a primeira competição disponível no cache para editar
         const ids = Object.keys(competicoesCache);
         if (ids.length > 0) {
           carregarParaEdicao(ids[0]);
@@ -318,15 +342,13 @@
           organizadorId: currentUser.uid,
           nome: nomeComp,
           dataInicio: dataComp,
-          categorias: categorias
+          categorias: categorias,
+          atualizadoEm: new Date()
         };
 
         if (modoEdicaoId) {
           const compRef = doc(db, "competicoes", modoEdicaoId);
-          await updateDoc(compRef, {
-            ...dadosComp,
-            atualizadoEm: new Date()
-          });
+          await updateDoc(compRef, dadosComp);
           alert("Competição e categorias atualizadas com sucesso!");
         } else {
           const docRef = await addDoc(collection(db, "competicoes"), {
@@ -335,21 +357,16 @@
             status: "ATIVA"
           });
 
-          // Define a recém-criada no modo edição do formulário
           modoEdicaoId = docRef.id;
           alert("Competição criada com sucesso!");
         }
 
-        // Atualiza o cache local imediatamente com os dados salvos
         competicoesCache[modoEdicaoId] = {
           ...competicoesCache[modoEdicaoId],
           ...dadosComp
         };
 
-        // Recarrega a lista do lado direito
         await carregarCompeticoes();
-        
-        // Garante a transição visual do formulário esquerdo para o modo "EDITAR COMPETIÇÃO / REGULAMENTO"
         carregarParaEdicao(modoEdicaoId);
 
       } catch (error) {
@@ -392,9 +409,12 @@
         competicoesCache = {};
         listaProvas.innerHTML = "";
 
-        snapshot.forEach(docSnap => {
+        for (const docSnap of snapshot.docs) {
           const comp = docSnap.data();
           const compId = docSnap.id;
+          
+          await verificarEFinalizarPorInatividade(comp, compId);
+
           competicoesCache[compId] = comp;
 
           const card = document.createElement("div");
@@ -415,10 +435,12 @@
             ? `<p style="font-size:0.8rem; color:#2a9d8f; margin-top:5px;"><strong>Vínculo Ativo:</strong> ${comp.vinculoEmbutido.catPai} ➔ ${comp.vinculoEmbutido.catEspelho}</p>`
             : '';
 
+          const statusTexto = comp.status === "FINALIZADA" ? " <span style='color:var(--accent-red); font-size:0.8rem;'>(FINALIZADA)</span>" : "";
+
           card.innerHTML = `
             <div class="top-info">
               <div class="info">
-                <h3>${comp.nome}</h3>
+                <h3>${comp.nome}${statusTexto}</h3>
                 <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
               </div>
               <div class="acoes">
@@ -452,7 +474,10 @@
             </div>
           `;
 
-          card.querySelector(".btnEditar").addEventListener("click", () => carregarParaEdicao(compId));
+          card.querySelector(".btnEditar").addEventListener("click", () => {
+            localStorage.setItem("selectedCompId", compId);
+            carregarParaEdicao(compId);
+          });
           card.querySelector(".btnInscritos").addEventListener("click", () => irParaCadastro(compId));
           card.querySelector(".btnVincular").addEventListener("click", () => vincularCategoriaEmbutida(compId));
 
@@ -466,7 +491,7 @@
           }
 
           listaProvas.appendChild(card);
-        });
+        }
       } catch (error) {
         console.error("Erro ao carregar:", error);
         listaProvas.innerHTML = "<p style='color:#e76f51;'>Erro ao carregar competições.</p>";
@@ -497,7 +522,8 @@
             catPai: catPai,
             catEspelho: catEspelho,
             vinculadoEm: new Date()
-          }
+          },
+          atualizadoEm: new Date()
         });
 
         alert(`Vínculo realizado com sucesso!\n\nCategoria Principal (Pista): ${catPai}\nCategoria Embutida (Espelho): ${catEspelho}`);
@@ -535,6 +561,32 @@
       modalExcluir.classList.add("active");
     });
 
+    btnFinalizarCompeticao.addEventListener("click", async () => {
+      const selectedCompId = localStorage.getItem("selectedCompId") || modoEdicaoId;
+
+      if (!selectedCompId) {
+        alert("Nenhuma competição selecionada para finalizar.");
+        return;
+      }
+
+      const confirma = confirm("Deseja realmente FINALIZAR esta competição?\n\nApós finalizar, os participantes e visitantes serão direcionados para a página de Resultados.");
+      if (!confirma) return;
+
+      try {
+        const compRef = doc(db, "competicoes", selectedCompId);
+        await updateDoc(compRef, {
+          status: "FINALIZADA",
+          atualizadoEm: new Date()
+        });
+
+        alert("Competição finalizada com sucesso!");
+        window.location.href = `./resultados.html?compId=${selectedCompId}`;
+      } catch (error) {
+        console.error("Erro ao finalizar competição:", error);
+        alert("Erro ao finalizar competição: " + error.message);
+      }
+    });
+
     function fecharModalExclusao() {
       modalExcluir.classList.remove("active");
     }
@@ -570,7 +622,6 @@
         alert("Competição(ões) excluída(s) com sucesso!");
         fecharModalExclusao();
         
-        // Se a competição em edição foi excluída, limpa o formulário
         if (selecionados.includes(modoEdicaoId)) {
           resetarFormulario();
         }

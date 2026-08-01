@@ -180,7 +180,6 @@
     const abaEmAndamento = document.getElementById("abaEmAndamento");
     const abaFinalizadas = document.getElementById("abaFinalizadas");
 
-    // CARREGAR PROVAS DO FIRESTORE EM TEMPO REAL
     async function carregarProvasGerais() {
       try {
         const querySnapshot = await getDocs(collection(db, "competicoes"));
@@ -219,7 +218,6 @@
         
         card.className = `card-prova ${estaEncerrada ? 'encerrada' : ''}`;
         
-        // Formatação de categorias
         const qtdCats = comp.categorias ? comp.categorias.length : 0;
         const textoData = comp.dataInicio || comp.data || "Data não inf.";
 
@@ -233,16 +231,21 @@
         `;
 
         card.addEventListener("click", () => {
-          // Redireciona para o painel de transmissão / resultados com o ID da prova
           localStorage.setItem("selectedCompId", comp.id);
-          window.location.href = `./painel.html?compId=${comp.id}`;
+          
+          if (estaEncerrada) {
+            // Se for finalizada, redireciona para os resultados da prova escolhida
+            window.location.href = `./resultados.html?compId=${comp.id}`;
+          } else {
+            // Se estiver em andamento, abre a tela do painel/transmissão
+            window.location.href = `./painel.html?compId=${comp.id}`;
+          }
         });
 
         containerProvas.appendChild(card);
       });
     }
 
-    // NAVEGAÇÃO DE ABAS
     abaEmAndamento.addEventListener("click", () => {
       abaAtual = "ANDAMENTO";
       abaEmAndamento.classList.add("ativa");
@@ -257,7 +260,6 @@
       renderizarProvas();
     });
 
-    // SISTEMA DE AUTENTICAÇÃO
     linkToggle.addEventListener("click", () => {
       modoCadastro = !modoCadastro;
       msgErro.style.display = "none";
@@ -354,7 +356,6 @@
       }
     }
 
-    // MONITORAMENTO DE LOGINS E CARREGAMENTO INICIAL
     onAuthStateChanged(auth, (user) => {
       carregarProvasGerais();
 
