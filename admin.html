@@ -3,108 +3,474 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel de Administração</title>
+  <title>Painel do Juiz - Team Penning</title>
+  <script type="module" src="./firebase-config.js"></script>
   <style>
-    body { font-family: sans-serif; padding: 20px; background-color: #f0f2f5; }
-    .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --accent-gold: #ffb703;
+      --accent-green: #2a9d8f;
+      --accent-blue: #0077b6;
+      --danger-red: #e76f51;
+      --text-light: #f8f9fa;
+      --input-bg: #2b2b2b;
+      --border-color: #333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+    header h1 { color: var(--accent-gold); font-size: 1.6rem; text-transform: uppercase; }
+
+    .btn-header { background: var(--accent-gold); color: #000; font-weight: bold; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: 0.2s; text-decoration: none; font-size: 0.85rem; margin-left: 5px; }
+    .btn-header:hover { opacity: 0.9; }
+
+    .grid-admin { display: grid; grid-template-columns: 1fr 350px; gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .grid-admin { grid-template-columns: 1fr; } }
+
+    .card { background-color: var(--card-bg); border-radius: 8px; padding: 20px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+    .card h2 { color: var(--accent-gold); font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+
     .form-group { margin-bottom: 15px; }
-    label { font-weight: bold; display: block; margin-bottom: 5px; }
-    select, input { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
-    .info-box { background: #e9ecef; padding: 15px; border-radius: 6px; margin-top: 15px; }
+    .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; background-color: var(--input-bg); border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 0.95rem; }
+
+    .cronometro-box { font-size: 3.5rem; font-weight: bold; font-family: monospace; color: var(--accent-gold); text-align: center; background: #000; padding: 15px; border-radius: 8px; border: 2px solid var(--accent-gold); margin-bottom: 15px; }
+
+    .btn-acao { width: 100%; padding: 12px; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 1rem; transition: 0.2s; margin-bottom: 10px; color: #fff; }
+    .btn-iniciar { background: var(--accent-green); }
+    .btn-parar { background: var(--danger-red); }
+    .btn-salvar { background: var(--accent-blue); }
+
+    .tabela { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .tabela th, .tabela td { padding: 10px; text-align: left; border-bottom: 1px solid #333; font-size: 0.9rem; }
+    .tabela th { color: var(--accent-gold); background: #1a1a1a; }
+
+    .badge-fase { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; background: var(--accent-blue); color: #fff; }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <h2>Administração de Prova</h2>
-    
-    <div class="form-group">
-      <label for="selectCategoria">Selecione a Categoria / Fase:</label>
-      <select id="selectCategoria">
-        <option value="">Carregando categorias...</option>
-      </select>
+  <header>
+    <h1>⏱️ PAINEL DO JUIZ (ADMIN)</h1>
+    <div>
+      <a href="./config.html" class="btn-header">⚙️ CONFIG</a>
+      <a href="./semifinais.html" class="btn-header">🔥 SEMIFINAIS</a>
+      <a href="./final.html" class="btn-header">🏆 FINAL</a>
+      <a href="./painel.html" target="_blank" class="btn-header" style="background:var(--accent-blue); color:#fff;">📺 TELÃO</a>
+      <button class="btn-header" id="btnSair" style="background:var(--danger-red); color:#fff;">SAIR</button>
     </div>
+  </header>
 
-    <div class="info-box">
-      <h3>Regras da Categoria Selecionada</h3>
-      <p><strong>Número de Baterias:</strong> <span id="valNumBaterias">-</span></p>
-      <p><strong>Limite de Gado por Bateria:</strong> <span id="valLimiteGado">-</span></p>
-      <p><strong>Classificados por Bateria:</strong> <span id="valClassificados">-</span></p>
-    </div>
+  <div class="grid-admin">
+
+    <!-- COLUNA PRINCIPAL: CONTROLE DE PROVA E FILTROS -->
+    <main>
+      <article class="card">
+        <h2>Filtro de Categoria e Bateria</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div class="form-group">
+            <label for="selectCompeticao">Competição:</label>
+            <select id="selectCompeticao">
+              <option value="">Carregando...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="selectCategoria">Categoria / Fase:</label>
+            <select id="selectCategoria">
+              <option value="">Selecione uma competição...</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="infoCategoriaRegras" style="background: #2b2b2b; padding: 10px 15px; border-radius: 6px; margin-top: 5px; font-size: 0.85rem; color: #aaa; display: flex; justify-content: space-between;">
+          <span>Fase: <strong id="lblFase" style="color:#fff;">-</strong></span>
+          <span>Limite Corridas/Gado: <strong id="lblLimiteGado" style="color:#fff;">-</strong></span>
+          <span>Corte P/ Próx. Fase: <strong id="lblCorteClassificados" style="color:#fff;">-</strong></span>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Fila de Trios Inscritos</h2>
+        <div id="containerTabelaTrios">
+          <p style="color: #888;">Selecione a categoria para listar os trios.</p>
+        </div>
+      </article>
+    </main>
+
+    <!-- COLUNA LATERAL: CRONÔMETRO E REGISTRO DE TEMPO -->
+    <aside>
+      <article class="card">
+        <h2>Controle de Tempo</h2>
+        
+        <div class="form-group">
+          <label>Trio Atual Em Pista:</label>
+          <input type="text" id="trioAtualNome" readonly placeholder="Nenhum trio selecionado" style="font-weight: bold; color: var(--accent-gold);">
+        </div>
+
+        <div class="cronometro-box" id="dispCronometro">00:00.00</div>
+
+        <button class="btn-acao btn-iniciar" id="btnStartStop">START / STOP</button>
+        <button class="btn-acao btn-parar" id="btnSAT" style="background: #e63946;">S.A.T. (Sem Apres. Tempo)</button>
+
+        <hr style="border-color: #333; margin: 15px 0;">
+
+        <div class="form-group">
+          <label for="inputTempoManual">Tempo Final (Segundos):</label>
+          <input type="number" step="0.001" id="inputTempoManual" placeholder="0.000">
+        </div>
+
+        <div class="form-group">
+          <label for="inputBoiChave">Boi Chave / Anotações:</label>
+          <input type="text" id="inputBoiChave" placeholder="Ex: Boi 12">
+        </div>
+
+        <button class="btn-acao btn-salvar" id="btnSalvarTempo">💾 Registrar Tempo</button>
+      </article>
+    </aside>
+
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { 
+      auth, 
+      db, 
+      collection, 
+      getDoc, 
+      getDocs, 
+      query, 
+      where, 
+      doc, 
+      updateDoc, 
+      addDoc,
+      onAuthStateChanged,
+      signOut 
+    } from "./firebase-config.js";
 
-    // INSIRA SUA CONFIGURAÇÃO DO FIREBASE AQUI
-    const firebaseConfig = {
-      apiKey: "SUA_API_KEY",
-      authDomain: "SEU_PROJECT_ID.firebaseapp.com",
-      projectId: "SEU_PROJECT_ID",
-      storageBucket: "SEU_PROJECT_ID.appspot.com",
-      messagingSenderId: "SEU_SENDER_ID",
-      appId: "SEU_APP_ID"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // ID da competição ativa no sistema (substitua pelo ID dinâmico da sua aplicação)
-    const competicaoId = "COMPETICAO_ATIVA_ID"; 
+    let currentUser = null;
     let competicaoAtiva = null;
+    let configuracaoAtual = null;
+    let trioSelecionado = null;
+    let triosLista = [];
 
-    let currentNumBaterias = 1;
-    let currentLimiteGado = 25;
-    let currentClassificados = 5;
+    let tempoInicio = 0;
+    let tempoRodando = false;
+    let timerInterval = null;
+    let tempoDecorrido = 0;
 
-    // Escuta alterações na competição em tempo real
-    onSnapshot(doc(db, "competicoes", competicaoId), (docSnap) => {
-      if (docSnap.exists()) {
-        competicaoAtiva = docSnap.data();
-        atualizarSelectCategorias(competicaoAtiva.categorias || []);
+    const selectCompeticao = document.getElementById("selectCompeticao");
+    const selectCategoria = document.getElementById("selectCategoria");
+    const containerTabelaTrios = document.getElementById("containerTabelaTrios");
+    const dispCronometro = document.getElementById("dispCronometro");
+    const trioAtualNome = document.getElementById("trioAtualNome");
+    const inputTempoManual = document.getElementById("inputTempoManual");
+    const btnStartStop = document.getElementById("btnStartStop");
+    const btnSalvarTempo = document.getElementById("btnSalvarTempo");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "./index.html";
+        return;
+      }
+      currentUser = user;
+      carregarCompeticoes();
+    });
+
+    async function carregarCompeticoes() {
+      try {
+        const q = query(
+          collection(db, "competicoes"), 
+          where("organizadorId", "==", currentUser.uid)
+        );
+        const snapshot = await getDocs(q);
+
+        selectCompeticao.innerHTML = '<option value="">-- Selecione uma Competição --</option>';
+
+        if (snapshot.empty) {
+          selectCompeticao.innerHTML = '<option value="">Nenhuma competição cadastrada</option>';
+          return;
+        }
+
+        snapshot.forEach(docSnap => {
+          const comp = { id: docSnap.id, ...docSnap.data() };
+          const option = document.createElement("option");
+          option.value = comp.id;
+          option.textContent = `${comp.nome} (${comp.dataInicio})`;
+          selectCompeticao.appendChild(option);
+        });
+
+        const compSalva = localStorage.getItem("selectedCompId");
+        if (compSalva) {
+          selectCompeticao.value = compSalva;
+          carregarDadosCompeticao(compSalva);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar competições:", err);
+      }
+    }
+
+    selectCompeticao.addEventListener("change", (e) => {
+      const compId = e.target.value;
+      if (compId) {
+        localStorage.setItem("selectedCompId", compId);
+        carregarDadosCompeticao(compId);
+      } else {
+        competicaoAtiva = null;
+        selectCategoria.innerHTML = '<option value="">Selecione uma competição...</option>';
       }
     });
 
-    function atualizarSelectCategorias(categorias) {
-      const select = document.getElementById("selectCategoria");
-      select.innerHTML = '<option value="">-- Selecione --</option>';
+    async function carregarDadosCompeticao(compId) {
+      try {
+        const compRef = doc(db, "competicoes", compId);
+        const compSnap = await getDoc(compRef);
+
+        if (!compSnap.exists()) return;
+
+        competicaoAtiva = { id: compSnap.id, ...compSnap.data() };
+        renderizarSelectCategorias();
+      } catch (err) {
+        console.error("Erro ao carregar documento da competição:", err);
+      }
+    }
+
+    function renderizarSelectCategorias() {
+      selectCategoria.innerHTML = '<option value="">-- Selecione a Categoria / Fase --</option>';
+
+      const categorias = competicaoAtiva.categorias || [];
+      if (categorias.length === 0) {
+        selectCategoria.innerHTML = '<option value="">Nenhuma categoria encontrada</option>';
+        return;
+      }
 
       categorias.forEach(cat => {
         const option = document.createElement("option");
         option.value = cat.nome;
-        option.textContent = cat.nome;
-        select.appendChild(option);
+        option.textContent = `${cat.nome} [${cat.fase || 'CLASSIFICACAO'}]`;
+        selectCategoria.appendChild(option);
       });
+
+      const catSalva = localStorage.getItem("selectedCatNome");
+      if (catSalva && categorias.some(c => c.nome === catSalva)) {
+        selectCategoria.value = catSalva;
+        aoSelecionarCategoria(catSalva);
+      }
     }
 
-    document.getElementById("selectCategoria").addEventListener("change", (e) => {
-      carregarDadosCategoria(e.target.value);
+    selectCategoria.addEventListener("change", (e) => {
+      const nomeCat = e.target.value;
+      if (nomeCat) {
+        localStorage.setItem("selectedCatNome", nomeCat);
+        aoSelecionarCategoria(nomeCat);
+      } else {
+        configuracaoAtual = null;
+        containerTabelaTrios.innerHTML = '<p style="color: #888;">Selecione a categoria para listar os trios.</p>';
+      }
     });
 
-    function carregarDadosCategoria(selectedCategoriaNome) {
-      if (!competicaoAtiva || !selectedCategoriaNome) return;
+    // UNIFICAÇÃO DA LEITURA DE REGRAS DIRETO DO ARRAY 'categorias' EM competicoes
+    function aoSelecionarCategoria(nomeCategoriaSelecionada) {
+      if (!competicaoAtiva || !competicaoAtiva.categorias) return;
 
-      // Busca a configuração exata no array 'categorias' do documento da competição
-      const categorias = competicaoAtiva.categorias || [];
-      const catInfo = categorias.find(c => c.nome.trim().toLowerCase() === selectedCategoriaNome.trim().toLowerCase());
+      const categoriaObj = competicaoAtiva.categorias.find(c => c.nome === nomeCategoriaSelecionada);
 
-      if (catInfo) {
-        currentNumBaterias = catInfo.qtdBaterias || 1;
-        currentLimiteGado = catInfo.limiteGado || 25;
-        currentClassificados = catInfo.classificadosPorBateria || 5;
-      } else {
-        // Regra genérica de fallback se a categoria não estiver cadastrada
-        currentNumBaterias = competicaoAtiva.qtdBateriasFaseEspecial || 1; 
-        currentLimiteGado = competicaoAtiva.limiteGadoFaseEspecial || 25;
-        currentClassificados = competicaoAtiva.classificadosFaseEspecial || 5;
+      if (categoriaObj) {
+        const limiteCorridas = categoriaObj.limiteGado || categoriaObj.corridasPorBateria || 1;
+        const totalBaterias = categoriaObj.qtdBaterias || categoriaObj.numBaterias || 1;
+        const faseAtual = categoriaObj.fase || "CLASSIFICACAO";
+        const corteClassificacao = categoriaObj.classificadosPorBateria || 5;
+
+        configuracaoAtual = {
+          nome: categoriaObj.nome,
+          limiteCorridas: parseInt(limiteCorridas),
+          totalBaterias: parseInt(totalBaterias),
+          classificadosPorBateria: parseInt(corteClassificacao),
+          fase: faseAtual
+        };
+
+        document.getElementById("lblFase").innerText = configuracaoAtual.fase;
+        document.getElementById("lblLimiteGado").innerText = `${configuracaoAtual.limiteCorridas} corrida(s)`;
+        document.getElementById("lblCorteClassificados").innerText = `Top ${configuracaoAtual.classificadosPorBateria}`;
+
+        carregarTriosCategoria(categoriaObj.nome);
+      }
+    }
+
+    async function carregarTriosCategoria(nomeCategoria) {
+      containerTabelaTrios.innerHTML = '<p style="color: #888;">Buscando trios inscritos...</p>';
+
+      try {
+        const q = query(
+          collection(db, "trios"),
+          where("competicaoId", "==", competicaoAtiva.id),
+          where("categoria", "==", nomeCategoria)
+        );
+        const snapshot = await getDocs(q);
+
+        triosLista = [];
+        snapshot.forEach(docSnap => {
+          triosLista.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        triosLista.sort((a, b) => (a.senha || 0) - (b.senha || 0));
+        renderizarTabelaTrios();
+
+      } catch (err) {
+        console.error("Erro ao carregar trios:", err);
+        containerTabelaTrios.innerHTML = '<p style="color: #e76f51;">Erro ao carregar lista de trios.</p>';
+      }
+    }
+
+    function renderizarTabelaTrios() {
+      if (triosLista.length === 0) {
+        containerTabelaTrios.innerHTML = '<p style="color: #888;">Nenhum trio cadastrado nesta categoria.</p>';
+        return;
       }
 
-      // Atualiza os valores exibidos na interface
-      document.getElementById("valNumBaterias").innerText = currentNumBaterias;
-      document.getElementById("valLimiteGado").innerText = currentLimiteGado;
-      document.getElementById("valClassificados").innerText = currentClassificados;
+      let html = `
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th>Senha</th>
+              <th>Integrantes</th>
+              <th>Status</th>
+              <th>Melhor Tempo</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      triosLista.forEach(trio => {
+        const integrantesStr = trio.integrantes ? trio.integrantes.join(" / ") : "Sem Nomes";
+        const tempoExibicao = trio.melhorTempo ? `${parseFloat(trio.melhorTempo).toFixed(3)}s` : '--';
+
+        html += `
+          <tr>
+            <td><strong>#${trio.senha || '-'}</strong></td>
+            <td>${integrantesStr}</td>
+            <td><span class="badge-fase">${trio.status || 'INSCRITO'}</span></td>
+            <td>${tempoExibicao}</td>
+            <td>
+              <button class="btn-header" onclick="window.selecionarTrioParaPista('${trio.id}')" style="background:var(--accent-green); color:#fff;">
+                Chamar Pista
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      containerTabelaTrios.innerHTML = html;
     }
+
+    window.selecionarTrioParaPista = function(trioId) {
+      trioSelecionado = triosLista.find(t => t.id === trioId);
+      if (trioSelecionado) {
+        trioAtualNome.value = `#${trioSelecionado.senha} - ${trioSelecionado.integrantes ? trioSelecionado.integrantes.join(', ') : ''}`;
+        resetarCronometro();
+      }
+    };
+
+    // CONTROLE DO CRONÔMETRO
+    btnStartStop.addEventListener("click", () => {
+      if (!tempoRodando) {
+        tempoInicio = Date.now() - tempoDecorrido;
+        timerInterval = setInterval(atualizarCronometroTela, 10);
+        tempoRodando = true;
+        btnStartStop.innerText = "PAUSAR / STOP";
+        btnStartStop.style.background = "var(--danger-red)";
+      } else {
+        clearInterval(timerInterval);
+        tempoRodando = false;
+        btnStartStop.innerText = "CONTINUAR";
+        btnStartStop.style.background = "var(--accent-green)";
+        inputTempoManual.value = (tempoDecorrido / 1000).toFixed(3);
+      }
+    });
+
+    document.getElementById("btnSAT").addEventListener("click", () => {
+      resetarCronometro();
+      inputTempoManual.value = "999.999";
+    });
+
+    function atualizarCronometroTela() {
+      tempoDecorrido = Date.now() - tempoInicio;
+      const totalSegundos = tempoDecorrido / 1000;
+      const minutos = Math.floor(totalSegundos / 60);
+      const segundos = Math.floor(totalSegundos % 60);
+      const milissegundos = Math.floor((tempoDecorrido % 1000) / 10);
+
+      dispCronometro.innerText = 
+        `${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}.${String(milissegundos).padStart(2, '0')}`;
+    }
+
+    function resetarCronometro() {
+      clearInterval(timerInterval);
+      tempoRodando = false;
+      tempoDecorrido = 0;
+      dispCronometro.innerText = "00:00.00";
+      inputTempoManual.value = "";
+      btnStartStop.innerText = "START / STOP";
+      btnStartStop.style.background = "var(--accent-green)";
+    }
+
+    // SALVAMENTO DE TEMPO E GRAVAÇÃO DE RESULTADO
+    btnSalvarTempo.addEventListener("click", async () => {
+      if (!trioSelecionado) {
+        alert("Selecione um trio da tabela primeiro!");
+        return;
+      }
+
+      const tempoStr = inputTempoManual.value;
+      if (!tempoStr) {
+        alert("Insira ou rode o cronômetro para obter o tempo!");
+        return;
+      }
+
+      const tempoNum = parseFloat(tempoStr);
+      const boiChave = document.getElementById("inputBoiChave").value;
+
+      try {
+        btnSalvarTempo.disabled = true;
+
+        await addDoc(collection(db, "corridas"), {
+          competicaoId: competicaoAtiva.id,
+          trioId: trioSelecionado.id,
+          categoria: configuracaoAtual.nome,
+          fase: configuracaoAtual.fase,
+          tempo: tempoNum,
+          boiChave: boiChave,
+          criadoEm: new Date()
+        });
+
+        const trioRef = doc(db, "trios", trioSelecionado.id);
+        const novoMelhorTempo = (!trioSelecionado.melhorTempo || tempoNum < trioSelecionado.melhorTempo) ? tempoNum : trioSelecionado.melhorTempo;
+        
+        await updateDoc(trioRef, {
+          melhorTempo: novoMelhorTempo,
+          status: "CORREU"
+        });
+
+        alert("Tempo gravado com sucesso!");
+        resetarCronometro();
+        trioAtualNome.value = "";
+        trioSelecionado = null;
+        carregarTriosCategoria(configuracaoAtual.nome);
+
+      } catch (err) {
+        console.error("Erro ao salvar tempo:", err);
+        alert("Erro ao salvar tempo: " + err.message);
+      } finally {
+        btnSalvarTempo.disabled = false;
+      }
+    });
+
+    document.getElementById("btnSair").addEventListener("click", () => {
+      signOut(auth).then(() => window.location.href = "./index.html");
+    });
   </script>
 </body>
 </html>

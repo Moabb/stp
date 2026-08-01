@@ -3,107 +3,215 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel em Tempo Real</title>
+  <title>Telão / Transmissão OBS - Team Penning</title>
+  <script type="module" src="./firebase-config.js"></script>
   <style>
-    body { font-family: sans-serif; background-color: #121212; color: white; margin: 0; padding: 20px; }
-    h1 { text-align: center; color: #f1c40f; }
-    .grid-baterias { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 10px; }
-    .coluna-bateria { flex: 1; min-width: 280px; background-color: #1e1e1e; border-radius: 8px; padding: 15px; border: 1px solid #333; }
-    .coluna-bateria h3 { margin-top: 0; color: #3498db; border-bottom: 2px solid #3498db; padding-bottom: 8px; }
-    .item-corrida { background: #2c2c2c; padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 14px; }
+    :root {
+      --bg-dark: #0a0a0a;
+      --card-bg: #141414;
+      --accent-gold: #ffb703;
+      --accent-green: #2a9d8f;
+      --text-light: #ffffff;
+      --border-color: #222;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 30px; overflow-x: hidden; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent-gold); padding-bottom: 15px; margin-bottom: 25px; }
+    header h1 { color: var(--accent-gold); font-size: 2.2rem; text-transform: uppercase; letter-spacing: 1px; }
+
+    .badge-status { background: var(--accent-green); color: #fff; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 1rem; text-transform: uppercase; }
+
+    .grid-painel { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+    @media (max-width: 1000px) { .grid-painel { grid-template-columns: 1fr; } }
+
+    .card-painel { background: var(--card-bg); border-radius: 12px; padding: 25px; border: 1px solid var(--border-color); }
+    .card-painel h2 { color: var(--accent-gold); font-size: 1.5rem; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; }
+
+    .tabela-ranking { width: 100%; border-collapse: collapse; }
+    .tabela-ranking th { font-size: 1.1rem; color: var(--accent-gold); padding: 12px; text-align: left; background: #1f1f1f; border-bottom: 2px solid var(--border-color); }
+    .tabela-ranking td { padding: 14px 12px; border-bottom: 1px solid #222; font-size: 1.1rem; }
+
+    .linha-classificado { background: rgba(42, 157, 143, 0.15); border-left: 4px solid var(--accent-green); }
+    .posicao-destaque { font-weight: bold; color: var(--accent-gold); font-size: 1.3rem; }
   </style>
 </head>
 <body>
 
-  <h1 id="tituloCategoria">Carregando Painel...</h1>
-  <div id="containerBaterias" class="grid-baterias"></div>
+  <header>
+    <div>
+      <h1 id="txtTituloEvento">CARREGANDO EVENTO...</h1>
+      <p id="txtSubtituloCategoria" style="color: #aaa; font-size: 1.1rem; margin-top: 5px;">Selecione a competição ativa</p>
+    </div>
+    <div class="badge-status" id="badgeFase">AO VIVO</div>
+  </header>
+
+  <div class="grid-painel">
+
+    <!-- COLUNA PRINCIPAL: RANKING DA CATEGORIA -->
+    <main class="card-painel">
+      <h2>
+        <span>CLASSIFICAÇÃO GERAL</span>
+        <span id="txtLimiteCorte" style="font-size: 0.9rem; color: var(--accent-green);">Corte: Top 5</span>
+      </h2>
+      
+      <table class="tabela-ranking">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Senha</th>
+            <th>Integrantes / Trio</th>
+            <th>Tempo</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyRanking">
+          <tr><td colspan="4" style="color: #888; text-align: center;">Aguardando dados da competição...</td></tr>
+        </tbody>
+      </table>
+    </main>
+
+    <!-- COLUNA LATERAL: INFORMAÇÕES ADICIONAIS -->
+    <aside class="card-painel">
+      <h2>REGRAS DA FASE</h2>
+      <div id="boxRegras" style="font-size: 1.05rem; line-height: 1.8; color: #ccc;">
+        <p>Selecione uma competição ativa no Admin para visualizar as regras no telão.</p>
+      </div>
+    </aside>
+
+  </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { 
+      db, 
+      collection, 
+      getDoc, 
+      getDocs, 
+      query, 
+      where, 
+      doc, 
+      onSnapshot 
+    } from "./firebase-config.js";
 
-    // INSIRA SUA CONFIGURAÇÃO DO FIREBASE AQUI
-    const firebaseConfig = {
-      apiKey: "SUA_API_KEY",
-      authDomain: "SEU_PROJECT_ID.firebaseapp.com",
-      projectId: "SEU_PROJECT_ID",
-      storageBucket: "SEU_PROJECT_ID.appspot.com",
-      messagingSenderId: "SEU_SENDER_ID",
-      appId: "SEU_APP_ID"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    const competicaoId = "COMPETICAO_ATIVA_ID"; 
     let competicaoAtiva = null;
-    let categoriaAtual = "Semifinal - SOMA 3"; // Exemplo da categoria selecionada para exibir
+    let categoriaAtualNome = null;
 
-    // Escuta os dados da competição principal
-    onSnapshot(doc(db, "competicoes", competicaoId), (docSnap) => {
-      if (docSnap.exists()) {
-        competicaoAtiva = docSnap.data();
-        document.getElementById("tituloCategoria").innerText = `Categoria: ${categoriaAtual}`;
-        carregarCorridasEPainel();
+    document.addEventListener("DOMContentLoaded", () => {
+      const compId = localStorage.getItem("selectedCompId");
+      categoriaAtualNome = localStorage.getItem("selectedCatNome");
+
+      if (compId) {
+        escutarCompeticao(compId);
       }
     });
 
-    function carregarCorridasEPainel() {
-      // Consulta as corridas da competição e categoria atual
-      const q = query(
-        collection(db, "corridas"), 
-        where("competicaoId", "==", competicaoId),
-        where("categoria", "==", categoriaAtual)
-      );
+    function escutarCompeticao(compId) {
+      const compRef = doc(db, "competicoes", compId);
+      
+      onSnapshot(compRef, (docSnap) => {
+        if (!docSnap.exists()) return;
 
-      onSnapshot(q, (snapshot) => {
-        const corridas = [];
-        snapshot.forEach(doc => corridas.push({ id: doc.id, ...doc.data() }));
-        renderizarLinha1BateriasSeparadas(corridas, categoriaAtual);
+        competicaoAtiva = { id: docSnap.id, ...docSnap.data() };
+        document.getElementById("txtTituloEvento").innerText = competicaoAtiva.nome || "EVENTO DE TEAM PENNING";
+
+        if (!categoriaAtualNome && competicaoAtiva.categorias && competicaoAtiva.categorias.length > 0) {
+          categoriaAtualNome = competicaoAtiva.categorias[0].nome;
+        }
+
+        renderizarRegrasFase();
+        escutarRanking(compId, categoriaAtualNome);
       });
     }
 
-    function renderizarLinha1BateriasSeparadas(corridasCategoria, catAtual) {
-      if (!competicaoAtiva) return;
+    // EXTRAÇÃO UNIFICADA DAS REGRAS SALVAS NO ARRAY 'categorias'
+    function obterRegrasCategoriaAtiva(nomeCategoriaAtiva) {
+      if (!competicaoAtiva || !competicaoAtiva.categorias) return null;
 
-      // Busca as configurações da categoria no array da competição
-      const categorias = competicaoAtiva.categorias || [];
-      const catConfig = categorias.find(c => c.nome.trim().toLowerCase() === catAtual.trim().toLowerCase());
+      const cat = competicaoAtiva.categorias.find(c => c.nome === nomeCategoriaAtiva);
+      if (!cat) return null;
 
-      // Lê o número de baterias e vagas cadastrados (para qualquer fase)
-      const numBaterias = catConfig ? (catConfig.qtdBaterias || 1) : 1;
-      const vagasPorBateria = catConfig ? (catConfig.classificadosPorBateria || 5) : 5;
+      return {
+        nome: cat.nome,
+        fase: cat.fase || "CLASSIFICACAO",
+        corteClassificados: parseInt(cat.classificadosPorBateria || 5), 
+        limiteCorridas: parseInt(cat.limiteGado || cat.corridasPorBateria || 1)
+      };
+    }
 
-      const container = document.getElementById("containerBaterias");
-      if (!container) return;
-      
-      container.innerHTML = ""; // Limpa visualização anterior
+    function renderizarRegrasFase() {
+      const regras = obterRegrasCategoriaAtiva(categoriaAtualNome);
+      const boxRegras = document.getElementById("boxRegras");
 
-      // Renderiza as colunas de bateria conforme configurado
-      for (let b = 1; b <= numBaterias; b++) {
-        const corridasDaBateria = corridasCategoria.filter(c => (parseInt(c.bateria, 10) || 1) === b);
-        
-        const colEl = document.createElement("div");
-        colEl.className = "coluna-bateria";
-        colEl.innerHTML = `
-          <h3>Bateria ${b} (Vagas: ${vagasPorBateria})</h3>
-          <div class="lista-corridas" id="bateria-${b}"></div>
+      if (!regras) {
+        boxRegras.innerHTML = "<p>Nenhuma categoria ativa selecionada.</p>";
+        return;
+      }
+
+      document.getElementById("txtSubtituloCategoria").innerText = `CATEGORIA: ${regras.nome}`;
+      document.getElementById("badgeFase").innerText = regras.fase;
+      document.getElementById("txtLimiteCorte").innerText = `Zona de Classificação: Top ${regras.corteClassificados}`;
+
+      boxRegras.innerHTML = `
+        <p><strong>Fase Atual:</strong> ${regras.fase}</p>
+        <p><strong>Limite de Gado/Corridas:</strong> ${regras.limiteCorridas}</p>
+        <p><strong>Vagas p/ Próxima Fase:</strong> ${regras.corteClassificados} Trios</p>
+      `;
+    }
+
+    function escutarRanking(compId, nomeCategoria) {
+      if (!nomeCategoria) return;
+
+      const q = query(
+        collection(db, "trios"),
+        where("competicaoId", "==", compId),
+        where("categoria", "==", nomeCategoria),
+        where("status", "==", "CORREU")
+      );
+
+      onSnapshot(q, (snapshot) => {
+        const trios = [];
+        snapshot.forEach(docSnap => {
+          trios.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        trios.sort((a, b) => (a.melhorTempo || 9999) - (b.melhorTempo || 9999));
+        renderizarTabelaPainel(trios);
+      });
+    }
+
+    function renderizarTabelaPainel(trios) {
+      const tbody = document.getElementById("tbodyRanking");
+      tbody.innerHTML = "";
+
+      if (trios.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color: #888; text-align: center;">Nenhum tempo registrado nesta categoria até o momento.</td></tr>';
+        return;
+      }
+
+      const regras = obterRegrasCategoriaAtiva(categoriaAtualNome);
+      const limiteCorte = regras ? regras.corteClassificados : 5;
+
+      trios.forEach((trio, index) => {
+        const posicao = index + 1;
+        const estaClassificado = posicao <= limiteCorte;
+        const tr = document.createElement("tr");
+
+        if (estaClassificado) {
+          tr.className = "linha-classificado";
+        }
+
+        const integrantesStr = trio.integrantes ? trio.integrantes.join(" / ") : "Sem Nomes";
+        const tempoFormatted = trio.melhorTempo ? `${parseFloat(trio.melhorTempo).toFixed(3)}s` : '--';
+
+        tr.innerHTML = `
+          <td class="posicao-destaque">#${posicao}</td>
+          <td>${trio.senha || '-'}</td>
+          <td>${integrantesStr}</td>
+          <td style="font-weight: bold; color: var(--accent-gold);">${tempoFormatted}</td>
         `;
 
-        container.appendChild(colEl);
-
-        const listaEl = colEl.querySelector(`#bateria-${b}`);
-        if (corridasDaBateria.length === 0) {
-          listaEl.innerHTML = '<div class="item-corrida" style="color: #888;">Nenhuma corrida registrada</div>';
-        } else {
-          corridasDaBateria.forEach(corrida => {
-            const item = document.createElement("div");
-            item.className = "item-corrida";
-            item.innerText = `#${corrida.senha || ''} - ${corrida.corredor || 'Atleta'} (${corrida.boi || 'Gado'})`;
-            listaEl.appendChild(item);
-          });
-        }
-      }
+        tbody.appendChild(tr);
+      });
     }
   </script>
 </body>
