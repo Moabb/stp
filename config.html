@@ -71,6 +71,14 @@
     .btn-vincular-emb { background: var(--accent-green); color: #fff; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
     .btn-vincular-emb:hover { opacity: 0.9; }
 
+    /* Estilos do Histórico */
+    .historico-container { margin-top: 25px; border-top: 2px dashed #333; padding-top: 20px; }
+    .card-historico-item { background: #1a1a1a; border-radius: 6px; padding: 12px 15px; border-left: 4px solid #555; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s; }
+    .card-historico-item:hover { background: #242424; border-left-color: var(--accent-gold); }
+    .card-historico-item h4 { color: #fff; font-size: 0.95rem; margin-bottom: 2px; }
+    .card-historico-item p { color: #888; font-size: 0.8rem; }
+    .btn-ver-resultados { background: transparent; border: 1px solid var(--accent-gold); color: var(--accent-gold); padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
+
     .btn-excluir-no-rodape { width: 100%; padding: 10px; background: rgba(231, 111, 81, 0.15); border: 1px solid var(--accent-red); color: var(--accent-red); font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
     .btn-excluir-no-rodape:hover { background: var(--accent-red); color: #fff; }
 
@@ -140,7 +148,7 @@
     </section>
 
     <section class="secao-card">
-      <h2>MINHAS COMPETIÇÕES CADASTRADAS</h2>
+      <h2>MINHAS COMPETIÇÕES EM ANDAMENTO</h2>
       
       <div class="fases-nav">
         <button class="btn-action btn-fase" id="btnIrAdminNav">⏱️ IR PARA PROVA (CLASSIFICATORIAS)</button>
@@ -157,8 +165,18 @@
       </button>
 
       <button type="button" class="btn-finalizar-no-rodape" id="btnFinalizarCompeticao">
-        🏁 FINALIZAR COMPETIÇÃO
+        🏁 FINALIZAR COMPETIÇÃO ATIVA
       </button>
+
+      <!-- MÓDULO DE HISTÓRICO DE COMPETIÇÕES FINALIZADAS -->
+      <div class="historico-container">
+        <h2 style="font-size: 1.1rem; color: #aaa; border-bottom: 1px solid #333; padding-bottom: 8px;">
+          📜 HISTÓRICO DE COMPETIÇÕES FINALIZADAS
+        </h2>
+        <div class="lista-provas" id="listaHistorico" style="margin-top: 15px;">
+          <p style="color: #666; font-size: 0.85rem;">Carregando histórico...</p>
+        </div>
+      </div>
     </section>
 
   </main>
@@ -300,12 +318,12 @@
       await carregarCompeticoes();
 
       const selectedCompId = localStorage.getItem("selectedCompId");
-      if (selectedCompId && competicoesCache[selectedCompId]) {
+      if (selectedCompId && competicoesCache[selectedCompId] && competicoesCache[selectedCompId].status !== "FINALIZADA") {
         carregarParaEdicao(selectedCompId);
       } else {
-        const ids = Object.keys(competicoesCache);
-        if (ids.length > 0) {
-          carregarParaEdicao(ids[0]);
+        const idsAtivas = Object.keys(competicoesCache).filter(id => competicoesCache[id].status !== "FINALIZADA");
+        if (idsAtivas.length > 0) {
+          carregarParaEdicao(idsAtivas[0]);
         }
       }
     });
@@ -392,6 +410,7 @@
 
     async function carregarCompeticoes() {
       const listaProvas = document.getElementById("listaProvas");
+      const listaHistorico = document.getElementById("listaHistorico");
 
       try {
         const q = query(
@@ -402,12 +421,17 @@
 
         if (snapshot.empty) {
           listaProvas.innerHTML = "<p style='color:#888;'>Nenhuma competição cadastrada ainda.</p>";
+          listaHistorico.innerHTML = "<p style='color:#666; font-size:0.85rem;'>Nenhum histórico disponível.</p>";
           competicoesCache = {};
           return;
         }
 
         competicoesCache = {};
         listaProvas.innerHTML = "";
+        listaHistorico.innerHTML = "";
+
+        let qtdAtivas = 0;
+        let qtdFinalizadas = 0;
 
         for (const docSnap of snapshot.docs) {
           const comp = docSnap.data();
@@ -417,6 +441,27 @@
 
           competicoesCache[compId] = comp;
 
+          // Se a competição for FINALIZADA, ela entra no Histórico
+          if (comp.status === "FINALIZADA" || comp.status === "ENCERRADA") {
+            qtdFinalizadas++;
+            const itemHist = document.createElement("div");
+            itemHist.className = "card-historico-item";
+            itemHist.innerHTML = `
+              <div>
+                <h4>🏆 ${comp.nome}</h4>
+                <p>Data Início: ${comp.dataInicio}</p>
+              </div>
+              <button class="btn-ver-resultados">📊 Ver Resultados</button>
+            `;
+            itemHist.addEventListener("click", () => {
+              window.location.href = `./resultados.html?compId=${compId}`;
+            });
+            listaHistorico.appendChild(itemHist);
+            continue; 
+          }
+
+          // Se a competição estiver ATIVA, carrega na lista principal
+          qtdAtivas++;
           const card = document.createElement("div");
           card.className = "card-prova-item";
           
@@ -435,12 +480,10 @@
             ? `<p style="font-size:0.8rem; color:#2a9d8f; margin-top:5px;"><strong>Vínculo Ativo:</strong> ${comp.vinculoEmbutido.catPai} ➔ ${comp.vinculoEmbutido.catEspelho}</p>`
             : '';
 
-          const statusTexto = comp.status === "FINALIZADA" ? " <span style='color:var(--accent-red); font-size:0.8rem;'>(FINALIZADA)</span>" : "";
-
           card.innerHTML = `
             <div class="top-info">
               <div class="info">
-                <h3>${comp.nome}${statusTexto}</h3>
+                <h3>${comp.nome}</h3>
                 <p>Início: ${comp.dataInicio} | Categorias: ${detalhesCat}</p>
               </div>
               <div class="acoes">
@@ -492,6 +535,15 @@
 
           listaProvas.appendChild(card);
         }
+
+        if (qtdAtivas === 0) {
+          listaProvas.innerHTML = "<p style='color:#888;'>Nenhuma competição ativa no momento.</p>";
+        }
+
+        if (qtdFinalizadas === 0) {
+          listaHistorico.innerHTML = "<p style='color:#666; font-size:0.85rem;'>Nenhuma competição finalizada ainda.</p>";
+        }
+
       } catch (error) {
         console.error("Erro ao carregar:", error);
         listaProvas.innerHTML = "<p style='color:#e76f51;'>Erro ao carregar competições.</p>";
@@ -551,7 +603,7 @@
         item.innerHTML = `
           <input type="checkbox" class="chk-comp-item" value="${compId}">
           <div>
-            <strong style="color:#fff; display:block;">${comp.nome}</strong>
+            <strong style="color:#fff; display:block;">${comp.nome} ${comp.status === "FINALIZADA" ? "(FINALIZADA)" : ""}</strong>
             <span style="font-size:0.75rem; color:#aaa;">Início: ${comp.dataInicio}</span>
           </div>
         `;
@@ -564,12 +616,12 @@
     btnFinalizarCompeticao.addEventListener("click", async () => {
       const selectedCompId = localStorage.getItem("selectedCompId") || modoEdicaoId;
 
-      if (!selectedCompId) {
-        alert("Nenhuma competição selecionada para finalizar.");
+      if (!selectedCompId || !competicoesCache[selectedCompId] || competicoesCache[selectedCompId].status === "FINALIZADA") {
+        alert("Nenhuma competição ativa selecionada para finalizar.");
         return;
       }
 
-      const confirma = confirm("Deseja realmente FINALIZAR esta competição?\n\nApós finalizar, os participantes e visitantes serão direcionados para a página de Resultados.");
+      const confirma = confirm("Deseja realmente FINALIZAR esta competição?\n\nEla será movida para o Histórico de Competições Finalizadas.");
       if (!confirma) return;
 
       try {
@@ -580,7 +632,8 @@
         });
 
         alert("Competição finalizada com sucesso!");
-        window.location.href = `./resultados.html?compId=${selectedCompId}`;
+        resetarFormulario();
+        await carregarCompeticoes();
       } catch (error) {
         console.error("Erro ao finalizar competição:", error);
         alert("Erro ao finalizar competição: " + error.message);
@@ -638,7 +691,7 @@
 
     function carregarParaEdicao(compId) {
       const comp = competicoesCache[compId];
-      if (!comp) return;
+      if (!comp || comp.status === "FINALIZADA") return;
 
       modoEdicaoId = compId;
       tituloForm.innerText = "EDITAR COMPETIÇÃO / REGULAMENTO";
