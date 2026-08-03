@@ -69,9 +69,9 @@
 
   <header>
     <h1>🏆 RESULTADOS OFICIAIS</h1>
-    <div>
-      <a href="./config.html" class="btn-action">⚙️ PAINEL CONFIG</a>
-      <a href="./admin.html" class="btn-action">⏱️ AO VIVO / ADMIN</a>
+    <div id="areaBotoesHeader">
+      <a href="./config.html" class="btn-action" id="btnConfig">⚙️ PAINEL CONFIG</a>
+      <a href="./admin.html" class="btn-action" id="btnAdmin">⏱️ AO VIVO / ADMIN</a>
     </div>
   </header>
 
@@ -111,20 +111,42 @@
 
     let currentUser = null;
     let competicaoAtual = null;
-    let faseAtual = "classificatoria"; // 'classificatoria', 'semifinal', 'final'
+    let faseAtual = "classificatoria";
 
     const selectCompeticao = document.getElementById("selectCompeticao");
     const containerResultados = document.getElementById("containerResultados");
     const tabButtons = document.querySelectorAll(".btn-tab");
+    const btnConfig = document.getElementById("btnConfig");
+    const btnAdmin = document.getElementById("btnAdmin");
+
+    // Captura o ID da competição caso venha pela URL (ex: resultados.html?compId=XYZ)
+    const urlParams = new URLSearchParams(window.location.search);
+    const compIdUrl = urlParams.get('compId');
 
     onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = "./index.html";
-        return;
-      }
       currentUser = user;
-      await carregarCompeticoes();
+
+      if (!currentUser) {
+        // Se for um visitante público (não logado), esconde botões administrativos do topo
+        if (btnConfig) btnConfig.style.display = "none";
+        if (btnAdmin) btnAdmin.style.display = "none";
+      }
+
+      await inicializarPagina();
     });
+
+    async function inicializarPagina() {
+      if (compIdUrl) {
+        // Se tem ID na URL, busca essa competição diretamente
+        await carregarCompeticaoPorId(compIdUrl);
+      } else if (currentUser) {
+        // Se está logado e sem ID na URL, carrega as competições do organizador
+        await carregarCompeticoesOrganizador();
+      } else {
+        // Se for visitante sem ID na URL, busca todas as competições recentes disponíveis
+        await carregarTodasCompeticoesPublicas();
+      }
+    }
 
     // Troca de Abas (Fases)
     tabButtons.forEach(btn => {
@@ -146,7 +168,26 @@
       }
     });
 
-    async function carregarCompeticoes() {
+    async function carregarCompeticaoPorId(compId) {
+      try {
+        const compRef = doc(db, "competicoes", compId);
+        const compSnap = await getDoc(compRef);
+
+        if (compSnap.exists()) {
+          const comp = compSnap.data();
+          selectCompeticao.innerHTML = `<option value="${compSnap.id}" selected>${comp.nome} (${comp.dataInicio})</option>`;
+          competicaoAtual = { id: compSnap.id, ...comp };
+          exibirResultados();
+        } else {
+          selectCompeticao.innerHTML = `<option value="">Competição não encontrada</option>`;
+          containerResultados.innerHTML = `<p style="color: #e76f51; grid-column: 1 / -1;">A competição solicitada não foi encontrada.</p>`;
+        }
+      } catch (error) {
+        console.error("Erro ao carregar competição por ID:", error);
+      }
+    }
+
+    async function carregarCompeticoesOrganizador() {
       try {
         const q = query(
           collection(db, "competicoes"),
@@ -154,31 +195,44 @@
         );
         const snapshot = await getDocs(q);
 
-        if (snapshot.empty) {
-          selectCompeticao.innerHTML = `<option value="">Nenhuma competição cadastrada</option>`;
-          return;
-        }
-
-        selectCompeticao.innerHTML = `<option value="">Selecione uma competição...</option>`;
-        const compSalvaId = localStorage.getItem("selectedCompId");
-
-        snapshot.forEach(docSnap => {
-          const comp = docSnap.data();
-          const option = document.createElement("option");
-          option.value = docSnap.id;
-          option.textContent = `${comp.nome} (${comp.dataInicio})`;
-          
-          if (compSalvaId && compSalvaId === docSnap.id) {
-            option.selected = true;
-          }
-          selectCompeticao.appendChild(option);
-        });
-
-        if (selectCompeticao.value) {
-          carregarDadosCompeticao(selectCompeticao.value);
-        }
+        preencherSelectCompeticoes(snapshot);
       } catch (error) {
-        console.error("Erro ao carregar competições:", error);
+        console.error("Erro ao carregar competições do organizador:", error);
+      }
+    }
+
+    async function carregarTodasCompeticoesPublicas() {
+      try {
+        const snapshot = await getDocs(collection(db, "competicoes"));
+        preencherSelectCompeticoes(snapshot);
+      } catch (error) {
+        console.error("Erro ao carregar competições públicas:", error);
+      }
+    }
+
+    function preencherSelectCompeticoes(snapshot) {
+      if (snapshot.empty) {
+        selectCompeticao.innerHTML = `<option value="">Nenhuma competição cadastrada</option>`;
+        return;
+      }
+
+      selectCompeticao.innerHTML = `<option value="">Selecione uma competição...</option>`;
+      const compSalvaId = localStorage.getItem("selectedCompId");
+
+      snapshot.forEach(docSnap => {
+        const comp = docSnap.data();
+        const option = document.createElement("option");
+        option.value = docSnap.id;
+        option.textContent = `${comp.nome} (${comp.dataInicio})`;
+        
+        if (compSalvaId && compSalvaId === docSnap.id) {
+          option.selected = true;
+        }
+        selectCompeticao.appendChild(option);
+      });
+
+      if (selectCompeticao.value) {
+        carregarDadosCompeticao(selectCompeticao.value);
       }
     }
 
@@ -210,7 +264,6 @@
         return;
       }
 
-      // Mapeia o termo da aba para a chave correspondente da 'fase' no banco de dados
       let faseBanco = "CLASSIFICACAO";
       let tituloFase = "Classificatórias";
 
@@ -235,14 +288,12 @@
       }
 
       for (const cat of categorias) {
-        // Filtra os trios estritamente para a fase atual selecionada na aba
         const resultadosCat = triosDocs.filter(i => {
           const faseTrio = i.fase || "CLASSIFICACAO";
           const tempoOk = (i.status === "OK" && i.tempo !== null && i.tempo !== undefined) || i.status === "SAT" || i.status === "DO";
           return i.categoria === cat.nome && faseTrio === faseBanco && tempoOk;
         });
 
-        // Ordena os resultados da categoria selecionada
         resultadosCat.sort((a, b) => {
           if (a.status === "OK" && b.status === "OK") {
             return parseFloat(a.tempo) - parseFloat(b.tempo);
