@@ -369,6 +369,7 @@
         const vinculo = compDados ? compDados.vinculoEmbutido : null;
 
         const dadosNovoTrio = {
+          organizadorId: currentUser.uid, // 👈 Adicionado para satisfazer a regra do Firestore
           competicaoId: selectedCompId || "",
           categoria: selectedCategoriaNome || "",
           categoriaData: selectedCategoriaData || "",
