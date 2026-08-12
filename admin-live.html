@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin - Controle de Transmissão</title>
+  <script type="module" src="./firebase-config.js"></script>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --accent-gold: #ffb703;
+      --accent-green: #2a9d8f;
+      --accent-red: #e76f51;
+      --text-light: #f8f9fa;
+      --border-color: #333;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+    header h1 { color: var(--accent-gold); font-size: 1.4rem; text-transform: uppercase; }
+
+    /* Modal de Login */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: var(--card-bg); padding: 30px; border-radius: 8px; border: 1px solid var(--border-color); width: 100%; max-width: 400px; text-align: center; }
+    .modal-content h2 { color: var(--accent-gold); margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; text-align: left; }
+    .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
+    .form-group input { width: 100%; padding: 10px; background: #2b2b2b; border: 1px solid #444; border-radius: 4px; color: #fff; }
+    
+    .btn { padding: 10px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
+    .btn-gold { background: var(--accent-gold); color: #000; }
+    .btn-danger { background: var(--accent-red); color: #fff; width: auto; }
+
+    .card { background: var(--card-bg); border-radius: 8px; padding: 20px; border: 1px solid var(--border-color); max-width: 900px; margin: 0 auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+    th { color: var(--accent-gold); }
+    .badge-ativo { background: var(--accent-green); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+    .badge-inativo { background: var(--accent-red); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+    .btn-toggle { padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .btn-permitir { background: var(--accent-green); color: #fff; }
+    .btn-bloquear { background: var(--accent-red); color: #fff; }
+  </style>
+</head>
+<body>
+
+  <!-- MODAL LOGIN SUPER ADMIN -->
+  <div class="modal-overlay" id="modalLogin">
+    <div class="modal-content">
+      <h2>🔐 SUPER ADMIN LOGIN</h2>
+      <form id="formLoginSuperAdmin">
+        <div class="form-group">
+          <label>E-mail:</label>
+          <input type="email" id="loginEmail" required>
+        </div>
+        <div class="form-group">
+          <label>Senha:</label>
+          <input type="password" id="loginSenha" required>
+        </div>
+        <button type="submit" class="btn btn-gold">ENTRAR COMO SUPER ADMIN</button>
+      </form>
+    </div>
+  </div>
+
+  <header id="headerPainel" style="display: none;">
+    <h1>👑 SUPER ADMIN - LIBERAÇÃO DE OPERADORES DA LIVE</h1>
+    <button class="btn btn-danger" id="btnSair">SAIR</button>
+  </header>
+
+  <main class="card" id="conteudoPainel" style="display: none;">
+    <h2 style="font-size: 1.1rem; color: #ccc; margin-bottom: 10px;">Operadores Cadastrados</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>E-mail</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaUsuarios">
+        <tr><td colspan="3" style="text-align:center; color:#888;">Aguardando autenticação...</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <script type="module">
+    import { auth, db, collection, getDocs, doc, updateDoc, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "./firebase-config.js";
+
+    const ADMIN_UID = "Cd4J21mv9RboRNLw7tcYVlcG1Pj2"; // UID Super Admin Master
+    const modalLogin = document.getElementById("modalLogin");
+    const headerPainel = document.getElementById("headerPainel");
+    const conteudoPainel = document.getElementById("conteudoPainel");
+    const tabelaUsuarios = document.getElementById("tabelaUsuarios");
+
+    function escapeHTML(str) {
+      if (typeof str !== 'string') return str;
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Formulário de Login Super Admin
+    document.getElementById("formLoginSuperAdmin").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value;
+      const senha = document.getElementById("loginSenha").value;
+
+      try {
+        const userCred = await signInWithEmailAndPassword(auth, email, senha);
+        if (userCred.user.uid !== ADMIN_UID) {
+          alert("Acesso negado. Este usuário não é o Super Admin.");
+          await signOut(auth);
+        }
+      } catch (err) {
+        alert("Falha no login: " + err.message);
+      }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user && user.uid === ADMIN_UID) {
+        modalLogin.style.display = "none";
+        headerPainel.style.display = "flex";
+        conteudoPainel.style.display = "block";
+        carregarUsuarios();
+      } else {
+        modalLogin.style.display = "flex";
+        headerPainel.style.display = "none";
+        conteudoPainel.style.display = "none";
+      }
+    });
+
+    async function carregarUsuarios() {
+      try {
+        const snapshot = await getDocs(collection(db, "usuarios_transmissao"));
+        if (snapshot.empty) {
+          tabelaUsuarios.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum operador cadastrado.</td></tr>`;
+          return;
+        }
+
+        tabelaUsuarios.innerHTML = "";
+        snapshot.forEach(docSnap => {
+          const u = docSnap.data();
+          const uid = docSnap.id;
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${escapeHTML(u.email || uid)}</td>
+            <td>
+              <span class="${u.autorizado ? 'badge-ativo' : 'badge-inativo'}">
+                ${u.autorizado ? 'LIBERADO' : 'BLOQUEADO'}
+              </span>
+            </td>
+            <td>
+              <button class="btn-toggle ${u.autorizado ? 'btn-bloquear' : 'btn-permitir'}" data-id="${uid}" data-status="${!u.autorizado}">
+                ${u.autorizado ? 'Bloquear' : 'Liberar Acesso'}
+              </button>
+            </td>
+          `;
+
+          tr.querySelector(".btn-toggle").addEventListener("click", async (e) => {
+            const targetUid = e.target.getAttribute("data-id");
+            const novoStatus = e.target.getAttribute("data-status") === "true";
+            await updateDoc(doc(db, "usuarios_transmissao", targetUid), { autorizado: novoStatus });
+            carregarUsuarios();
+          });
+
+          tabelaUsuarios.appendChild(tr);
+        });
+      } catch (error) {
+        console.error("Erro ao carregar usuários:", error);
+      }
+    }
+
+    document.getElementById("btnSair").addEventListener("click", () => {
+      signOut(auth);
+    });
+  </script>
+</body>
+</html>

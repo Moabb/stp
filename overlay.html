@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay OBS - Team Penning Live</title>
+  <script type="module" src="./firebase-config.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background-color: transparent; overflow: hidden; width: 100vw; height: 100vh; position: relative; }
+
+    .lower-third-container {
+      position: absolute;
+      bottom: 40px;
+      left: 50px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      transition: all 0.5s ease-in-out;
+      transform: translateY(200px);
+      opacity: 0;
+    }
+    .lower-third-container.active { transform: translateY(0); opacity: 1; }
+
+    .box-pista {
+      background: linear-gradient(90deg, #111 0%, rgba(20,20,20,0.95) 100%);
+      border-left: 6px solid #ffb703;
+      padding: 12px 25px;
+      border-radius: 4px;
+      color: #fff;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    }
+    .box-pista h3 { color: #ffb703; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+    .box-pista p { font-size: 1.4rem; font-weight: bold; margin-top: 2px; }
+
+    .box-proximo {
+      background: rgba(0,0,0,0.85);
+      border-left: 6px solid #0077b6;
+      padding: 8px 20px;
+      border-radius: 4px;
+      color: #ccc;
+      width: fit-content;
+    }
+
+    .overlay-bateria-container {
+      position: absolute;
+      top: 50px;
+      right: 50px;
+      width: 420px;
+      background: rgba(18, 18, 18, 0.95);
+      border: 1px solid #333;
+      border-top: 5px solid #ffb703;
+      border-radius: 6px;
+      padding: 15px;
+      color: #fff;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+      transition: all 0.5s ease-in-out;
+      transform: translateX(500px);
+      opacity: 0;
+    }
+    .overlay-bateria-container.active { transform: translateX(0); opacity: 1; }
+
+    .overlay-bateria-container h2 {
+      font-size: 1.1rem;
+      color: #ffb703;
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .tabela-parcial { width: 100%; border-collapse: collapse; }
+    .tabela-parcial th, .tabela-parcial td { padding: 8px 6px; text-align: left; font-size: 0.85rem; }
+    .tabela-parcial th { color: #aaa; border-bottom: 1px solid #444; }
+    .tabela-parcial tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+    .tabela-parcial td.tempo { font-weight: bold; color: #2a9d8f; text-align: right; }
+  </style>
+</head>
+<body>
+
+  <div class="lower-third-container" id="lowerThird">
+    <div class="box-pista">
+      <h3>🤠 NA PISTA AGORA</h3>
+      <p id="txtTrioAtual">Aguardando trio...</p>
+    </div>
+    <div class="box-proximo">
+      <span style="color: #0077b6; font-weight: bold;">PRÓXIMO:</span> <span id="txtTrioProximo" style="color:#fff;">-</span>
+    </div>
+  </div>
+
+  <div class="overlay-bateria-container" id="overlayBateria">
+    <h2 id="tituloBateria">CLASSIFICAÇÃO PARCIAL</h2>
+    <table class="tabela-parcial">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Trio / Equipe</th>
+          <th style="text-align:right;">Tempo</th>
+        </tr>
+      </thead>
+      <tbody id="corpoTabelaParcial">
+        <tr><td colspan="3" style="text-align:center; color:#777;">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { db, doc, collection, getDocs, onSnapshot, query, where } from "./firebase-config.js";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const compId = urlParams.get("compId");
+
+    const lowerThird = document.getElementById("lowerThird");
+    const txtTrioAtual = document.getElementById("txtTrioAtual");
+    const txtTrioProximo = document.getElementById("txtTrioProximo");
+
+    const overlayBateria = document.getElementById("overlayBateria");
+    const tituloBateria = document.getElementById("tituloBateria");
+    const corpoTabelaParcial = document.getElementById("corpoTabelaParcial");
+
+    function escapeHTML(str) {
+      if (typeof str !== 'string') return str;
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    if (compId) {
+      onSnapshot(doc(db, "overlay_state", compId), (docSnap) => {
+        if (!docSnap.exists()) return;
+        const data = docSnap.data();
+
+        if (data.lowerThirdVisivel) {
+          txtTrioAtual.innerText = data.trioAtual || "Aguardando definição...";
+          txtTrioProximo.innerText = data.trioProximo || "Em breve";
+          lowerThird.classList.add("active");
+        } else {
+          lowerThird.classList.remove("active");
+        }
+
+        if (data.bateriaAtivaVisivel) {
+          tituloBateria.innerText = `CLASSIFICAÇÃO PARCIAL - ${data.bateriaAtivaVisivel}ª BATERIA`;
+          carregarDadosBateriaParcial(compId, data.bateriaAtivaVisivel);
+          overlayBateria.classList.add("active");
+        } else {
+          overlayBateria.classList.remove("active");
+        }
+      });
+    }
+
+    async function carregarDadosBateriaParcial(idCompeticao, numBateria) {
+      try {
+        const q = query(
+          collection(db, "corridas"), 
+          where("competicaoId", "==", idCompeticao),
+          where("bateria", "==", numBateria)
+        );
+
+        const snap = await getDocs(q);
+        let corridas = [];
+        snap.forEach(d => corridas.push(d.data()));
+
+        corridas.sort((a, b) => (parseFloat(a.tempo) || 999) - (parseFloat(b.tempo) || 999));
+
+        if (corridas.length === 0) {
+          corpoTabelaParcial.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum tempo registrado nesta bateria.</td></tr>`;
+          return;
+        }
+
+        corpoTabelaParcial.innerHTML = "";
+        corridas.slice(0, 5).forEach((item, index) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><strong>${index + 1}º</strong></td>
+            <td>${escapeHTML(item.nomeTrio || item.equipe || "Trio " + item.numeroTrio)}</td>
+            <td class="tempo">${escapeHTML(item.tempo ? item.tempo + 's' : 'SAT')}</td>
+          `;
+          corpoTabelaParcial.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Erro ao carregar ranking da bateria:", err);
+      }
+    }
+  </script>
+</body>
+</html>
