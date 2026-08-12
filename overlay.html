@@ -46,7 +46,7 @@
       position: absolute;
       top: 50px;
       right: 50px;
-      width: 420px;
+      width: 450px;
       background: rgba(18, 18, 18, 0.95);
       border: 1px solid #333;
       border-top: 5px solid #ffb703;
@@ -106,10 +106,10 @@
   </div>
 
   <script type="module">
-    import { db, doc, collection, getDocs, onSnapshot, query, where } from "./firebase-config.js";
+    import { db, doc, collection, getDoc, onSnapshot, query, where } from "./firebase-config.js";
 
     const urlParams = new URLSearchParams(window.location.search);
-    const compId = urlParams.get("compId");
+    let compId = urlParams.get("compId");
 
     const lowerThird = document.getElementById("lowerThird");
     const txtTrioAtual = document.getElementById("txtTrioAtual");
@@ -119,16 +119,50 @@
     const tituloBateria = document.getElementById("tituloBateria");
     const corpoTabelaParcial = document.getElementById("corpoTabelaParcial");
 
+    let unsubOverlayState = null;
+    let compDataCache = null;
+
     function escapeHTML(str) {
       if (typeof str !== 'string') return str;
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    if (compId) {
-      onSnapshot(doc(db, "overlay_state", compId), (docSnap) => {
+    function calcularBateria(ordemPista, tamanhoLote, numBaterias) {
+      if (!ordemPista || ordemPista <= 0) return 1;
+      const qtdBaterias = numBaterias || 2;
+      const loteTam = tamanhoLote || 25;
+      const indiceLote = Math.floor((ordemPista - 1) / loteTam);
+      return (indiceLote % qtdBaterias) + 1;
+    }
+
+    // Se não veio ID na URL, descobre via painel_global em tempo real
+    if (!compId) {
+      onSnapshot(doc(db, "painel_global", "ativo"), (docSnap) => {
+        if (docSnap.exists()) {
+          const globalData = docSnap.data();
+          if (globalData.competicaoId && globalData.competicaoId !== compId) {
+            compId = globalData.competicaoId;
+            escutarEstadoOverlay(compId);
+          }
+        }
+      });
+    } else {
+      escutarEstadoOverlay(compId);
+    }
+
+    function escutarEstadoOverlay(idCompeticao) {
+      if (unsubOverlayState) unsubOverlayState();
+
+      unsubOverlayState = onSnapshot(doc(db, "overlay_state", idCompeticao), async (docSnap) => {
         if (!docSnap.exists()) return;
         const data = docSnap.data();
 
+        if (!compDataCache || compDataCache.id !== idCompeticao) {
+          const compSnap = await getDoc(doc(db, "competicoes", idCompeticao));
+          if (compSnap.exists()) compDataCache = { id: idCompeticao, ...compSnap.data() };
+        }
+
+        // Exibição do Lower Third (Juiz)
         if (data.lowerThirdVisivel) {
           txtTrioAtual.innerText = data.trioAtual || "Aguardando definição...";
           txtTrioProximo.innerText = data.trioProximo || "Em breve";
@@ -137,9 +171,10 @@
           lowerThird.classList.remove("active");
         }
 
+        // Exibição do Ranking da Bateria Parcial
         if (data.bateriaAtivaVisivel) {
-          tituloBateria.innerText = `CLASSIFICAÇÃO PARCIAL - ${data.bateriaAtivaVisivel}ª BATERIA`;
-          carregarDadosBateriaParcial(compId, data.bateriaAtivaVisivel);
+          tituloBateria.innerText = `CLASSIFICAÇÃO - ${data.bateriaAtivaVisivel}ª BATERIA`;
+          carregarDadosBateriaParcial(idCompeticao, data.bateriaAtivaVisivel, data.categoriaAtiva, data.faseAtiva);
           overlayBateria.classList.add("active");
         } else {
           overlayBateria.classList.remove("active");
@@ -147,32 +182,52 @@
       });
     }
 
-    async function carregarDadosBateriaParcial(idCompeticao, numBateria) {
+    async function carregarDadosBateriaParcial(idCompeticao, numBateria, catNome, faseNome) {
       try {
+        let categoriasParaBuscar = [catNome];
+        if (compDataCache && compDataCache.vinculoEmbutido && compDataCache.vinculoEmbutido.catPai === catNome) {
+          categoriasParaBuscar.push(compDataCache.vinculoEmbutido.catEspelho);
+        }
+
         const q = query(
-          collection(db, "corridas"), 
+          collection(db, "trios"), 
           where("competicaoId", "==", idCompeticao),
-          where("bateria", "==", numBateria)
+          where("categoria", "in", categoriasParaBuscar),
+          where("fase", "==", faseNome || "CLASSIFICACAO")
         );
 
         const snap = await getDocs(q);
-        let corridas = [];
-        snap.forEach(d => corridas.push(d.data()));
+        let triosBateria = [];
+        
+        const catConfig = compDataCache && compDataCache.categorias ? compDataCache.categorias.find(c => c.nome === catNome) : null;
+        const numBateriasTotal = catConfig ? (catConfig.qtdBaterias || 2) : 2;
+        const tamanhoLote = catConfig ? (catConfig.limiteGado || 25) : 25;
 
-        corridas.sort((a, b) => (parseFloat(a.tempo) || 999) - (parseFloat(b.tempo) || 999));
+        snap.forEach(d => {
+          const t = d.data();
+          if (t.status === "OK" && t.tempo > 0) {
+            const ordemNum = t.ordemPista || t.senha;
+            const batCalc = calcularBateria(ordemNum, tamanhoLote, numBateriasTotal);
+            if (batCalc === numBateria) {
+              triosBateria.push(t);
+            }
+          }
+        });
 
-        if (corridas.length === 0) {
-          corpoTabelaParcial.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum tempo registrado nesta bateria.</td></tr>`;
+        triosBateria.sort((a, b) => parseFloat(a.tempo) - parseFloat(b.tempo));
+
+        if (triosBateria.length === 0) {
+          corpoTabelaParcial.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#888;">Nenhum tempo válido nesta bateria.</td></tr>`;
           return;
         }
 
         corpoTabelaParcial.innerHTML = "";
-        corridas.slice(0, 5).forEach((item, index) => {
+        triosBateria.slice(0, 5).forEach((item, index) => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td><strong>${index + 1}º</strong></td>
-            <td>${escapeHTML(item.nomeTrio || item.equipe || "Trio " + item.numeroTrio)}</td>
-            <td class="tempo">${escapeHTML(item.tempo ? item.tempo + 's' : 'SAT')}</td>
+            <td>${escapeHTML(item.integrantes ? item.integrantes.join(" / ") : "Trio #" + item.senha)}</td>
+            <td class="tempo">${parseFloat(item.tempo).toFixed(3)}s</td>
           `;
           corpoTabelaParcial.appendChild(tr);
         });
