@@ -23,7 +23,7 @@
     header h1 { color: var(--accent-gold); font-size: 1.4rem; text-transform: uppercase; }
 
     /* Modal de Autenticação */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { background: var(--card-bg); padding: 30px; border-radius: 8px; border: 1px solid var(--border-color); width: 100%; max-width: 400px; text-align: center; }
     .modal-content h2 { color: var(--accent-gold); margin-bottom: 15px; }
     .form-group { margin-bottom: 15px; text-align: left; }
@@ -145,7 +145,7 @@
 
   <script type="module">
     import { 
-      auth, db, collection, getDocs, doc, setDoc, updateDoc, onSnapshot, 
+      auth, db, collection, getDocs, getDoc, doc, setDoc, updateDoc, onSnapshot, 
       onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut 
     } from "./firebase-config.js";
 
@@ -158,7 +158,6 @@
     const selectComp = document.getElementById("selectComp");
     const containerBaterias = document.getElementById("containerBaterias");
 
-    // Alternar abas Login / Cadastro
     const tabLoginBtn = document.getElementById("tabLoginBtn");
     const tabCadastroBtn = document.getElementById("tabCadastroBtn");
     const formLogin = document.getElementById("formLogin");
@@ -169,6 +168,7 @@
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
+    // Alternar abas Login / Cadastro
     tabLoginBtn.addEventListener("click", () => {
       tabLoginBtn.classList.add("active");
       tabCadastroBtn.classList.remove("active");
@@ -188,7 +188,9 @@
       e.preventDefault();
       try {
         await signInWithEmailAndPassword(auth, document.getElementById("loginEmail").value, document.getElementById("loginSenha").value);
-      } catch (err) { alert("Erro ao logar: " + err.message); }
+      } catch (err) { 
+        alert("Erro ao logar: " + err.message); 
+      }
     });
 
     // Submissão do Cadastro
@@ -199,17 +201,33 @@
 
       try {
         const userCred = await createUserWithEmailAndPassword(auth, email, senha);
-        // Registra o novo usuário no banco com status bloqueado até aprovação do admin
-        await setDoc(doc(db, "usuarios_transmissao", userCred.user.uid), {
-          email: email,
-          autorizado: false
-        });
-        alert("Cadastro efetuado! Solicite a liberação do seu acesso ao Super Admin.");
-      } catch (err) { alert("Erro ao cadastrar: " + err.message); }
+        const uid = userCred.user.uid;
+
+        // Tenta registrar a solicitação no Firestore
+        try {
+          await setDoc(doc(db, "usuarios_transmissao", uid), {
+            email: email,
+            autorizado: false
+          });
+        } catch (dbErr) {
+          console.warn("Aviso ao salvar registro inicial:", dbErr);
+        }
+
+        // Força logout imediato para forçar aprovação do admin
+        await signOut(auth);
+        alert("Cadastro efetuado com sucesso! Solicite a liberação do seu acesso ao Super Admin na página admin-live.html.");
+        
+        // Reseta o formulário e volta para a aba de Login
+        formCadastro.reset();
+        tabLoginBtn.click();
+      } catch (err) { 
+        alert("Erro ao cadastrar: " + err.message); 
+      }
     });
 
-    // Controle de Sessão e Permissão
+    // Controle Estrito de Sessão e Exibição da Interface
     onAuthStateChanged(auth, async (user) => {
+      // Se não houver usuário logado, fecha o painel e exibe o modal de login
       if (!user) {
         modalAuth.style.display = "flex";
         headerPainel.style.display = "none";
@@ -217,43 +235,60 @@
         return;
       }
 
-      if (user.uid !== ADMIN_UID) {
-        const snap = await getDocs(collection(db, "usuarios_transmissao"));
-        let autorizado = false;
-        snap.forEach(d => {
-          if (d.id === user.uid && d.data().autorizado) autorizado = true;
-        });
-
-        if (!autorizado) {
-          alert("Sua conta ainda não foi liberada pelo Administrador.");
-          signOut(auth);
-          return;
-        }
+      // Se for o Super Admin Master, libera o painel diretamente
+      if (user.uid === ADMIN_UID) {
+        modalAuth.style.display = "none";
+        headerPainel.style.display = "flex";
+        conteudoPainel.style.display = "block";
+        carregarCompeticoes();
+        return;
       }
 
-      modalAuth.style.display = "none";
-      headerPainel.style.display = "flex";
-      conteudoPainel.style.display = "block";
-      carregarCompeticoes();
+      // Para outros usuários, verifica permissão no Firestore
+      try {
+        const uSnap = await getDoc(doc(db, "usuarios_transmissao", user.uid));
+        
+        if (uSnap.exists() && uSnap.data().autorizado === true) {
+          modalAuth.style.display = "none";
+          headerPainel.style.display = "flex";
+          conteudoPainel.style.display = "block";
+          carregarCompeticoes();
+        } else {
+          alert("Sua conta ainda não foi liberada pelo Administrador.");
+          await signOut(auth);
+          modalAuth.style.display = "flex";
+          headerPainel.style.display = "none";
+          conteudoPainel.style.display = "none";
+        }
+      } catch (err) {
+        console.error("Erro ao validar permissões:", err);
+        await signOut(auth);
+        modalAuth.style.display = "flex";
+        headerPainel.style.display = "none";
+        conteudoPainel.style.display = "none";
+      }
     });
 
     async function carregarCompeticoes() {
-      const snapshot = await getDocs(collection(db, "competicoes"));
-      selectComp.innerHTML = `<option value="">Selecione uma competição...</option>`;
+      try {
+        const snapshot = await getDocs(collection(db, "competicoes"));
+        selectComp.innerHTML = `<option value="">Selecione uma competição...</option>`;
 
-      snapshot.forEach(d => {
-        const c = d.data();
-        if (c.status !== "FINALIZADA") {
-          selectComp.innerHTML += `<option value="${d.id}">${escapeHTML(c.nome)}</option>`;
-        }
-      });
+        snapshot.forEach(d => {
+          const c = d.data();
+          if (c.status !== "FINALIZADA") {
+            selectComp.innerHTML += `<option value="${d.id}">${escapeHTML(c.nome)}</option>`;
+          }
+        });
+      } catch (err) {
+        console.error("Erro ao carregar competições:", err);
+      }
     }
 
     selectComp.addEventListener("change", (e) => {
       compSelecionadaId = e.target.value;
       if (!compSelecionadaId) return;
 
-      // Ouve alterações automáticas da Mesa do Juiz
       escutarMesaDoJuiz(compSelecionadaId);
       renderizarControlesBaterias();
     });
@@ -266,7 +301,6 @@
         document.getElementById("lblTrioAtual").innerText = c.trioAtualEmPista || "Nenhum trio em pista";
         document.getElementById("lblTrioProximo").innerText = c.proximoTrio || "Nenhum próximo trio informado";
 
-        // Espelha os dados da mesa do juiz diretamente para o estado do overlay
         setDoc(doc(db, "overlay_state", idComp), {
           trioAtual: c.trioAtualEmPista || "",
           trioProximo: c.proximoTrio || ""
