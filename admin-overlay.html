@@ -66,6 +66,38 @@
     }
     .seletor-comp-box { display: flex; align-items: center; gap: 10px; }
     .seletor-comp-box select { flex: 1; padding: 8px; background: #1a1a1a; border: 1px solid #00b4d8; color: #fff; border-radius: 4px; font-weight: bold; }
+    
+    /* Box do Link do OBS */
+    .link-obs-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.3);
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .link-obs-box input {
+      flex: 1;
+      background: #111;
+      border: 1px solid #333;
+      color: var(--accent-gold);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+    .btn-copy {
+      background: #0096c7;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .btn-copy:hover { background: #00b4d8; }
   </style>
 </head>
 <body>
@@ -120,6 +152,14 @@
           <option value="AUTO">⚡ AUTOMÁTICO (Acompanhar transmissão do Juiz)</option>
         </select>
       </div>
+
+      <!-- LINK DIRETO PARA O OBS -->
+      <div class="link-obs-box">
+        <span style="font-size: 0.8rem; color: #ccc;">🔗 Link OBS:</span>
+        <input type="text" id="inputUrlOBS" readonly value="">
+        <button class="btn-copy" id="btnCopiarUrl">COPIAR LINK</button>
+      </div>
+
       <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">
         <span id="lblStatusTransmissao">📡 CARREGANDO...</span>
         <small id="lblDetalhesEtapa" style="color: #ffb703;"></small>
@@ -184,6 +224,8 @@
     const lblStatusTransmissao = document.getElementById("lblStatusTransmissao");
     const lblDetalhesEtapa = document.getElementById("lblDetalhesEtapa");
     const selectCompeticao = document.getElementById("selectCompeticao");
+    const inputUrlOBS = document.getElementById("inputUrlOBS");
+    const btnCopiarUrl = document.getElementById("btnCopiarUrl");
 
     const tabLoginBtn = document.getElementById("tabLoginBtn");
     const tabCadastroBtn = document.getElementById("tabCadastroBtn");
@@ -269,12 +311,30 @@
       iniciarGerenciadorTransmissao();
     });
 
+    function atualizarLinkOBS(idComp) {
+      const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+      if (!idComp || idComp === "AUTO") {
+        inputUrlOBS.value = `${baseUrl}/overlay.html`;
+      } else {
+        inputUrlOBS.value = `${baseUrl}/overlay.html?compId=${idComp}`;
+      }
+    }
+
+    btnCopiarUrl.addEventListener("click", () => {
+      inputUrlOBS.select();
+      navigator.clipboard.writeText(inputUrlOBS.value);
+      const originalText = btnCopiarUrl.innerText;
+      btnCopiarUrl.innerText = "COPIADO! ✅";
+      setTimeout(() => btnCopiarUrl.innerText = originalText, 2000);
+    });
+
     function iniciarGerenciadorTransmissao() {
       const modoSel = selectCompeticao.value;
 
       if (unsubGlobal) unsubGlobal();
 
       if (modoSel === "AUTO") {
+        atualizarLinkOBS("AUTO");
         unsubGlobal = onSnapshot(doc(db, "painel_global", "ativo"), async (docSnap) => {
           if (!docSnap.exists()) {
             lblStatusTransmissao.innerText = "📡 NENHUMA TRANSMISSÃO ATIVA NO JUIZ";
@@ -284,6 +344,7 @@
           configurarTransmissaoAtiva(dataGlobal.competicaoId, dataGlobal.categoriaAtiva, dataGlobal.faseAtiva || "CLASSIFICACAO");
         });
       } else {
+        atualizarLinkOBS(modoSel);
         configurarTransmissaoAtiva(modoSel, null, "CLASSIFICACAO");
       }
     }
