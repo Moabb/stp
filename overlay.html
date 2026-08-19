@@ -106,7 +106,7 @@
   </div>
 
   <script type="module">
-    import { db, doc, collection, getDoc, onSnapshot, query, where } from "./firebase-config.js";
+    import { db, doc, collection, getDoc, getDocs, onSnapshot, query, where } from "./firebase-config.js";
 
     const urlParams = new URLSearchParams(window.location.search);
     let compId = urlParams.get("compId");
@@ -135,7 +135,6 @@
       return (indiceLote % qtdBaterias) + 1;
     }
 
-    // Se não veio ID na URL, descobre via painel_global em tempo real
     if (!compId) {
       onSnapshot(doc(db, "painel_global", "ativo"), (docSnap) => {
         if (docSnap.exists()) {
@@ -162,7 +161,6 @@
           if (compSnap.exists()) compDataCache = { id: idCompeticao, ...compSnap.data() };
         }
 
-        // Exibição do Lower Third (Juiz)
         if (data.lowerThirdVisivel) {
           txtTrioAtual.innerText = data.trioAtual || "Aguardando definição...";
           txtTrioProximo.innerText = data.trioProximo || "Em breve";
@@ -171,7 +169,6 @@
           lowerThird.classList.remove("active");
         }
 
-        // Exibição do Ranking da Bateria Parcial
         if (data.bateriaAtivaVisivel) {
           tituloBateria.innerText = `CLASSIFICAÇÃO - ${data.bateriaAtivaVisivel}ª BATERIA`;
           carregarDadosBateriaParcial(idCompeticao, data.bateriaAtivaVisivel, data.categoriaAtiva, data.faseAtiva);

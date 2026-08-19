@@ -19,8 +19,8 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
     
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
-    header h1 { color: var(--accent-gold); font-size: 1.4rem; text-transform: uppercase; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+    header h1 { color: var(--accent-gold); font-size: 1.3rem; text-transform: uppercase; }
 
     /* Modal de Autenticação */
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 1000; }
@@ -28,7 +28,7 @@
     .modal-content h2 { color: var(--accent-gold); margin-bottom: 15px; }
     .form-group { margin-bottom: 15px; text-align: left; }
     .form-group label { display: block; font-size: 0.85rem; color: #ccc; margin-bottom: 5px; }
-    .form-group input { width: 100%; padding: 10px; background: #2b2b2b; border: 1px solid #444; border-radius: 4px; color: #fff; }
+    .form-group input, .form-group select { width: 100%; padding: 10px; background: #2b2b2b; border: 1px solid #444; border-radius: 4px; color: #fff; }
     .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
     .tab-btn { flex: 1; padding: 8px; background: #2b2b2b; border: 1px solid #444; color: #fff; cursor: pointer; border-radius: 4px; }
     .tab-btn.active { background: var(--accent-gold); color: #000; font-weight: bold; }
@@ -54,21 +54,23 @@
     .badge-transmissao {
       background: var(--accent-blue);
       color: #fff;
-      padding: 10px 15px;
+      padding: 12px 15px;
       border-radius: 6px;
       font-weight: bold;
       font-size: 0.95rem;
       margin-bottom: 20px;
       border: 1px solid #0096c7;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
+      gap: 10px;
     }
+    .seletor-comp-box { display: flex; align-items: center; gap: 10px; }
+    .seletor-comp-box select { flex: 1; padding: 8px; background: #1a1a1a; border: 1px solid #00b4d8; color: #fff; border-radius: 4px; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <!-- MODAL DE LOGIN / CADASTRO DA TRANSMISSÃO -->
+  <!-- MODAL DE LOGIN / CADASTRO -->
   <div class="modal-overlay" id="modalAuth">
     <div class="modal-content">
       <div class="tab-buttons">
@@ -76,7 +78,6 @@
         <button class="tab-btn" id="tabCadastroBtn">CADASTRAR</button>
       </div>
 
-      <!-- FORM LOGIN -->
       <form id="formLogin">
         <h2>LOGIN OPERADOR</h2>
         <div class="form-group">
@@ -90,7 +91,6 @@
         <button type="submit" class="btn-ctrl btn-on" style="width:100%;">ENTRAR</button>
       </form>
 
-      <!-- FORM CADASTRO -->
       <form id="formCadastro" style="display: none;">
         <h2>CADASTRAR OPERADOR</h2>
         <div class="form-group">
@@ -114,8 +114,16 @@
   <div id="conteudoPainel" style="display: none;">
     
     <div class="badge-transmissao">
-      <span id="lblStatusTransmissao">📡 AGUARDANDO COMANDO DA MESA DO JUIZ...</span>
-      <small id="lblDetalhesEtapa" style="color: #ffb703;"></small>
+      <div class="seletor-comp-box">
+        <label for="selectCompeticao">🎯 COMPETIÇÃO:</label>
+        <select id="selectCompeticao">
+          <option value="AUTO">⚡ AUTOMÁTICO (Acompanhar transmissão do Juiz)</option>
+        </select>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">
+        <span id="lblStatusTransmissao">📡 CARREGANDO...</span>
+        <small id="lblDetalhesEtapa" style="color: #ffb703;"></small>
+      </div>
     </div>
 
     <main class="grid-container">
@@ -125,13 +133,13 @@
         <h2>👤 LOWER THIRD (DADOS DO JUIZ)</h2>
 
         <div class="info-card">
-          <h4>Trio Atual em Pista (Mesa do Juiz)</h4>
-          <p id="lblTrioAtual">Aguardando Juiz...</p>
+          <h4>Trio Atual em Pista</h4>
+          <p id="lblTrioAtual">Aguardando dados...</p>
         </div>
 
         <div class="info-card">
-          <h4>Próximo Trio (Mesa do Juiz)</h4>
-          <p id="lblTrioProximo">Aguardando Juiz...</p>
+          <h4>Próximo Trio</h4>
+          <p id="lblTrioProximo">Aguardando dados...</p>
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 15px;">
@@ -143,10 +151,10 @@
       <!-- CONTROLE DE BATERIAS PARCIAIS -->
       <section class="secao">
         <h2>📊 PLACAR PARCIAL POR BATERIA</h2>
-        <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 12px;">Selecione a bateria para ligar ou desligar no OBS:</p>
+        <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 12px;">Selecione a bateria para exibir no OBS:</p>
         
         <div id="containerBaterias" class="baterias-grid">
-          <p style="color: #666; font-size: 0.85rem;">Aguardando transmissão da Mesa do Juiz.</p>
+          <p style="color: #666; font-size: 0.85rem;">Selecione uma competição válida.</p>
         </div>
       </section>
 
@@ -155,7 +163,7 @@
 
   <script type="module">
     import { 
-      auth, db, collection, getDoc, doc, setDoc, updateDoc, onSnapshot, query, where,
+      auth, db, collection, getDoc, getDocs, doc, setDoc, updateDoc, onSnapshot, query, where,
       onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut 
     } from "./firebase-config.js";
 
@@ -175,16 +183,12 @@
     const containerBaterias = document.getElementById("containerBaterias");
     const lblStatusTransmissao = document.getElementById("lblStatusTransmissao");
     const lblDetalhesEtapa = document.getElementById("lblDetalhesEtapa");
+    const selectCompeticao = document.getElementById("selectCompeticao");
 
     const tabLoginBtn = document.getElementById("tabLoginBtn");
     const tabCadastroBtn = document.getElementById("tabCadastroBtn");
     const formLogin = document.getElementById("formLogin");
     const formCadastro = document.getElementById("formCadastro");
-
-    function escapeHTML(str) {
-      if (typeof str !== 'string') return str;
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
 
     tabLoginBtn.addEventListener("click", () => {
       tabLoginBtn.classList.add("active");
@@ -204,36 +208,19 @@
       e.preventDefault();
       try {
         await signInWithEmailAndPassword(auth, document.getElementById("loginEmail").value, document.getElementById("loginSenha").value);
-      } catch (err) { 
-        alert("Erro ao logar: " + err.message); 
-      }
+      } catch (err) { alert("Erro ao logar: " + err.message); }
     });
 
     formCadastro.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const email = document.getElementById("cadEmail").value;
-      const senha = document.getElementById("cadSenha").value;
-
       try {
-        const userCred = await createUserWithEmailAndPassword(auth, email, senha);
-        const uid = userCred.user.uid;
-
-        try {
-          await setDoc(doc(db, "usuarios_transmissao", uid), {
-            email: email,
-            autorizado: false
-          });
-        } catch (dbErr) {
-          console.warn("Aviso ao salvar registro inicial:", dbErr);
-        }
-
+        const userCred = await createUserWithEmailAndPassword(auth, document.getElementById("cadEmail").value, document.getElementById("cadSenha").value);
+        await setDoc(doc(db, "usuarios_transmissao", userCred.user.uid), { email: document.getElementById("cadEmail").value, autorizado: false });
         await signOut(auth);
-        alert("Cadastro efetuado com sucesso! Solicite a liberação do seu acesso ao Super Admin.");
+        alert("Cadastro feito! Solicite a liberação ao Administrador.");
         formCadastro.reset();
         tabLoginBtn.click();
-      } catch (err) { 
-        alert("Erro ao cadastrar: " + err.message); 
-      }
+      } catch (err) { alert("Erro ao cadastrar: " + err.message); }
     });
 
     onAuthStateChanged(auth, async (user) => {
@@ -244,58 +231,79 @@
         return;
       }
 
-      if (user.uid === ADMIN_UID) {
+      let autorizado = (user.uid === ADMIN_UID);
+      if (!autorizado) {
+        const uSnap = await getDoc(doc(db, "usuarios_transmissao", user.uid));
+        autorizado = uSnap.exists() && uSnap.data().autorizado === true;
+      }
+
+      if (autorizado) {
         modalAuth.style.display = "none";
         headerPainel.style.display = "flex";
         conteudoPainel.style.display = "block";
-        iniciarEscutaGlobalJuiz();
-        return;
-      }
-
-      try {
-        const uSnap = await getDoc(doc(db, "usuarios_transmissao", user.uid));
-        if (uSnap.exists() && uSnap.data().autorizado === true) {
-          modalAuth.style.display = "none";
-          headerPainel.style.display = "flex";
-          conteudoPainel.style.display = "block";
-          iniciarEscutaGlobalJuiz();
-        } else {
-          alert("Sua conta ainda não foi liberada pelo Administrador.");
-          await signOut(auth);
-        }
-      } catch (err) {
-        console.error("Erro ao validar permissões:", err);
+        await carregarListaCompeticoes();
+        iniciarGerenciadorTransmissao();
+      } else {
+        alert("Sua conta aguarda liberação.");
         await signOut(auth);
       }
     });
 
-    // ESCUTA EM TEMPO REAL O COMANDO DO BOTAO "TRANSMITIR CATEGORIA P/ PAINEL.HTML"
-    function iniciarEscutaGlobalJuiz() {
+    async function carregarListaCompeticoes() {
+      try {
+        const snap = await getDocs(collection(db, "competicoes"));
+        selectCompeticao.innerHTML = `<option value="AUTO">⚡ AUTOMÁTICO (Acompanhar transmissão do Juiz)</option>`;
+        snap.forEach(d => {
+          const comp = d.data();
+          const opt = document.createElement("option");
+          opt.value = d.id;
+          opt.innerText = comp.nome ? comp.nome.toUpperCase() : d.id;
+          selectCompeticao.appendChild(opt);
+        });
+      } catch (err) {
+        console.error("Erro ao carregar lista de competições:", err);
+      }
+    }
+
+    selectCompeticao.addEventListener("change", () => {
+      iniciarGerenciadorTransmissao();
+    });
+
+    function iniciarGerenciadorTransmissao() {
+      const modoSel = selectCompeticao.value;
+
       if (unsubGlobal) unsubGlobal();
 
-      unsubGlobal = onSnapshot(doc(db, "painel_global", "ativo"), async (docSnap) => {
-        if (!docSnap.exists()) {
-          lblStatusTransmissao.innerText = "📡 NENHUMA TRANSMISSÃO ATIVA NO MOMENTO";
-          return;
-        }
-
-        const dataGlobal = docSnap.data();
-        compSelecionadaId = dataGlobal.competicaoId;
-        categoriaAtiva = dataGlobal.categoriaAtiva;
-        faseAtiva = dataGlobal.faseAtiva || "CLASSIFICACAO";
-
-        if (compSelecionadaId && categoriaAtiva) {
-          const compSnap = await getDoc(doc(db, "competicoes", compSelecionadaId));
-          if (compSnap.exists()) {
-            compDataCache = compSnap.data();
-            lblStatusTransmissao.innerText = `🟢 TRANSMITINDO: ${compDataCache.nome ? compDataCache.nome.toUpperCase() : 'COMPETIÇÃO'}`;
-            lblDetalhesEtapa.innerText = `${faseAtiva} • CATEGORIA: ${categoriaAtiva}`;
-            
-            escutarMesaDoJuizTrios();
-            renderizarControlesBaterias();
+      if (modoSel === "AUTO") {
+        unsubGlobal = onSnapshot(doc(db, "painel_global", "ativo"), async (docSnap) => {
+          if (!docSnap.exists()) {
+            lblStatusTransmissao.innerText = "📡 NENHUMA TRANSMISSÃO ATIVA NO JUIZ";
+            return;
           }
-        }
-      });
+          const dataGlobal = docSnap.data();
+          configurarTransmissaoAtiva(dataGlobal.competicaoId, dataGlobal.categoriaAtiva, dataGlobal.faseAtiva || "CLASSIFICACAO");
+        });
+      } else {
+        configurarTransmissaoAtiva(modoSel, null, "CLASSIFICACAO");
+      }
+    }
+
+    async function configurarTransmissaoAtiva(idComp, catFixa, faseFixa) {
+      if (!idComp) return;
+      compSelecionadaId = idComp;
+
+      const compSnap = await getDoc(doc(db, "competicoes", idComp));
+      if (!compSnap.exists()) return;
+      
+      compDataCache = { id: idComp, ...compSnap.data() };
+      categoriaAtiva = catFixa || (compDataCache.categorias && compDataCache.categorias[0] ? compDataCache.categorias[0].nome : "");
+      faseAtiva = faseFixa;
+
+      lblStatusTransmissao.innerText = `🟢 TRANSMITINDO: ${compDataCache.nome ? compDataCache.nome.toUpperCase() : 'COMPETIÇÃO'}`;
+      lblDetalhesEtapa.innerText = `${faseAtiva} • CATEGORIA: ${categoriaAtiva}`;
+
+      escutarMesaDoJuizTrios();
+      renderizarControlesBaterias();
     }
 
     function escutarMesaDoJuizTrios() {
@@ -330,7 +338,6 @@
         document.getElementById("lblTrioAtual").innerText = strAtual;
         document.getElementById("lblTrioProximo").innerText = strProximo;
 
-        // Atualiza estado do overlay para ser lido pelo overlay.html
         setDoc(doc(db, "overlay_state", compSelecionadaId), {
           trioAtual: strAtual,
           trioProximo: strProximo,
@@ -365,18 +372,18 @@
 
     async function alternarBateria(numBateria, visivel) {
       if (!compSelecionadaId) return;
-      await updateDoc(doc(doc(db, "overlay_state", compSelecionadaId)), {
+      await updateDoc(doc(db, "overlay_state", compSelecionadaId), {
         bateriaAtivaVisivel: visivel ? numBateria : null
       });
     }
 
     document.getElementById("btnExibirLower").addEventListener("click", async () => {
-      if (!compSelecionadaId) return alert("Aguarde a transmissão da competição!");
+      if (!compSelecionadaId) return alert("Selecione uma competição!");
       await updateDoc(doc(db, "overlay_state", compSelecionadaId), { lowerThirdVisivel: true });
     });
 
     document.getElementById("btnOcultarLower").addEventListener("click", async () => {
-      if (!compSelecionadaId) return alert("Aguarde a transmissão da competição!");
+      if (!compSelecionadaId) return alert("Selecione uma competição!");
       await updateDoc(doc(db, "overlay_state", compSelecionadaId), { lowerThirdVisivel: false });
     });
 
