@@ -21,6 +21,17 @@
       --border-color: #333;
     }
 
+    dialog::backdrop {
+      background-color: rgba(0, 0, 0, 0.5); /* Fundo escurecido semitransparente */
+    }
+    
+    dialog {
+      border: none;
+      border-radius: 8px;
+      padding: 20px;
+      width: 300px;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; }
 
@@ -79,10 +90,19 @@
 
   <header>
     <h1>🏆 SISTEMA TEAM PENNING</h1>
+    <button id="abrirModal">PARA TRANSMISSÃO</button>
     <button class="btn-top" id="btnAbrirLogin">CRIAR COMPETIÇÃO / PAINEL</button>
   </header>
 
   <main class="portal-container">
+
+    <dialog id="meuPopup">
+      <div class="modal-conteudo">
+        <h2>LINKS PARA TRANSMISSÃO</h2>
+        <p>Este é o conteúdo do seu pop-up.</p>
+        <button id="fecharModal">Fechar</button>
+      </div>
+    </dialog>
     
     <!-- SEÇÃO DE COMPETIÇÕES PUBLICAS -->
     <section class="secao-card">
@@ -377,6 +397,20 @@
           document.getElementById("boxAuth").scrollIntoView({ behavior: 'smooth' });
         };
       }
+
+        const modal = document.getElementById('meuPopup');
+        const botaoAbrir = document.getElementById('abrirModal');
+        const botaoFechar = document.getElementById('fecharModal');
+        
+        // Abrir o pop-up
+        botaoAbrir.addEventListener('click', () => {
+          modal.showModal(); // Exibe o modal com fundo escurecido (backdrop)
+        });
+        
+        // Fechar o pop-up
+        botaoFechar.addEventListener('click', () => {
+          modal.close();
+        });
     });
   </script>
 </body>
