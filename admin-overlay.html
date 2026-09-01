@@ -250,7 +250,7 @@
       e.preventDefault();
       try {
         await signInWithEmailAndPassword(auth, document.getElementById("loginEmail").value, document.getElementById("loginSenha").value);
-      } catch (err) { alert("Erro ao logar: " + err.message); }
+      } catch (err) { alert("Erro ao logar: já tem cadastro?); }
     });
 
     formCadastro.addEventListener("submit", async (e) => {
